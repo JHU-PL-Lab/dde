@@ -81,7 +81,7 @@ let rec eval_helper ?(is_lazy = true) e sigma =
                   | Plus (_, _, _) ->
                       let res_exp = Int (i1 + i2, res_label) in
                       add_expr res_label res_exp;
-                      (* TODO: this sigma isn't going to be used: use option *)
+                      (* TODO: this sigma isn't going to be used; use option *)
                       (res_label, sigma)
                   | Minus (_, _, _) ->
                       let res_exp = Int (i1 - i2, res_label) in
@@ -197,8 +197,3 @@ let eval e =
   Hashtbl.reset my_expr;
   Hashtbl.reset my_fun;
   e
-
-(* TODO: label to expression for eval, may have to do substitution *)
-(* TODO: check out church numerals, ycomb for testing *)
-(* Printexec.print_backtrace Out_channel.stderr *)
-(* top loop - #trace *)

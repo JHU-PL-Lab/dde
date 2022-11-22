@@ -32,11 +32,11 @@ open Ddeast;;
 /*
  * Precedences and associativities.  Lower precedences come first.
  */
-%right prec_let                         /* Let Rec f x = ... In ... */
+%right prec_let                         /* let f x = ... in ... */
 %right prec_fun                         /* function declaration */
-%right prec_if                          /* If ... Then ... Else */
-%right OR                               /* Or */
-%right AND                              /* And */
+%right prec_if                          /* if ... then ... else */
+%right OR                               /* or */
+%right AND                              /* and */
 %left EQUAL                             /* = */
 %left PLUS MINUS                        /* + - */
 %right NOT                              /* not e */
