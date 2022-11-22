@@ -13,17 +13,7 @@
   ddelexer
   ddeoptions
   ddeparser
-  ddepp)
- ;  (private_modules
- ;   version
- ;   ddeast
- ;   ddetype
- ;   ddeinterp
- ;   ddelexer
- ;   ddeoptions
- ;   ddeparser
- ;   ddepp))
- )
+  ddepp))
 
 (ocamllex
  (modules ddelexer))
