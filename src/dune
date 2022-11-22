@@ -1,0 +1,51 @@
+(library
+ (name dde)
+ (wrapped false)
+ (preprocess
+  (pps ppx_deriving.show bisect_ppx))
+ (modules
+  fbdk
+  debugutils
+  version
+  ddeast
+  ddetype
+  ddeinterp
+  ddelexer
+  ddeoptions
+  ddeparser
+  ddepp)
+ ;  (private_modules
+ ;   version
+ ;   ddeast
+ ;   ddetype
+ ;   ddeinterp
+ ;   ddelexer
+ ;   ddeoptions
+ ;   ddeparser
+ ;   ddepp))
+ )
+
+(ocamllex
+ (modules ddelexer))
+
+(menhir
+ (modules ddeparser))
+
+(executable
+ (name interpreter)
+ (modes byte)
+ (modules interpreter)
+ (preprocess
+  (pps ppx_deriving.show))
+ (libraries dde))
+
+(toplevel
+ (name toplevel)
+ (libraries utop dde))
+
+(alias
+ (name distributables)
+ (deps interpreter.bc toplevel.exe))
+
+(copy_files
+ (files %{project_root}/build_scripts/*.*))
