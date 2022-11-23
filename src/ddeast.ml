@@ -3,23 +3,22 @@
 type ident = Ident of string [@@deriving show { with_path = false }]
 
 (* type expr =
-     | Label of labelexpr
      | Int of int
-     | Var of ident * int
+     | Var of ident
      | Bool of bool
-     | Function of ident * expr
-     | Appl of expr * expr
-     | Plus of expr * expr
-     | Minus of expr * expr
-     | Equal of expr * expr
-     | And of expr * expr
-     | Or of expr * expr
-     | Not of expr
-     | If of expr * expr * expr
-     | Let of ident * expr * expr
-   [@@deriving show { with_path = false }]
+     | Function of ident * labelexpr
+     | Appl of labelexpr * labelexpr
+     | Plus of labelexpr * labelexpr
+     | Minus of labelexpr * labelexpr
+     | Equal of labelexpr * labelexpr
+     | And of labelexpr * labelexpr
+     | Or of labelexpr * labelexpr
+     | Not of labelexpr
+     | If of labelexpr * labelexpr * labelexpr
+     | Let of ident * labelexpr * labelexpr
 
-   and labelexpr = expr * int *)
+   and labelexpr = expr * int
+   [@@deriving show { with_path = false }] *)
 
 type expr =
   | Int of int * int

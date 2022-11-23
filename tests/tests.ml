@@ -87,5 +87,6 @@ let dde_subst_tests =
 
 (* TODO: test with church numerals *)
 (* TODO: test DDE against itself *)
+(* TODO: fib not exponential *)
 let dde_subst = "DDE against substitution" >::: dde_subst_tests
 let () = run_test_tt_main dde_subst

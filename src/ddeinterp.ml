@@ -34,7 +34,9 @@ let get_label e =
 
 let memo_cache = Hashtbl.create 1000
 
-let rec eval_helper ?(is_lazy = true) e sigma =
+(* can't do memoization like this in OCaml/Haskell; better laziness  *)
+(* laziness + memoization *)
+let rec eval_helper ?(is_lazy = false) e sigma =
   match Hashtbl.find_opt memo_cache (e, sigma) with
   | Some res -> res
   | None ->
@@ -68,7 +70,7 @@ let rec eval_helper ?(is_lazy = true) e sigma =
             | _ -> failwith "var")
         | Plus (e1, e2, label) | Minus (e1, e2, label) | Equal (e1, e2, label)
           -> (
-            if not is_lazy then (label, sigma)
+            if is_lazy then (label, sigma)
             else
               let l1, _ = eval_helper e1 sigma in
               let l2, _ = eval_helper e2 sigma in
@@ -94,7 +96,7 @@ let rec eval_helper ?(is_lazy = true) e sigma =
                   | _ -> failwith "unreachable")
               | _ -> raise TypeMismatch)
         | And (e1, e2, label) | Or (e1, e2, label) -> (
-            if not is_lazy then (label, sigma)
+            if is_lazy then (label, sigma)
             else
               let l1, _ = eval_helper e1 sigma in
               let l2, _ = eval_helper e2 sigma in
@@ -115,7 +117,7 @@ let rec eval_helper ?(is_lazy = true) e sigma =
                   | _ -> failwith "unreachable")
               | _ -> raise TypeMismatch)
         | Not (e, label) -> (
-            if not is_lazy then (label, sigma)
+            if is_lazy then (label, sigma)
             else
               let l, _ = eval_helper e sigma in
               let e = get_expr l in
@@ -152,7 +154,7 @@ let rec label_to_expr target_label e sigma seen =
   | Var (Ident x, var_label) as e ->
       if StringSet.mem x seen then e
       else
-        eval_helper (Var (Ident x, target_label)) sigma ~is_lazy:false
+        eval_helper (Var (Ident x, target_label)) sigma ~is_lazy:true
         |> fst |> get_expr
   | Appl (e1, e2, label) ->
       Appl
