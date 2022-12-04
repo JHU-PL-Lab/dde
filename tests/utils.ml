@@ -21,11 +21,12 @@ let dde_eval s =
   |> Ddeparser.main Ddelexer.token
   |> Ddeinterp.eval |> strip_label
 
+let dde_parse s =
+  s ^ ";;" |> Lexing.from_string |> Ddeparser.main Ddelexer.token |> strip_label
+
 let fb_eval s =
   Lexing.from_string s |> Fbparser.main Fblexer.token |> Fbinterp.eval
 
 let dde_pp e = Format.printf "%a\n" Ddepp.pp_expr e
 let fb_pp e = Format.printf "%a\n" Fbpp.pp_expr e
-
-let assert_unequal e1 e2 =
-  OUnit2.assert_equal ~cmp:(fun a b -> a <> b) e1 e2
+let assert_unequal e1 e2 = OUnit2.assert_equal ~cmp:(fun a b -> a <> b) e1 e2
