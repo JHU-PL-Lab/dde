@@ -63,9 +63,25 @@ let test_involved_application _ =
     (dde_eval "(fun x -> fun y -> x) (1 + 2);;")
     (fb_eval "(Fun x -> Fun y -> x) (1 + 2);;")
 
+let dde_ycomb =
+  "(fun code -> let repl = fun self -> fun x -> code (self self) x in repl \
+   repl)"
 
-let dde_ycomb = "(fun code -> let repl = fun self -> fun x -> code (self self) x in repl repl)"
-let fb_ycomb = "(Fun code -> Let repl = Fun self -> Fun x -> code (self self) x In repl repl)"
+let dde_fib x =
+  Format.asprintf
+    "let fib = fun self -> fun x -> if x = 0 then 0 else x + self (x - 1) in \
+     %s fib %d;;"
+    dde_ycomb x
+
+let fb_ycomb =
+  "(Fun code -> Let repl = Fun self -> Fun x -> code (self self) x In repl \
+   repl)"
+
+let fb_fib x =
+  Format.asprintf
+    "Let fib = Fun self -> Fun x -> If x = 0 Then 0 Else x + self (x - 1) In \
+     %s fib %d;;"
+    fb_ycomb x
 
 let test_ycomb _ =
   assert_equal
@@ -75,10 +91,7 @@ let test_ycomb _ =
     (fb_eval
        "Let summate0 = Fun self -> Fun arg -> If arg = 0 Then 0 Else arg + \
         self self (arg - 1) In summate0 summate0 5;;");
-  (* TODO: fib not exponential: fib 100 *)
-  assert_equal
-    (dde_eval @@ "let fib = fun self -> fun x -> if x = 0 then 0 else x + self (x - 1) in " ^ dde_ycomb ^ "fib 5;;")
-    (fb_eval @@ "Let fib = Fun self -> Fun x -> If x = 0 Then 0 Else x + self (x - 1) In " ^ fb_ycomb ^ "fib 5;;")
+  assert_equal (dde_eval @@ dde_fib 5) (fb_eval @@ fb_fib 5)
 
 let dde_subst_tests =
   [
