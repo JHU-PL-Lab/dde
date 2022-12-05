@@ -19,7 +19,7 @@ let rec strip_label (e : Ddeast.expr) : Fbast.expr =
 let dde_eval s =
   Lexing.from_string s
   |> Ddeparser.main Ddelexer.token
-  |> Ddeinterp.eval |> strip_label
+  |> Ddeinterp.eval false |> strip_label
 
 let dde_parse s =
   s ^ ";;" |> Lexing.from_string |> Ddeparser.main Ddelexer.token |> strip_label

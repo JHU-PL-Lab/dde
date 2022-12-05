@@ -1,3 +1,5 @@
+[@@@coverage off]
+
 open Ddeast
 
 exception TypecheckerNotImplementedException

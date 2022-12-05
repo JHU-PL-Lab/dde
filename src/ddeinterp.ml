@@ -202,16 +202,19 @@ let rec label_to_expr target_label e sigma seen =
           label )
   | Let (_, _, _, _) -> failwith "unreachable"
 
-let eval e =
+let eval is_debug_mode e =
   let e = transform_let e in
   let () = fill_my_fun e None in
   let label, sigma = eval_helper e [] in
-  (* print_endline "****** Label Table ******";
-     print_my_expr my_expr;
-     print_endline "****** Label Table ******\n";
-     print_endline "****** MyFun Table ******";
-     print_my_fun my_fun;
-     print_endline "****** MyFun Table ******\n"; *)
+
+  if is_debug_mode then (
+    print_endline "****** Label Table ******";
+    print_my_expr my_expr;
+    print_endline "****** Label Table ******\n";
+    print_endline "****** MyFun Table ******";
+    print_my_fun my_fun;
+    print_endline "****** MyFun Table ******\n");
+
   let e = label_to_expr label (get_expr label) sigma StringSet.empty in
   Hashtbl.reset my_expr;
   Hashtbl.reset my_fun;
