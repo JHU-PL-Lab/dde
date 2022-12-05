@@ -55,37 +55,41 @@ let rec eval_helper ?(is_lazy = false) e sigma =
       let eval_res =
         match e with
         (* Value *)
-        | Int (_, label) -> (label, sigma)
         | Function (_, _, label) -> (label, sigma)
-        | Bool (_, label) -> (label, sigma)
+        | Int (_, label) -> (label, None)
+        | Bool (_, label) -> (label, None)
         (* Application *)
         | Appl (e1, _, appl_label) -> (
-            if is_lazy then (appl_label, sigma)
+            if is_lazy then (appl_label, None)
             else
               let fun_label, sigma' = eval_helper e1 sigma in
               match get_expr fun_label with
               | Function (_, e, _) ->
-                  eval_helper e (appl_label :: sigma) ~is_lazy
+                  eval_helper e (Some (appl_label :: Option.get sigma)) ~is_lazy
               | _ -> failwith "appl")
         | Var (Ident x, var_label) -> (
             match get_outer_scope var_label |> get_expr with
             | Function (Ident x', _, _) -> (
+                let sigma = Option.get sigma in
                 if x = x' then
                   (* Var Local *)
                   match get_expr (List.hd sigma) with
-                  | Appl (_, e2, _) -> eval_helper e2 (List.tl sigma) ~is_lazy
+                  | Appl (_, e2, _) ->
+                      eval_helper e2 (Some (List.tl sigma)) ~is_lazy
                   | _ -> failwith "local"
                 else
                   (* Var Non-Local *)
                   match get_expr (List.hd sigma) with
                   | Appl (e1, _, _) ->
-                      let fun_label, sigma' = eval_helper e1 (List.tl sigma) in
+                      let fun_label, sigma' =
+                        eval_helper e1 (Some (List.tl sigma))
+                      in
                       eval_helper (Var (Ident x, fun_label)) sigma' ~is_lazy
                   | _ -> failwith "non-local")
             | _ -> failwith "var")
         | Plus (e1, e2, label) | Minus (e1, e2, label) | Equal (e1, e2, label)
           -> (
-            if is_lazy then (label, sigma)
+            if is_lazy then (label, None)
             else
               let l1, _ = eval_helper e1 sigma in
               let l2, _ = eval_helper e2 sigma in
@@ -98,20 +102,19 @@ let rec eval_helper ?(is_lazy = false) e sigma =
                   | Plus (_, _, _) ->
                       let res_exp = Int (i1 + i2, res_label) in
                       add_expr res_label res_exp;
-                      (* TODO: this sigma isn't going to be used; use option *)
-                      (res_label, sigma)
+                      (res_label, None)
                   | Minus (_, _, _) ->
                       let res_exp = Int (i1 - i2, res_label) in
                       add_expr res_label res_exp;
-                      (res_label, sigma)
+                      (res_label, None)
                   | Equal (_, _, _) ->
                       let res_exp = Bool (i1 = i2, res_label) in
                       add_expr res_label res_exp;
-                      (res_label, sigma)
+                      (res_label, None)
                   | _ -> failwith "unreachable")
               | _ -> raise TypeMismatch)
         | And (e1, e2, label) | Or (e1, e2, label) -> (
-            if is_lazy then (label, sigma)
+            if is_lazy then (label, None)
             else
               let l1, _ = eval_helper e1 sigma in
               let l2, _ = eval_helper e2 sigma in
@@ -124,15 +127,15 @@ let rec eval_helper ?(is_lazy = false) e sigma =
                   | And (_, _, _) ->
                       let res_exp = Bool (b1 && b2, res_label) in
                       add_expr res_label res_exp;
-                      (res_label, sigma)
+                      (res_label, None)
                   | Or (_, _, _) ->
                       let res_exp = Bool (b1 || b2, res_label) in
                       add_expr res_label res_exp;
-                      (res_label, sigma)
+                      (res_label, None)
                   | _ -> failwith "unreachable")
               | _ -> raise TypeMismatch)
         | Not (e, label) -> (
-            if is_lazy then (label, sigma)
+            if is_lazy then (label, None)
             else
               let l, _ = eval_helper e sigma in
               let e = get_expr l in
@@ -141,10 +144,10 @@ let rec eval_helper ?(is_lazy = false) e sigma =
                   let res_label = get_next_label () in
                   let res_exp = Bool (not b, res_label) in
                   add_expr res_label res_exp;
-                  (res_label, sigma)
+                  (res_label, None)
               | _ -> failwith "unreachable")
         | If (e1, e2, e3, label) -> (
-            if is_lazy then (label, sigma)
+            if is_lazy then (label, None)
             else
               let cond_label, _ = eval_helper e1 sigma in
               match get_expr cond_label with
@@ -205,7 +208,7 @@ let rec label_to_expr target_label e sigma seen =
 let eval is_debug_mode e =
   let e = transform_let e in
   let () = fill_my_fun e None in
-  let label, sigma = eval_helper e [] in
+  let label, sigma = eval_helper e (Some []) in
 
   if is_debug_mode then (
     print_endline "****** Label Table ******";
