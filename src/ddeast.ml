@@ -1,5 +1,7 @@
 [@@@coverage off]
 
+exception Unreachable
+
 type ident = Ident of string [@@deriving show { with_path = false }]
 
 (* type expr =
@@ -76,7 +78,7 @@ let rec fill_my_fun e outer =
       fill_my_fun e1 outer;
       fill_my_fun e2 outer;
       fill_my_fun e3 outer
-  | Let (_, _, _, _) -> failwith "unreachable"
+  | Let (_, _, _, _) -> raise Unreachable
 
 let print_my_expr tbl =
   Hashtbl.iter (fun x y -> Printf.printf "%d -> %s\n" x (show_expr y)) tbl

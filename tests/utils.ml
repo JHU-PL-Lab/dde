@@ -1,3 +1,5 @@
+exception Unreachable
+
 let rec strip_label (e : Ddeast.expr) : Fbast.expr =
   match e with
   | Ddeast.Int (i, label) -> Fbast.Int i
@@ -14,7 +16,7 @@ let rec strip_label (e : Ddeast.expr) : Fbast.expr =
   | Ddeast.Not (e, label) -> Fbast.Not (strip_label e)
   | Ddeast.If (e1, e2, e3, label) ->
       Fbast.If (strip_label e1, strip_label e2, strip_label e3)
-  | _ -> failwith "unreachable"
+  | _ -> raise Unreachable
 
 let dde_eval s =
   Lexing.from_string s
