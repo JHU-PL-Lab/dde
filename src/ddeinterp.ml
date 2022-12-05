@@ -6,11 +6,23 @@ let rec transform_let e =
   match e with
   | Let (ident, e1, e2, let_label) ->
       let func_label = get_next_label () in
-      let e2 = transform_let e2 in
-      let func = Function (ident, e2, func_label) in
+      let e2' = transform_let e2 in
+      let func = Function (ident, e2', func_label) in
       add_expr func_label func;
-      let appl = Appl (func, e1, let_label) in
+      let e1' = transform_let e1 in
+      let appl = Appl (func, e1', let_label) in
       add_expr let_label appl;
+      appl
+  | Function (ident, e, func_label) ->
+      let e' = transform_let e in
+      let func = Function (ident, e', func_label) in
+      add_expr func_label func;
+      func
+  | Appl (e1, e2, appl_label) ->
+      let e1' = transform_let e1 in
+      let e2' = transform_let e2 in
+      let appl = Appl (e1', e2', appl_label) in
+      add_expr appl_label appl;
       appl
   | _ -> e
 
@@ -48,10 +60,13 @@ let rec eval_helper ?(is_lazy = false) e sigma =
         | Bool (_, label) -> (label, sigma)
         (* Application *)
         | Appl (e1, _, appl_label) -> (
-            let fun_label, sigma' = eval_helper e1 sigma in
-            match get_expr fun_label with
-            | Function (_, e, _) -> eval_helper e (appl_label :: sigma) ~is_lazy
-            | _ -> failwith "appl")
+            if is_lazy then (appl_label, sigma)
+            else
+              let fun_label, sigma' = eval_helper e1 sigma in
+              match get_expr fun_label with
+              | Function (_, e, _) ->
+                  eval_helper e (appl_label :: sigma) ~is_lazy
+              | _ -> failwith "appl")
         | Var (Ident x, var_label) -> (
             match get_outer_scope var_label |> get_expr with
             | Function (Ident x', _, _) -> (
@@ -129,12 +144,14 @@ let rec eval_helper ?(is_lazy = false) e sigma =
                   (res_label, sigma)
               | _ -> failwith "unreachable")
         | If (e1, e2, e3, label) -> (
-            let cond_label, _ = eval_helper e1 sigma in
-            match get_expr cond_label with
-            | Bool (b, _) ->
-                if b then eval_helper e2 sigma ~is_lazy
-                else eval_helper e3 sigma ~is_lazy
-            | _ -> raise TypeMismatch)
+            if is_lazy then (label, sigma)
+            else
+              let cond_label, _ = eval_helper e1 sigma in
+              match get_expr cond_label with
+              | Bool (b, _) ->
+                  if b then eval_helper e2 sigma ~is_lazy
+                  else eval_helper e3 sigma ~is_lazy
+              | _ -> raise TypeMismatch)
         | Let (_, _, _, _) -> failwith "unreachable"
       in
       let () = Hashtbl.replace memo_cache (e, sigma) eval_res in

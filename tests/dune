@@ -1,4 +1,4 @@
 (test
  (name tests)
- (modules tests utils)
+ (modules tests tests_subst tests_self utils)
  (libraries ounit2 dde fbdk.fb))
