@@ -1,6 +1,7 @@
 open Ddeast
 
 exception TypeMismatch
+exception Unreachable
 
 let rec transform_let e =
   match e with
@@ -66,7 +67,7 @@ let rec eval_helper ?(is_lazy = false) e sigma =
               match get_expr fun_label with
               | Function (_, e, _) ->
                   eval_helper e (Some (appl_label :: Option.get sigma)) ~is_lazy
-              | _ -> failwith "appl")
+              | _ -> raise Unreachable)
         | Var (Ident x, var_label) -> (
             match get_outer_scope var_label |> get_expr with
             | Function (Ident x', _, _) -> (
@@ -76,7 +77,7 @@ let rec eval_helper ?(is_lazy = false) e sigma =
                   match get_expr (List.hd sigma) with
                   | Appl (_, e2, _) ->
                       eval_helper e2 (Some (List.tl sigma)) ~is_lazy
-                  | _ -> failwith "local"
+                  | _ -> raise Unreachable
                 else
                   (* Var Non-Local *)
                   match get_expr (List.hd sigma) with
@@ -85,8 +86,8 @@ let rec eval_helper ?(is_lazy = false) e sigma =
                         eval_helper e1 (Some (List.tl sigma))
                       in
                       eval_helper (Var (Ident x, fun_label)) sigma' ~is_lazy
-                  | _ -> failwith "non-local")
-            | _ -> failwith "var")
+                  | _ -> raise Unreachable)
+            | _ -> raise Unreachable)
         | Plus (e1, e2, label) | Minus (e1, e2, label) | Equal (e1, e2, label)
           -> (
             if is_lazy then (label, None)
@@ -111,7 +112,7 @@ let rec eval_helper ?(is_lazy = false) e sigma =
                       let res_exp = Bool (i1 = i2, res_label) in
                       add_expr res_label res_exp;
                       (res_label, None)
-                  | _ -> failwith "unreachable")
+                  | _ -> raise Unreachable)
               | _ -> raise TypeMismatch)
         | And (e1, e2, label) | Or (e1, e2, label) -> (
             if is_lazy then (label, None)
@@ -132,7 +133,7 @@ let rec eval_helper ?(is_lazy = false) e sigma =
                       let res_exp = Bool (b1 || b2, res_label) in
                       add_expr res_label res_exp;
                       (res_label, None)
-                  | _ -> failwith "unreachable")
+                  | _ -> raise Unreachable)
               | _ -> raise TypeMismatch)
         | Not (e, label) -> (
             if is_lazy then (label, None)
@@ -145,7 +146,7 @@ let rec eval_helper ?(is_lazy = false) e sigma =
                   let res_exp = Bool (not b, res_label) in
                   add_expr res_label res_exp;
                   (res_label, None)
-              | _ -> failwith "unreachable")
+              | _ -> raise TypeMismatch)
         | If (e1, e2, e3, label) -> (
             if is_lazy then (label, None)
             else
@@ -155,7 +156,7 @@ let rec eval_helper ?(is_lazy = false) e sigma =
                   if b then eval_helper e2 sigma ~is_lazy
                   else eval_helper e3 sigma ~is_lazy
               | _ -> raise TypeMismatch)
-        | Let (_, _, _, _) -> failwith "unreachable"
+        | Let (_, _, _, _) -> raise Unreachable
       in
       let () = Hashtbl.replace memo_cache (e, sigma) eval_res in
       eval_res
@@ -188,14 +189,14 @@ let rec label_to_expr target_label e sigma seen =
       | Plus (_, _, _) -> Plus (e1, e2, label)
       | Minus (_, _, _) -> Minus (e1, e2, label)
       | Equal (_, _, _) -> Equal (e1, e2, label)
-      | _ -> failwith "unreachable")
+      | _ -> raise Unreachable)
   | And (e1, e2, label) | Or (e1, e2, label) -> (
       let e1 = label_to_expr target_label e1 sigma seen in
       let e2 = label_to_expr target_label e2 sigma seen in
       match e with
       | And (_, _, _) -> And (e1, e2, label)
       | Or (_, _, _) -> Or (e1, e2, label)
-      | _ -> failwith "unreachable")
+      | _ -> raise Unreachable)
   | Not (e, label) -> Not (label_to_expr target_label e sigma seen, label)
   | If (e1, e2, e3, label) ->
       If
@@ -203,7 +204,7 @@ let rec label_to_expr target_label e sigma seen =
           label_to_expr target_label e2 sigma seen,
           label_to_expr target_label e3 sigma seen,
           label )
-  | Let (_, _, _, _) -> failwith "unreachable"
+  | Let (_, _, _, _) -> raise Unreachable
 
 let eval is_debug_mode e =
   let e = transform_let e in
