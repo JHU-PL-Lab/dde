@@ -54,7 +54,7 @@ module Pp : sig
 end
 
 module Interpreter : sig
-  val eval : Ast.expr -> Ast.expr
+  val eval : bool -> Ast.expr -> Ast.expr
 end
 
 module Options : sig

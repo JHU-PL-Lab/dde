@@ -1,5 +1,4 @@
-
-let toplevel_loop typechecking_enabled show_types =
+let toplevel_loop typechecking_enabled show_types is_debug_mode =
   (* Prints exceptions and associated stack traces *)
   let print_exception ex =
     Format.printf "Exception: %s\n" (Printexc.to_string ex);
@@ -17,36 +16,36 @@ let toplevel_loop typechecking_enabled show_types =
   let safe_parse () =
     try
       let lexbuf = Lexing.from_channel stdin in
-      Some ( Fbdk.Parser.main Fbdk.Lexer.token lexbuf )
-    with   Exit -> exit 0
-          | ex -> print_exception ex; None
+      Some (Fbdk.Parser.main Fbdk.Lexer.token lexbuf)
+    with
+    | Exit -> exit 0
+    | ex ->
+        print_exception ex;
+        None
   in
   (* Type check if enabled and return the result. The result is a false *)
   (* only if it is enabled and type checking throws an exception (fails) *)
   let safe_typecheck ast =
     try
-      if typechecking_enabled then
+      if typechecking_enabled then (
         let exprtype = Fbdk.Typechecker.typecheck ast in
-        if show_types then begin
-          Format.printf " : %a\n" Fbdk.Pp.pp_fbtype exprtype
-        end;
-        true
-      else
-        true
+        if show_types then Format.printf " : %a\n" Fbdk.Pp.pp_fbtype exprtype;
+        true)
+      else true
     with
     | Fbdk.Typechecker.TypecheckerNotImplementedException -> true
-    | ex -> print_exception ex ; false
+    | ex ->
+        print_exception ex;
+        false
   in
   (* Interpret and print. Exceptions are caught and reported. But the toploop is not aborted *)
   let safe_interpret_and_print ast =
     try
-      let result = Fbdk.Interpreter.eval ast in
+      let result = Fbdk.Interpreter.eval is_debug_mode ast in
       Format.printf "==> %a\n" Fbdk.Pp.pp_expr result
-    with ex ->
-      print_exception ex
+    with ex -> print_exception ex
   in
-  Format.printf "\t%s version %s\t"
-    Fbdk.name Fbdk.Version.version;
+  Format.printf "\t%s version %s\t" Fbdk.name Fbdk.Version.version;
   Format.printf "\t(typechecker %s)\n\n"
     (if typechecking_enabled then "enabled" else "disabled");
   Format.print_flush ();
@@ -55,71 +54,58 @@ let toplevel_loop typechecking_enabled show_types =
     Format.print_flush ();
     let parse_result = safe_parse () in
     match parse_result with
-      None -> ()
+    | None -> ()
     | Some ast ->
-      if ( safe_typecheck ast ) then safe_interpret_and_print ast else ()
-      ;
-      Format.print_flush ()
+        if safe_typecheck ast then safe_interpret_and_print ast else ();
+        Format.print_flush ()
   done
 
-
-let run_file filename =
+let run_file filename is_debug_mode =
   let fin = open_in filename in
   let lexbuf = Lexing.from_channel fin in
   let ast = Fbdk.Parser.main Fbdk.Lexer.token lexbuf in
-  let result = Fbdk.Interpreter.eval ast in
+  let result = Fbdk.Interpreter.eval is_debug_mode ast in
   Format.printf "%a\n" Fbdk.Pp.pp_expr result;
   Format.print_flush ()
 
 let print_version () =
-  Format.printf "%s version %s\nBuild Date: %s\n"
-    Fbdk.name Fbdk.Version.version Fbdk.Version.build_date
+  Format.printf "%s version %s\nBuild Date: %s\n" Fbdk.name Fbdk.Version.version
+    Fbdk.Version.build_date
 
 let main () =
   let filename = ref "" in
   let toplevel = ref true in
   let version = ref false in
-  let no_typechecking =
-    ref (not Fbdk.Typechecker.typecheck_default_enabled) in
+  let no_typechecking = ref (not Fbdk.Typechecker.typecheck_default_enabled) in
   let no_type_display = ref false in
   let show_exception_stack_trace = ref false in
+  let is_debug_mode = ref false in
   Arg.parse
-    ([("--version",
-        Arg.Set(version),
-        "show version information");
-      ("--typecheck",
-        Arg.Clear(no_typechecking),
-        "enable typechecking");
-      ("--no-typecheck",
-        Arg.Set(no_typechecking),
-        "disable typechecking");
-      ("--hide-types",
-        Arg.Set(no_type_display),
-        "disable displaying of types");
-      ("--show-backtrace",
-        Arg.Set(show_exception_stack_trace),
-        "Enable the display of exception stack traces");
-      ]
-      @
-      Fbdk.Options.options
-    )
-    (function fname ->
-        filename := fname;
-        version := false;
-        toplevel := false)
-    ("Usage: " ^
-      Fbdk.name ^
-      " [ options ] [ filename ]\noptions:");
+    ([
+       ("--version", Arg.Set version, "show version information");
+       ("--typecheck", Arg.Clear no_typechecking, "enable typechecking");
+       ("--no-typecheck", Arg.Set no_typechecking, "disable typechecking");
+       ("--hide-types", Arg.Set no_type_display, "disable displaying of types");
+       ( "--show-backtrace",
+         Arg.Set show_exception_stack_trace,
+         "Enable the display of exception stack traces" );
+       ( "--debug",
+         Arg.Set is_debug_mode,
+         "output debug information from evaluation" );
+     ]
+    @ Fbdk.Options.options)
+    (function
+      | fname ->
+          filename := fname;
+          version := false;
+          toplevel := false)
+    ("Usage: " ^ Fbdk.name ^ " [ options ] [ filename ]\noptions:");
 
-  Printexc.record_backtrace (!show_exception_stack_trace) ;
+  Printexc.record_backtrace !show_exception_stack_trace;
 
-  if !version then
-    print_version ()
+  if !version then print_version ()
   else if !toplevel then
-    toplevel_loop (not (!no_typechecking)) (not (!no_type_display))
-  else
-    run_file !filename
+    toplevel_loop (not !no_typechecking) (not !no_type_display) !is_debug_mode
+  else run_file !filename !is_debug_mode
 
-
-let () = 
-  main ()
+let () = main ()

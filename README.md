@@ -11,10 +11,38 @@ project:
 opam install <path-to-local-fbdk-dist>
 ```
 
+Then `dune build`.
+
 ## Develop
 
-`dune utop` to start an interactive environment with DDE. `open
-Debugutils;;` to simplify calling helper functions such as `peu`.
+### utop
+
+`dune utop` to start an interactive environment with DDE.
+
+```ocaml
+open Debugutils;; (* to simplify calling utility functions such as `peu` *)
+
+Debugutils.is_debug_mode := true;; (* or *)
+is_debug_mode := true;; (* to print debug information from the
+evaluation. *)
+```
+
+### Binary
+
+`dune exec src/interpreter.exe` to run the interpreter.
+
+Optionally pass in the `--debug` flag to print debug information from the
+evaluation:
+
+```sh
+dune exec src/interpreter.exe -- --debug
+```
+
+Optionally pass in a file name to run the interpreter on the file:
+
+```sh
+dune exec src/interpreter.exe -- <path-to-file> --debug
+```
 
 ## Testing
 
