@@ -42,7 +42,7 @@ let toplevel_loop typechecking_enabled show_types is_debug_mode =
   let safe_interpret_and_print ast =
     try
       let result = Fbdk.Interpreter.eval is_debug_mode ast in
-      Format.printf "==> %a\n" Fbdk.Pp.pp_expr result
+      Format.printf "==> %a\n" Fbdk.Pp.pp_lexpr result
     with ex -> print_exception ex
   in
   Format.printf "\t%s version %s\t" Fbdk.name Fbdk.Version.version;
@@ -65,7 +65,7 @@ let run_file filename is_debug_mode =
   let lexbuf = Lexing.from_channel fin in
   let ast = Fbdk.Parser.main Fbdk.Lexer.token lexbuf in
   let result = Fbdk.Interpreter.eval is_debug_mode ast in
-  Format.printf "%a\n" Fbdk.Pp.pp_expr result;
+  Format.printf "%a\n" Fbdk.Pp.pp_lexpr result;
   Format.print_flush ()
 
 let print_version () =
