@@ -15,4 +15,5 @@ let test_memoization _ =
 let dde_self_tests =
   [ "Laziness" >:: test_laziness; "Memoization" >:: test_memoization ]
 
+(* TODO: benchmark running time with caching; Core; mutable vs immutable data structures *)
 let dde_self = "DDE against self" >::: dde_self_tests
