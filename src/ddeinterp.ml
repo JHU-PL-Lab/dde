@@ -27,24 +27,6 @@ let rec transform_let e =
       appl
   | _ -> e
 
-let get_label e =
-  match e with
-  (* TODO: mutually recursive types *)
-  | Int (_, label)
-  | Function (_, _, label)
-  | Bool (_, label)
-  | Appl (_, _, label)
-  | Var (_, label)
-  | Plus (_, _, label)
-  | Minus (_, _, label)
-  | Equal (_, _, label)
-  | And (_, _, label)
-  | Or (_, _, label)
-  | Not (_, label)
-  | If (_, _, _, label)
-  | Let (_, _, _, label) ->
-      label
-
 let memo_cache = Hashtbl.create 1000
 
 (* can't do memoization like this in OCaml/Haskell; better laziness  *)
@@ -67,7 +49,7 @@ let rec eval_helper ?(is_lazy = false) e sigma =
               match get_expr fun_label with
               | Function (_, e, _) ->
                   eval_helper e (Some (appl_label :: Option.get sigma)) ~is_lazy
-              | _ -> raise Unreachable)
+              | _ -> raise Unreachable [@coverage off])
         | Var (Ident x, var_label) -> (
             match get_outer_scope var_label |> get_expr with
             | Function (Ident x', _, _) -> (
@@ -77,7 +59,7 @@ let rec eval_helper ?(is_lazy = false) e sigma =
                   match get_expr (List.hd sigma) with
                   | Appl (_, e2, _) ->
                       eval_helper e2 (Some (List.tl sigma)) ~is_lazy
-                  | _ -> raise Unreachable
+                  | _ -> raise Unreachable [@coverage off]
                 else
                   (* Var Non-Local *)
                   match get_expr (List.hd sigma) with
@@ -86,8 +68,8 @@ let rec eval_helper ?(is_lazy = false) e sigma =
                         eval_helper e1 (Some (List.tl sigma))
                       in
                       eval_helper (Var (Ident x, fun_label)) sigma' ~is_lazy
-                  | _ -> raise Unreachable)
-            | _ -> raise Unreachable)
+                  | _ -> raise Unreachable [@coverage off])
+            | _ -> raise Unreachable [@coverage off])
         | Plus (e1, e2, label) | Minus (e1, e2, label) | Equal (e1, e2, label)
           -> (
             if is_lazy then (label, None)
@@ -112,7 +94,7 @@ let rec eval_helper ?(is_lazy = false) e sigma =
                       let res_exp = Bool (i1 = i2, res_label) in
                       add_expr res_label res_exp;
                       (res_label, None)
-                  | _ -> raise Unreachable)
+                  | _ -> raise Unreachable [@coverage off])
               | _ -> raise TypeMismatch)
         | And (e1, e2, label) | Or (e1, e2, label) -> (
             if is_lazy then (label, None)
@@ -133,7 +115,7 @@ let rec eval_helper ?(is_lazy = false) e sigma =
                       let res_exp = Bool (b1 || b2, res_label) in
                       add_expr res_label res_exp;
                       (res_label, None)
-                  | _ -> raise Unreachable)
+                  | _ -> raise Unreachable [@coverage off])
               | _ -> raise TypeMismatch)
         | Not (e, label) -> (
             if is_lazy then (label, None)
@@ -156,7 +138,7 @@ let rec eval_helper ?(is_lazy = false) e sigma =
                   if b then eval_helper e2 sigma ~is_lazy
                   else eval_helper e3 sigma ~is_lazy
               | _ -> raise TypeMismatch)
-        | Let (_, _, _, _) -> raise Unreachable
+        | Let (_, _, _, _) -> raise Unreachable [@coverage off]
       in
       let () = Hashtbl.replace memo_cache (e, sigma) eval_res in
       eval_res
@@ -189,14 +171,14 @@ let rec label_to_expr target_label e sigma seen =
       | Plus (_, _, _) -> Plus (e1, e2, label)
       | Minus (_, _, _) -> Minus (e1, e2, label)
       | Equal (_, _, _) -> Equal (e1, e2, label)
-      | _ -> raise Unreachable)
+      | _ -> raise Unreachable [@coverage off])
   | And (e1, e2, label) | Or (e1, e2, label) -> (
       let e1 = label_to_expr target_label e1 sigma seen in
       let e2 = label_to_expr target_label e2 sigma seen in
       match e with
       | And (_, _, _) -> And (e1, e2, label)
       | Or (_, _, _) -> Or (e1, e2, label)
-      | _ -> raise Unreachable)
+      | _ -> raise Unreachable [@coverage off])
   | Not (e, label) -> Not (label_to_expr target_label e sigma seen, label)
   | If (e1, e2, e3, label) ->
       If
@@ -204,7 +186,7 @@ let rec label_to_expr target_label e sigma seen =
           label_to_expr target_label e2 sigma seen,
           label_to_expr target_label e3 sigma seen,
           label )
-  | Let (_, _, _, _) -> raise Unreachable
+  | Let (_, _, _, _) -> raise Unreachable [@coverage off]
 
 let eval is_debug_mode e =
   let e = transform_let e in
@@ -212,12 +194,13 @@ let eval is_debug_mode e =
   let label, sigma = eval_helper e (Some []) in
 
   if is_debug_mode then (
-    print_endline "****** Label Table ******";
-    print_my_expr my_expr;
-    print_endline "****** Label Table ******\n";
-    print_endline "****** MyFun Table ******";
-    print_my_fun my_fun;
-    print_endline "****** MyFun Table ******\n");
+    (print_endline "****** Label Table ******";
+     print_my_expr my_expr;
+     print_endline "****** Label Table ******\n";
+     print_endline "****** MyFun Table ******";
+     print_my_fun my_fun;
+     print_endline "****** MyFun Table ******\n")
+    [@coverage off]);
 
   let e = label_to_expr label (get_expr label) sigma StringSet.empty in
   Hashtbl.reset my_expr;

@@ -1,8 +1,7 @@
-[@@@coverage off]
-
 exception Unreachable
 
-type ident = Ident of string [@@deriving show { with_path = false }]
+type ident = Ident of string
+[@@coverage off] [@@deriving show { with_path = false }]
 
 (* type expr =
      | Int of int
@@ -36,10 +35,10 @@ type expr =
   | Not of expr * int
   | If of expr * expr * expr * int
   | Let of ident * expr * expr * int
-[@@deriving show { with_path = false }]
+[@@coverage off] [@@deriving show { with_path = false }]
 
 type fbtype = TArrow of fbtype * fbtype | TVar of string
-[@@deriving show { with_path = false }]
+[@@coverage off] [@@deriving show { with_path = false }]
 
 let my_expr = Hashtbl.create 10000
 let my_fun = Hashtbl.create 10000
@@ -78,13 +77,15 @@ let rec fill_my_fun e outer =
       fill_my_fun e1 outer;
       fill_my_fun e2 outer;
       fill_my_fun e3 outer
-  | Let (_, _, _, _) -> raise Unreachable
+  | Let (_, _, _, _) -> raise Unreachable [@coverage off]
 
 let print_my_expr tbl =
   Hashtbl.iter (fun x y -> Printf.printf "%d -> %s\n" x (show_expr y)) tbl
+  [@@coverage off]
 
 let print_my_fun tbl =
   Hashtbl.iter (fun x y -> Printf.printf "%d -> %d\n" x y) tbl
+  [@@coverage off]
 
 let next_label = ref 0
 
