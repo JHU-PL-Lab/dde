@@ -1,8 +1,0 @@
-
-(rule
-  (target version.ml)
-  (deps (universe))
-  (action 
-    (progn
-      (run chmod +x ./gen_version.sh)
-      (run ./gen_version.sh))))

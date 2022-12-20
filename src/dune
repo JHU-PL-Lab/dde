@@ -37,5 +37,10 @@
  (name distributables)
  (deps interpreter.bc toplevel.exe))
 
-(copy_files
- (files %{project_root}/build_scripts/*.*))
+(rule
+ (target version.ml)
+ (deps (universe))
+ (action
+  (progn
+   (run chmod +x %{project_root}/scripts/gen_version.sh)
+   (run %{project_root}/scripts/gen_version.sh))))
