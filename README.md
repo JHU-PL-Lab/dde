@@ -35,13 +35,13 @@ Optionally pass in the `--debug` flag to print debug information from the
 evaluation:
 
 ```sh
-dune exec src/interpreter.exe -- --debug
+dune exec -- src/interpreter.exe --debug
 ```
 
 Optionally pass in a file name to run the interpreter on the file:
 
 ```sh
-dune exec src/interpreter.exe -- <path-to-file> --debug
+dune exec -- src/interpreter.exe <path-to-file> --debug
 ```
 
 ## Testing
@@ -51,7 +51,7 @@ dune exec src/interpreter.exe -- <path-to-file> --debug
 To also benchmark the DDE interpreter's performance, pass in the `--bench` flag:
 
 ```sh
-dune exec -- ./tests/tests.exe --bench
+dune exec -- tests/tests.exe --bench
 ``` 
 
 `bisect-ppx-report html` or `bisect-ppx-report summary` to view coverage.

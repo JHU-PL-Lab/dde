@@ -45,7 +45,7 @@ open Ddeast;;
  * The entry point.
  */
 %start main
-%type <Ddeast.lexpr> main
+%type <Ddeast.expr> main
 
 %%
 
