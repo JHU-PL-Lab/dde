@@ -42,7 +42,7 @@ let rec pp_expr fmt (e : expr) =
       ff fmt "(@[<hv>let %s =@;<1 4>%a@;<1 0>In@;<1 4>%a@])^%d" i pp_expr e1
         pp_expr e2 l
 
-let pp_result_value fmt (v : result_value) =
+let rec pp_result_value fmt (v : result_value) =
   match v with
   | IntResult x -> ff fmt "%d" x
   | BoolResult b -> ff fmt "%b" b
@@ -51,7 +51,18 @@ let pp_result_value fmt (v : result_value) =
       | Function (Ident i, le, l) ->
           ff fmt "(@[<hv>function %s ->@;<1 4>%a@])^%d" i pp_expr le l
       | _ -> raise Unreachable)
-  | OpResult op -> raise Unreachable
+  | OpResult op -> (
+      match op with
+      | Plus (r1, r2) ->
+          ff fmt "(%a + %a)" pp_result_value r1 pp_result_value r2
+      | Minus (r1, r2) ->
+          ff fmt "(%a - %a)" pp_result_value r1 pp_result_value r2
+      | Equal (r1, r2) ->
+          ff fmt "(%a = %a)" pp_result_value r1 pp_result_value r2
+      | And (r1, r2) ->
+          ff fmt "(%a and %a)" pp_result_value r1 pp_result_value r2
+      | Or (r1, r2) -> ff fmt "(%a or %a)" pp_result_value r1 pp_result_value r2
+      | Not r1 -> ff fmt "(not %a)" pp_result_value r1)
 
 let rec pp_fbtype fmt = function
   | TArrow (t1, t2) ->

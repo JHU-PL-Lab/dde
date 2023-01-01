@@ -61,7 +61,8 @@ module Interpreter : sig
     | BoolResult of bool
     | OpResult of op_result_value
 
-  val eval : bool -> Ast.expr -> result_value
+  val eval :
+    Ast.expr -> is_debug_mode:bool -> should_simplify:bool -> result_value
 end
 
 module Pp : sig
