@@ -246,7 +246,7 @@ and eval_result_value (r : result_value) : result_value =
           | BoolResult b -> BoolResult (not b)
           | _ -> raise TypeMismatch [@coverage off]))
 
-let eval is_debug_mode e =
+let eval e ~is_debug_mode ~should_simplify =
   let e = transform_let e in
   fill_my_fun e None;
   let r = eval_helper e [] in
@@ -260,7 +260,9 @@ let eval is_debug_mode e =
      print_endline "****** MyFun Table ******\n")
     [@coverage off]);
 
-  let v = eval_result_value r in
-  Hashtbl.reset my_expr;
-  Hashtbl.reset my_fun;
-  v
+  if not should_simplify then r
+  else
+    let v = eval_result_value r in
+    Hashtbl.reset my_expr;
+    Hashtbl.reset my_fun;
+    v

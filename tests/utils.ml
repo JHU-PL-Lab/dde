@@ -61,12 +61,14 @@ let dde_to_fbenv (v : Ddeinterp.result_value) : Fbenvast.expr =
 let dde_eval_fb s =
   Lexing.from_string s
   |> Ddeparser.main Ddelexer.token
-  |> Ddeinterp.eval false |> dde_to_fb
+  |> Ddeinterp.eval ~is_debug_mode:false ~should_simplify:true
+  |> dde_to_fb
 
 let dde_eval_fbenv s =
   Lexing.from_string s
   |> Ddeparser.main Ddelexer.token
-  |> Ddeinterp.eval false |> dde_to_fbenv
+  |> Ddeinterp.eval ~is_debug_mode:false ~should_simplify:true
+  |> dde_to_fbenv
 
 let dde_parse s =
   s ^ ";;" |> Lexing.from_string

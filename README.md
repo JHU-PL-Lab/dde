@@ -25,6 +25,11 @@ open Debugutils;; (* to simplify calling utility functions such as `peu` *)
 Debugutils.is_debug_mode := true;; (* or *)
 is_debug_mode := true;; (* to print debug information from the
 evaluation. *)
+
+Debugutils.should_simplify := true;; (* or *)
+should_simplify := true;; (* to perform variable substitution, function
+application, etc. on the evaluation result. *)
+
 ```
 
 ### Binary
@@ -43,6 +48,8 @@ Optionally pass in a file name to run the interpreter on the file:
 ```sh
 dune exec -- src/interpreter.exe <path-to-file> --debug
 ```
+
+Same applies to `--simplify`.
 
 ## Testing
 
