@@ -46,5 +46,12 @@ dune exec src/interpreter.exe -- <path-to-file> --debug
 
 ## Testing
 
-`dune test` to run the associated test suite. `bisect-ppx-report html` or
-`bisect-ppx-report summary` to view coverage.
+`dune test` to run the associated test suite *without* benchmarking.
+
+To also benchmark the DDE interpreter's performance, pass in the `--bench` flag:
+
+```sh
+dune exec -- ./tests/tests.exe --bench
+``` 
+
+`bisect-ppx-report html` or `bisect-ppx-report summary` to view coverage.
