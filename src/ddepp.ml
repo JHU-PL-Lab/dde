@@ -33,7 +33,7 @@ let rec pp_expr fmt (e : expr) =
   | Minus (e1, e2, l) -> ff fmt "(%a + %a)^%d" pp_expr e1 pp_expr e2 l
   | Equal (e1, e2, l) -> ff fmt "(%a = %a)^%d" pp_expr e1 pp_expr e2 l
   | And (e1, e2, l) -> ff fmt "(%a and %a)^%d" pp_expr e1 pp_expr e2 l
-  | Or (e1, e2, l) -> ff fmt "(%a and %a)^%d" pp_expr e1 pp_expr e2 l
+  | Or (e1, e2, l) -> ff fmt "(%a or %a)^%d" pp_expr e1 pp_expr e2 l
   | Not (e1, l) -> ff fmt "(not %a)^%d" pp_expr e1 l
   | If (e1, e2, e3, l) ->
       ff fmt "(@[<hv>if %a then@;<1 4>%a@;<1 0>else@;<1 4>%a@])^%d" pp_expr e1
@@ -42,7 +42,7 @@ let rec pp_expr fmt (e : expr) =
       ff fmt "(@[<hv>let %s =@;<1 4>%a@;<1 0>In@;<1 4>%a@])^%d" i pp_expr e1
         pp_expr e2 l
 
-let rec pp_result_value fmt (v : result_value) =
+let pp_result_value fmt (v : result_value) =
   match v with
   | IntResult x -> ff fmt "%d" x
   | BoolResult b -> ff fmt "%b" b

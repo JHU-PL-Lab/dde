@@ -90,31 +90,26 @@ let rec eval_helper (e : expr) (sigma : int list) : result_value =
         (* Application *)
         | Appl (e1, _, app_l) -> (
             match eval_helper e1 sigma with
-            | FunctionResult { f; l; sigma = sigma' } -> (
-                match f with
-                | Function (_, e, _) -> eval_helper e (app_l :: sigma)
-                | _ -> raise Unreachable [@coverage off])
+            | FunctionResult { f = Function (_, e, _); l; sigma = sigma' } ->
+                eval_helper e (app_l :: sigma)
             | _ -> raise Unreachable [@coverage off])
         | Var (Ident x, l) -> (
             match get_outer_scope l with
-            | Value value -> (
-                match value with
-                | Function (Ident x', _, _) -> (
-                    if x = x' then
-                      (* Var Local *)
-                      match get_expr (List.hd sigma) with
-                      | Appl (_, e2, _) -> eval_helper e2 (List.tl sigma)
-                      | _ -> raise Unreachable [@coverage off]
-                    else
-                      (* Var Non-Local *)
-                      match get_expr (List.hd sigma) with
-                      | Appl (e1, _, _) -> (
-                          match eval_helper e1 (List.tl sigma) with
-                          | FunctionResult { f; l = l1; sigma = sigma1 } ->
-                              eval_helper (Var (Ident x, l1)) sigma1
-                          | _ -> raise Unreachable [@coverage off])
+            | Value (Function (Ident x', _, _)) -> (
+                if x = x' then
+                  (* Var Local *)
+                  match get_expr (List.hd sigma) with
+                  | Appl (_, e2, _) -> eval_helper e2 (List.tl sigma)
+                  | _ -> raise Unreachable [@coverage off]
+                else
+                  (* Var Non-Local *)
+                  match get_expr (List.hd sigma) with
+                  | Appl (e1, _, _) -> (
+                      match eval_helper e1 (List.tl sigma) with
+                      | FunctionResult { f; l = l1; sigma = sigma1 } ->
+                          eval_helper (Var (Ident x, l1)) sigma1
                       | _ -> raise Unreachable [@coverage off])
-                | _ -> raise Unreachable [@coverage off])
+                  | _ -> raise Unreachable [@coverage off])
             | _ -> raise Unreachable [@coverage off])
         | Plus (e1, e2, _) ->
             let r1 = eval_helper e1 sigma in
