@@ -9,11 +9,11 @@ let fib_bench () =
     (Bench.make_command
        [
          Bench.Test.create ~name:"fib 25" (fun () ->
-             dde_eval (Tests_subst.dde_fib 25));
+             dde_eval_fb (Tests_subst.dde_fib 25));
          Bench.Test.create ~name:"fib 50" (fun () ->
-             dde_eval (Tests_subst.dde_fib 50));
+             dde_eval_fb (Tests_subst.dde_fib 50));
          Bench.Test.create ~name:"fib 75" (fun () ->
-             dde_eval (Tests_subst.dde_fib 75));
+             dde_eval_fb (Tests_subst.dde_fib 75));
          Bench.Test.create ~name:"fib 100" (fun () ->
-             dde_eval (Tests_subst.dde_fib 100));
+             dde_eval_fb (Tests_subst.dde_fib 100));
        ])

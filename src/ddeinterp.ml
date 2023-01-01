@@ -5,183 +5,256 @@ exception Unreachable
 
 let rec transform_let e =
   match e with
-  | Let (ident, e1, e2), let_label ->
-      let func_label = get_next_label () in
+  | Value value -> (
+      match value with
+      | Function (ident, e, l) ->
+          let e' = transform_let e in
+          let f = Value (Function (ident, e', l)) in
+          add_expr l f;
+          f
+      | _ -> e)
+  | Let (ident, e1, e2, let_l) ->
+      let fun_l = get_next_label () in
       let e2' = transform_let e2 in
-      let func = (Function (ident, e2'), func_label) in
-      add_expr func_label func;
+      let f = Value (Function (ident, e2', fun_l)) in
+      add_expr fun_l f;
       let e1' = transform_let e1 in
-      let appl = (Appl (func, e1'), let_label) in
-      add_expr let_label appl;
+      let appl = Appl (f, e1', let_l) in
+      add_expr let_l appl;
       appl
-  | Function (ident, e), func_label ->
-      let e' = transform_let e in
-      let func = (Function (ident, e'), func_label) in
-      add_expr func_label func;
-      func
-  | Appl (e1, e2), appl_label ->
+  | Appl (e1, e2, l) ->
       let e1' = transform_let e1 in
       let e2' = transform_let e2 in
-      let appl = (Appl (e1', e2'), appl_label) in
-      add_expr appl_label appl;
+      let appl = Appl (e1', e2', l) in
+      add_expr l appl;
       appl
   | _ -> e
+
+type op_result_value =
+  | Plus of result_value * result_value
+  | Minus of result_value * result_value
+  | Equal of result_value * result_value
+  | And of result_value * result_value
+  | Or of result_value * result_value
+  | Not of result_value
+
+and result_value =
+  | FunctionResult of { f : value; l : int; sigma : int list }
+  | IntResult of int
+  | BoolResult of bool
+  | OpResult of op_result_value
+[@@deriving show { with_path = false }]
+
+let rec eval_int (r : result_value) : int =
+  match r with
+  | FunctionResult _ | BoolResult _ -> raise TypeMismatch
+  | IntResult i -> i
+  | OpResult op_r -> (
+      match op_r with
+      | Plus (r1, r2) -> eval_int r1 + eval_int r2
+      | Minus (r1, r2) -> eval_int r1 - eval_int r2
+      | Equal (r1, r2) -> raise TypeMismatch
+      | And (r1, r2) -> raise TypeMismatch
+      | Or (r1, r2) -> raise TypeMismatch
+      | Not r -> raise TypeMismatch)
+
+let rec eval_bool (r : result_value) : bool =
+  match r with
+  | FunctionResult _ | IntResult _ -> raise TypeMismatch
+  | BoolResult b -> b
+  | OpResult op_r -> (
+      match op_r with
+      | Plus (r1, r2) -> raise TypeMismatch
+      | Minus (r1, r2) -> raise TypeMismatch
+      | Equal (r1, r2) -> eval_int r1 = eval_int r2
+      | And (r1, r2) -> eval_bool r1 && eval_bool r2
+      | Or (r1, r2) -> eval_bool r1 || eval_bool r2
+      | Not r -> not (eval_bool r))
 
 let memo_cache = Hashtbl.create 1000
 
 (* can't do memoization like this in OCaml/Haskell; better laziness  *)
 (* laziness + memoization *)
-let rec eval_helper ?(is_lazy = false) le sigma =
-  match Hashtbl.find_opt memo_cache (le, sigma) with
+let rec eval_helper (e : expr) (sigma : int list) : result_value =
+  match Hashtbl.find_opt memo_cache (e, sigma) with
   | Some res -> res
   | None ->
-      let e, label = le in
       let eval_res =
         match e with
         (* Value *)
-        | Function (_, _) -> (le, sigma)
-        | Int _ -> (le, None)
-        | Bool _ -> (le, None)
+        | Value v -> (
+            match v with
+            | Function (ident, le', l) -> FunctionResult { f = v; l; sigma }
+            | Int i -> IntResult i
+            | Bool b -> BoolResult b)
         (* Application *)
-        | Appl (e1, _) -> (
-            if is_lazy then (le, None)
-            else
-              let fun_le = eval_helper e1 sigma |> fst |> fst in
-              match fun_le with
-              | Function (_, e') ->
-                  eval_helper e' (Some (label :: Option.get sigma)) ~is_lazy
-              | _ -> raise Unreachable [@coverage off])
-        | Var (Ident x) -> (
-            match get_outer_scope label |> fst with
-            | Function (Ident x', _) -> (
-                let sigma = Option.get sigma in
-                if x = x' then
-                  (* Var Local *)
-                  match get_expr (List.hd sigma) with
-                  | Appl (_, e2), _ ->
-                      eval_helper e2 (Some (List.tl sigma)) ~is_lazy
-                  | _ -> raise Unreachable [@coverage off]
-                else
-                  (* Var Non-Local *)
-                  match get_expr (List.hd sigma) with
-                  | Appl (e1, _), _ ->
-                      let (_, fun_label), sigma' =
-                        eval_helper e1 (Some (List.tl sigma))
-                      in
-                      eval_helper (Var (Ident x), fun_label) sigma' ~is_lazy
-                  | _ -> raise Unreachable [@coverage off])
+        | Appl (e1, _, app_l) -> (
+            match eval_helper e1 sigma with
+            | FunctionResult { f; l; sigma = sigma' } -> (
+                match f with
+                | Function (_, e, _) -> eval_helper e (app_l :: sigma)
+                | _ -> raise Unreachable [@coverage off])
             | _ -> raise Unreachable [@coverage off])
-        | Plus (e1, e2) | Minus (e1, e2) | Equal (e1, e2) -> (
-            if is_lazy then (le, None)
-            else
-              let e1 = eval_helper e1 sigma |> fst |> fst in
-              let e2 = eval_helper e2 sigma |> fst |> fst in
-              match (e1, e2) with
-              | Int i1, Int i2 -> (
-                  let res_label = get_next_label () in
-                  match e with
-                  | Plus (_, _) ->
-                      let res_exp = (Int (i1 + i2), res_label) in
-                      add_expr res_label res_exp;
-                      (res_exp, None)
-                  | Minus (_, _) ->
-                      let res_exp = (Int (i1 - i2), res_label) in
-                      add_expr res_label res_exp;
-                      (res_exp, None)
-                  | Equal (_, _) ->
-                      let res_exp = (Bool (i1 = i2), res_label) in
-                      add_expr res_label res_exp;
-                      (res_exp, None)
-                  | _ -> raise Unreachable [@coverage off])
-              | _ -> raise TypeMismatch)
-        | And (e1, e2) | Or (e1, e2) -> (
-            if is_lazy then (le, None)
-            else
-              let e1 = eval_helper e1 sigma |> fst |> fst in
-              let e2 = eval_helper e2 sigma |> fst |> fst in
-              match (e1, e2) with
-              | Bool b1, Bool b2 -> (
-                  let res_label = get_next_label () in
-                  match e with
-                  | And (_, _) ->
-                      let res_exp = (Bool (b1 && b2), res_label) in
-                      add_expr res_label res_exp;
-                      (res_exp, None)
-                  | Or (_, _) ->
-                      let res_exp = (Bool (b1 || b2), res_label) in
-                      add_expr res_label res_exp;
-                      (res_exp, None)
-                  | _ -> raise Unreachable [@coverage off])
-              | _ -> raise TypeMismatch)
-        | Not e -> (
-            if is_lazy then (le, None)
-            else
-              let e = eval_helper e sigma |> fst |> fst in
-              match e with
-              | Bool b ->
-                  let res_label = get_next_label () in
-                  let res_exp = (Bool (not b), res_label) in
-                  add_expr res_label res_exp;
-                  (res_exp, None)
-              | _ -> raise TypeMismatch)
-        | If (e1, e2, e3) -> (
-            if is_lazy then (le, None)
-            else
-              let cond_expr = eval_helper e1 sigma |> fst |> fst in
-              match cond_expr with
-              | Bool b ->
-                  if b then eval_helper e2 sigma ~is_lazy
-                  else eval_helper e3 sigma ~is_lazy
-              | _ -> raise TypeMismatch)
-        | Let (_, _, _) -> raise Unreachable [@coverage off]
+        | Var (Ident x, l) -> (
+            match get_outer_scope l with
+            | Value value -> (
+                match value with
+                | Function (Ident x', _, _) -> (
+                    if x = x' then
+                      (* Var Local *)
+                      match get_expr (List.hd sigma) with
+                      | Appl (_, e2, _) -> eval_helper e2 (List.tl sigma)
+                      | _ -> raise Unreachable [@coverage off]
+                    else
+                      (* Var Non-Local *)
+                      match get_expr (List.hd sigma) with
+                      | Appl (e1, _, _) -> (
+                          match eval_helper e1 (List.tl sigma) with
+                          | FunctionResult { f; l = l1; sigma = sigma1 } ->
+                              eval_helper (Var (Ident x, l1)) sigma1
+                          | _ -> raise Unreachable [@coverage off])
+                      | _ -> raise Unreachable [@coverage off])
+                | _ -> raise Unreachable [@coverage off])
+            | _ -> raise Unreachable [@coverage off])
+        | Plus (e1, e2, _) ->
+            let r1 = eval_helper e1 sigma in
+            let r2 = eval_helper e2 sigma in
+            OpResult (Plus (r1, r2))
+        | Minus (e1, e2, _) ->
+            let r1 = eval_helper e1 sigma in
+            let r2 = eval_helper e2 sigma in
+            OpResult (Minus (r1, r2))
+        | Equal (e1, e2, _) ->
+            let r1 = eval_helper e1 sigma in
+            let r2 = eval_helper e2 sigma in
+            OpResult (Equal (r1, r2))
+        | And (e1, e2, _) ->
+            let r1 = eval_helper e1 sigma in
+            let r2 = eval_helper e2 sigma in
+            OpResult (And (r1, r2))
+        | Or (e1, e2, _) ->
+            let r1 = eval_helper e1 sigma in
+            let r2 = eval_helper e2 sigma in
+            OpResult (Or (r1, r2))
+        | Not (e, _) -> OpResult (Not (eval_helper e sigma))
+        | If (e1, e2, e3, _) ->
+            let r = eval_helper e1 sigma in
+            if eval_bool r then eval_helper e2 sigma else eval_helper e3 sigma
+        | Let (_, _, _, _) -> raise Unreachable [@coverage off]
       in
-      let () = Hashtbl.replace memo_cache (le, sigma) eval_res in
+      let () = Hashtbl.replace memo_cache (e, sigma) eval_res in
       eval_res
 
 module StringSet = Set.Make (String)
 
-let rec label_to_expr target_label target sigma seen =
-  let expr, label = target in
-  match expr with
-  | Int _ -> target
-  | Bool _ -> target
-  | Function (Ident x, e) ->
-      ( Function
-          (Ident x, label_to_expr target_label e sigma (StringSet.add x seen)),
-        label )
-  | Var (Ident x) ->
-      if StringSet.mem x seen then target (* only substitute free variables *)
-      else eval_helper (expr, target_label) sigma ~is_lazy:true |> fst
-  | Appl (e1, e2) ->
-      ( Appl
-          ( label_to_expr target_label e1 sigma seen,
-            label_to_expr target_label e2 sigma seen ),
-        label )
-  | Plus (e1, e2) | Minus (e1, e2) | Equal (e1, e2) | And (e1, e2) | Or (e1, e2)
-    -> (
-      let e1 = label_to_expr target_label e1 sigma seen in
-      let e2 = label_to_expr target_label e2 sigma seen in
-      match expr with
-      | Plus (_, _) -> (Plus (e1, e2), label)
-      | Minus (_, _) -> (Minus (e1, e2), label)
-      | Equal (_, _) -> (Equal (e1, e2), label)
-      | And (_, _) -> (And (e1, e2), label)
-      | Or (_, _) -> (Or (e1, e2), label)
+let rec subst_free_vars (e : expr) (target_l : int) (sigma : int list)
+    (seen : StringSet.t) =
+  match e with
+  | Value v -> (
+      match v with
+      | Int _ -> e
+      | Bool _ -> e
+      | Function (Ident x, e', l) ->
+          Value
+            (Function
+               ( Ident x,
+                 subst_free_vars e' target_l sigma (StringSet.add x seen),
+                 l )))
+  | Var (Ident x, _) -> (
+      if StringSet.mem x seen then e (* only substitute free variables *)
+      else
+        let r = eval_helper (Var (Ident x, target_l)) sigma in
+        match eval_result_value r with
+        | IntResult i -> Value (Int i)
+        | BoolResult b -> Value (Bool b)
+        | FunctionResult { f; _ } -> Value f
+        | OpResult _ -> raise Unreachable [@coverage off])
+  | Appl (e1, e2, l) ->
+      Appl
+        ( subst_free_vars e1 target_l sigma seen,
+          subst_free_vars e2 target_l sigma seen,
+          l )
+  | Plus (e1, e2, l)
+  | Minus (e1, e2, l)
+  | Equal (e1, e2, l)
+  | And (e1, e2, l)
+  | Or (e1, e2, l) -> (
+      let e1 = subst_free_vars e1 target_l sigma seen in
+      let e2 = subst_free_vars e2 target_l sigma seen in
+      match e with
+      | Plus (_, _, _) -> Plus (e1, e2, l)
+      | Minus (_, _, _) -> Minus (e1, e2, l)
+      | Equal (_, _, _) -> Equal (e1, e2, l)
+      | And (_, _, _) -> And (e1, e2, l)
+      | Or (_, _, _) -> Or (e1, e2, l)
       | _ -> raise Unreachable [@coverage off])
-  | Not e -> (Not (label_to_expr target_label e sigma seen), label)
-  | If (e1, e2, e3) ->
-      ( If
-          ( label_to_expr target_label e1 sigma seen,
-            label_to_expr target_label e2 sigma seen,
-            label_to_expr target_label e3 sigma seen ),
-        label )
-  | Let (_, _, _) -> raise Unreachable [@coverage off]
+  | Not (e, l) -> Not (subst_free_vars e target_l sigma seen, l)
+  | If (e1, e2, e3, l) ->
+      If
+        ( subst_free_vars e1 target_l sigma seen,
+          subst_free_vars e2 target_l sigma seen,
+          subst_free_vars e3 target_l sigma seen,
+          l )
+  | Let (_, _, _, _) -> raise Unreachable [@coverage off]
+
+and eval_result_value (r : result_value) : result_value =
+  match r with
+  | IntResult i -> r
+  | BoolResult b -> r
+  | FunctionResult { f; l; sigma } -> (
+      match f with
+      | Function (Ident x, e, l) ->
+          FunctionResult
+            {
+              f =
+                Function
+                  (Ident x, subst_free_vars e l sigma (StringSet.singleton x), l);
+              l;
+              sigma;
+            }
+      | _ -> raise Unreachable [@coverage off])
+  | OpResult op -> (
+      match op with
+      | Plus (r1, r2) -> (
+          let v1 = eval_result_value r1 in
+          let v2 = eval_result_value r2 in
+          match (v1, v2) with
+          | IntResult i1, IntResult i2 -> IntResult (i1 + i2)
+          | _ -> raise TypeMismatch [@coverage off])
+      | Minus (r1, r2) -> (
+          let v1 = eval_result_value r1 in
+          let v2 = eval_result_value r2 in
+          match (v1, v2) with
+          | IntResult i1, IntResult i2 -> IntResult (i1 - i2)
+          | _ -> raise TypeMismatch [@coverage off])
+      | Equal (r1, r2) -> (
+          let v1 = eval_result_value r1 in
+          let v2 = eval_result_value r2 in
+          match (v1, v2) with
+          | IntResult i1, IntResult i2 -> BoolResult (i1 = i2)
+          | _ -> raise TypeMismatch [@coverage off])
+      | And (r1, r2) -> (
+          let v1 = eval_result_value r1 in
+          let v2 = eval_result_value r2 in
+          match (v1, v2) with
+          | BoolResult b1, BoolResult b2 -> BoolResult (b1 && b2)
+          | _ -> raise TypeMismatch [@coverage off])
+      | Or (r1, r2) -> (
+          let v1 = eval_result_value r1 in
+          let v2 = eval_result_value r2 in
+          match (v1, v2) with
+          | BoolResult b1, BoolResult b2 -> BoolResult (b1 || b2)
+          | _ -> raise TypeMismatch [@coverage off])
+      | Not r -> (
+          let v = eval_result_value r in
+          match v with
+          | BoolResult b -> BoolResult (not b)
+          | _ -> raise TypeMismatch [@coverage off]))
 
 let eval is_debug_mode e =
   let e = transform_let e in
-  let () = fill_my_fun e None in
-  let target, sigma = eval_helper e (Some []) in
-  let _, target_label = target in
+  fill_my_fun e None;
+  let r = eval_helper e [] in
 
   if is_debug_mode then (
     (print_endline "****** Label Table ******";
@@ -192,7 +265,7 @@ let eval is_debug_mode e =
      print_endline "****** MyFun Table ******\n")
     [@coverage off]);
 
-  let e = label_to_expr target_label target sigma StringSet.empty in
+  let v = eval_result_value r in
   Hashtbl.reset my_expr;
   Hashtbl.reset my_fun;
-  e
+  v
