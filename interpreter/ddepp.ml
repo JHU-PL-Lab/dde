@@ -12,12 +12,10 @@ let is_compound_expr = function Var _ -> false | _ -> true
 
 let rec pp_expr fmt (e : expr) =
   match e with
-  | Value value -> (
-      match value with
-      | Int i -> ff fmt "%d" i
-      | Bool b -> ff fmt "%b" b
-      | Function (Ident i, x, l) ->
-          ff fmt "(@[<hv>function %s ->@;<1 4>%a@])^%d" i pp_expr x l)
+  | Int i -> ff fmt "%d" i
+  | Bool b -> ff fmt "%b" b
+  | Function (Ident i, x, l) ->
+      ff fmt "(@[<hv>function %s ->@;<1 4>%a@])^%d" i pp_expr x l
   | Var (Ident x, l) -> ff fmt "(%s)^%d" x l
   | Appl (e1, e2, l) ->
       let is_compound_exprL = function
@@ -46,23 +44,24 @@ let rec pp_result_value fmt (v : result_value) =
   match v with
   | IntResult x -> ff fmt "%d" x
   | BoolResult b -> ff fmt "%b" b
-  | FunctionResult { f; l; sigma } -> (
+  | FunResult { f; l; sigma } -> (
       match f with
       | Function (Ident i, le, l) ->
           ff fmt "(@[<hv>function %s ->@;<1 4>%a@])^%d" i pp_expr le l
       | _ -> raise Unreachable)
   | OpResult op -> (
       match op with
-      | Plus (r1, r2) ->
+      | PlusOp (r1, r2) ->
           ff fmt "(%a + %a)" pp_result_value r1 pp_result_value r2
-      | Minus (r1, r2) ->
+      | MinusOp (r1, r2) ->
           ff fmt "(%a - %a)" pp_result_value r1 pp_result_value r2
-      | Equal (r1, r2) ->
+      | EqualOp (r1, r2) ->
           ff fmt "(%a = %a)" pp_result_value r1 pp_result_value r2
-      | And (r1, r2) ->
+      | AndOp (r1, r2) ->
           ff fmt "(%a and %a)" pp_result_value r1 pp_result_value r2
-      | Or (r1, r2) -> ff fmt "(%a or %a)" pp_result_value r1 pp_result_value r2
-      | Not r1 -> ff fmt "(not %a)" pp_result_value r1)
+      | OrOp (r1, r2) ->
+          ff fmt "(%a or %a)" pp_result_value r1 pp_result_value r2
+      | NotOp r1 -> ff fmt "(not %a)" pp_result_value r1)
 
 let rec pp_fbtype fmt = function
   | TArrow (t1, t2) ->

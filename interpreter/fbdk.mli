@@ -3,10 +3,10 @@ val name : string
 module Ast : sig
   type ident = Ddeast.ident = Ident of string
 
-  type value = Int of int | Bool of bool | Function of ident * expr * int
-
-  and expr =
-    | Value of value
+  type expr =
+    | Int of int
+    | Bool of bool
+    | Function of ident * expr * int
     | Var of ident * int
     | Appl of expr * expr * int
     | Plus of expr * expr * int
@@ -48,15 +48,15 @@ end
 
 module Interpreter : sig
   type op_result_value =
-    | Plus of result_value * result_value
-    | Minus of result_value * result_value
-    | Equal of result_value * result_value
-    | And of result_value * result_value
-    | Or of result_value * result_value
-    | Not of result_value
+    | PlusOp of result_value * result_value
+    | MinusOp of result_value * result_value
+    | EqualOp of result_value * result_value
+    | AndOp of result_value * result_value
+    | OrOp of result_value * result_value
+    | NotOp of result_value
 
   and result_value =
-    | FunctionResult of { f : Ast.value; l : int; sigma : int list }
+    | FunResult of { f : Ast.expr; l : int; sigma : int list }
     | IntResult of int
     | BoolResult of bool
     | OpResult of op_result_value

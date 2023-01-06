@@ -34,19 +34,19 @@ application, etc. on the evaluation result. *)
 
 ### Binary
 
-`dune exec src/interpreter.exe` to run the interpreter.
+`dune exec interpreter/main.exe` to run the interpreter.
 
 Optionally pass in the `--debug` flag to print debug information from the
 evaluation:
 
 ```sh
-dune exec -- src/interpreter.exe --debug
+dune exec --interpreter/main.exe --debug
 ```
 
 Optionally pass in a file name to run the interpreter on the file:
 
 ```sh
-dune exec -- src/interpreter.exe <path-to-file> --debug
+dune exec -- interpreter/main.exe <path-to-file> --debug
 ```
 
 Same applies to `--simplify`.
