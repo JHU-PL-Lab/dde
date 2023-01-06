@@ -1,6 +1,6 @@
 (library
  (name program_analysis)
- (modules lib)
+ (modules lib utils)
  (libraries dde))
 
 (executable
