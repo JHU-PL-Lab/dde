@@ -30,3 +30,4 @@ let rec pp_result_value fmt (v : result_value) =
       | OrOp (r1, r2) ->
           ff fmt "(%a or %a)" pp_result_value r1 pp_result_value r2
       | NotOp r1 -> ff fmt "(not %a)" pp_result_value r1)
+  | _ -> failwith "unimplemented"
