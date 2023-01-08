@@ -17,7 +17,7 @@ type op_result_value =
 
 and result_value =
   | OpResult of op_result_value
-  | ChoiceResult of { ls : result_value list; l : label_t; sigma : sigma_t }
+  | ChoiceResult of { res_ls : result_value list; l : label_t; sigma : sigma_t }
   | FunResult of { f : expr; l : label_t; sigma : sigma_t }
   (*? shouldn't we need expr in addition to l to uniquely identify? *)
   | StubResult of { e : expr; sigma : sigma_t }
@@ -41,13 +41,24 @@ let rec analyze_aux e sigma set v =
   | Bool b -> stub v e sigma (BoolResult b, set)
   | Function (Ident x, e', l) ->
       stub v e sigma (FunResult { f = e; l; sigma }, set)
-  | Appl (e1, e2, l) ->
-      stub v e sigma
-        (match analyze_aux e1 sigma set v with
-        | FunResult { f = Function (_, e, _); l = _; sigma = _ }, set1 ->
-            let sigma' = l :: sigma in
-            analyze_aux e (prune_sigma sigma') (sigma' :: set1) v
-        | _ -> raise Unreachable [@coverage off])
+  | Appl (e, e', l) -> (
+      match stub ((sigma, e) :: v) e sigma (analyze_aux e sigma set v) with
+      | ChoiceResult { res_ls; l = _; sigma = _ }, _ ->
+          let result_list, set_union =
+            List.fold_right
+              (fun fun_res (result_accum, set_accum) ->
+                match fun_res with
+                | FunResult { f = Function (_, e_i, _); l = _; sigma = _ } -> (
+                    match
+                      stub v e_i sigma (analyze_aux e_i (l :: sigma) set v)
+                    with
+                    | res_i, set_i -> (res_i :: result_accum, set_i @ set_accum)
+                    )
+                | _ -> raise Unreachable [@coverage off])
+              res_ls ([], [])
+          in
+          (ChoiceResult { res_ls = result_list; l; sigma }, set_union)
+      | _ -> raise Unreachable [@coverage off])
   | Var (Ident x, l) -> (
       match get_outer_scope l with
       | Function (Ident x1, _, _) -> (
@@ -67,7 +78,7 @@ let rec analyze_aux e sigma set v =
                       else accum)
                     ([], []) set
                 in
-                ( ChoiceResult { ls = result_list; l; sigma = List.tl sigma },
+                ( ChoiceResult { res_ls = result_list; l; sigma = List.tl sigma },
                   set_union )
             | _ -> raise Unreachable [@coverage off]
           else
