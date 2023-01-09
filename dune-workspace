@@ -1,3 +1,8 @@
-(lang dune 2.7)
+(lang dune 3.6)
+
 (context default)
-(env (_ (flags (:standard -w -27-33-39))))
+
+(env
+ (_
+  (flags
+   (:standard -w -27-33-39))))
