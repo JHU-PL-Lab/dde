@@ -1,3 +1,5 @@
+open Program_analysis
+
 let toplevel_loop =
   let print_exception ex =
     Format.printf "Exception: %s\n" (Printexc.to_string ex);
@@ -17,8 +19,8 @@ let toplevel_loop =
   in
   let safe_analyze_and_print ast =
     try
-      let result, set = Program_analysis.Lib.analyze ast in
-      Format.printf "==> %a\n" Ddepp.pp_result_value result
+      let result, set = Lib.analyze ast in
+      Format.printf "==> %a\n" Utils.pp_result_value result
     with ex -> print_exception ex
   in
   Format.printf "\t%s version %s\t\n" Fbdk.name Fbdk.Version.version;
