@@ -142,6 +142,8 @@ and analyze_aux e sigma set vis =
             | _ -> failwith "appl" [@coverage off])
       | _ -> failwith "function" [@coverage off])
   | Plus (e1, e2, _) ->
+      (* hereafter we use short forms `r1` (`res1`), `s2` (`set2`), etc.
+         as code is clearer here and thus they are less ambiguous. *)
       let vis' = (sigma, e) :: vis in
       let r1, s1 = stub_step e1 sigma set vis' in
       let r2, s2 = stub_step e1 sigma s1 vis' in
@@ -173,8 +175,8 @@ and analyze_aux e sigma set vis =
       let vis' = (sigma, e) :: vis in
       let _r, s0 = stub_step e' sigma set vis' in
       (* TODO: eval r to type check *)
+      (*? see if all choices converge to one type and if that type is valid? *)
       let r_true, s_true = stub_step e1 sigma set vis' in
-      (*? typo in docs? (passing s_true through) *)
       let r_false, s_false = stub_step e2 sigma set vis' in
       ( ChoiceResult { choices = [ r_true; r_false ]; l; sigma },
         s0 @ s_true @ s_false )
