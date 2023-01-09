@@ -27,12 +27,12 @@ let rec pp_expr fmt (e : expr) =
         e1
         (paren_if is_compound_expr pp_expr)
         e2
-  | Plus (e1, e2, l) -> ff fmt "%a + %a" pp_expr e1 pp_expr e2
-  | Minus (e1, e2, l) -> ff fmt "%a + %a" pp_expr e1 pp_expr e2
-  | Equal (e1, e2, l) -> ff fmt "%a = %a" pp_expr e1 pp_expr e2
-  | And (e1, e2, l) -> ff fmt "%a and %a" pp_expr e1 pp_expr e2
-  | Or (e1, e2, l) -> ff fmt "%a or %a" pp_expr e1 pp_expr e2
-  | Not (e1, l) -> ff fmt "not %a" pp_expr e1
+  | Plus (e1, e2, l) -> ff fmt "(%a + %a)" pp_expr e1 pp_expr e2
+  | Minus (e1, e2, l) -> ff fmt "(%a + %a)" pp_expr e1 pp_expr e2
+  | Equal (e1, e2, l) -> ff fmt "(%a = %a)" pp_expr e1 pp_expr e2
+  | And (e1, e2, l) -> ff fmt "(%a and %a)" pp_expr e1 pp_expr e2
+  | Or (e1, e2, l) -> ff fmt "(%a or %a)" pp_expr e1 pp_expr e2
+  | Not (e1, l) -> ff fmt "(not %a)" pp_expr e1
   | If (e1, e2, e3, l) ->
       ff fmt "@[<hv>if %a then@;<1 4>%a@;<1 0>else@;<1 4>%a@]" pp_expr e1
         pp_expr e2 pp_expr e3

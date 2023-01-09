@@ -13,7 +13,7 @@ let rec pp_result_value fmt (v : result_value) =
       | _ -> raise Unreachable)
   | ChoiceResult { choices; l; sigma } ->
       if List.length choices = 1 then
-        ff fmt "(| %a)" pp_result_value (List.hd choices)
+        ff fmt "| %a" pp_result_value (List.hd choices)
       else
         ff fmt "(%s)"
           (choices
@@ -22,13 +22,14 @@ let rec pp_result_value fmt (v : result_value) =
   | OpResult op -> (
       match op with
       | PlusOp (r1, r2) ->
-          ff fmt "%a + %a" pp_result_value r1 pp_result_value r2
+          ff fmt "(%a + %a)" pp_result_value r1 pp_result_value r2
       | MinusOp (r1, r2) ->
-          ff fmt "%a - %a" pp_result_value r1 pp_result_value r2
+          ff fmt "(%a - %a)" pp_result_value r1 pp_result_value r2
       | EqualOp (r1, r2) ->
-          ff fmt "%a = %a" pp_result_value r1 pp_result_value r2
+          ff fmt "(%a = %a)" pp_result_value r1 pp_result_value r2
       | AndOp (r1, r2) ->
-          ff fmt "%a and %a" pp_result_value r1 pp_result_value r2
-      | OrOp (r1, r2) -> ff fmt "%a or %a" pp_result_value r1 pp_result_value r2
-      | NotOp r1 -> ff fmt "not %a" pp_result_value r1)
+          ff fmt "(%a and %a)" pp_result_value r1 pp_result_value r2
+      | OrOp (r1, r2) ->
+          ff fmt "(%a or %a)" pp_result_value r1 pp_result_value r2
+      | NotOp r1 -> ff fmt "(not %a)" pp_result_value r1)
   | _ -> failwith "unimplemented"
