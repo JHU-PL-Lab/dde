@@ -5,7 +5,7 @@ exception Unreachable
 type label_t = int
 type sigma_t = label_t list
 type set_t = sigma_t list
-type v_t = (sigma_t * expr) list
+type vis_t = (sigma_t * expr) list
 
 type op_result_value =
   | PlusOp of result_value * result_value
@@ -23,74 +23,102 @@ and result_value =
   | StubResult of { e : expr; sigma : sigma_t }
   | IntResult of int
   | BoolResult of bool
-[@@deriving show { with_path = false }]
 
 let prune_sigma ?(k = 2) sigma = List.filteri (fun i _ -> i < k) sigma
 
-let contains_sigma sigma_parent sigma_child =
-  List.for_all (fun x -> List.mem x sigma_parent) sigma_child
+let rec contains_sigma sigma_parent sigma_child =
+  match (sigma_child, sigma_parent) with
+  | [], [] -> true (* realistically won't happen *)
+  | l_child :: ls_child, l_parent :: ls_parent ->
+      l_child = l_parent && contains_sigma ls_parent ls_child
+  | [], _ -> true
+  | _, [] -> false
 
-let stub v e sigma res_pair =
+(* pass in result-set pair to be returned if not visited *)
+let stub_base v e sigma res_pair =
   match List.find_opt (fun (sigma', e') -> sigma = sigma' && e = e') v with
-  | Some (_, e) -> (StubResult { e; sigma }, snd res_pair)
+  | Some _ -> (StubResult { e; sigma }, snd res_pair)
   | None -> res_pair
 
-let rec analyze_aux e sigma set v =
+let rec stub_step e sigma set v =
+  match List.find_opt (fun (sigma', e') -> sigma = sigma' && e = e') v with
+  | Some _ -> (StubResult { e; sigma }, set)
+  | None -> analyze_aux e sigma set v
+
+and analyze_aux e sigma set vis =
   match e with
-  | Int i -> stub v e sigma (IntResult i, set)
-  | Bool b -> stub v e sigma (BoolResult b, set)
-  | Function (Ident x, e', l) ->
-      stub v e sigma (FunResult { f = e; l; sigma }, set)
-  | Appl (e, e', l) -> (
-      match stub ((sigma, e) :: v) e sigma (analyze_aux e sigma set v) with
+  | Int i -> stub_base vis e sigma (IntResult i, set)
+  | Bool b -> stub_base vis e sigma (BoolResult b, set)
+  | Function (_, _, l) ->
+      (*? should ChoiceResult wrap all results? *)
+      stub_base vis e sigma
+        ( ChoiceResult { res_ls = [ FunResult { f = e; l; sigma } ]; l; sigma },
+          set )
+  | Appl (e', _, l) -> (
+      let v' = (sigma, e) :: vis in
+      match stub_step e' sigma set v' with
       | ChoiceResult { res_ls; l = _; sigma = _ }, _ ->
           let result_list, set_union =
+            (* fold_right to keep output choices in the same order *)
             List.fold_right
               (fun fun_res (result_accum, set_accum) ->
                 match fun_res with
-                | FunResult { f = Function (_, e_i, _); l = _; sigma = _ } -> (
-                    match
-                      stub v e_i sigma (analyze_aux e_i (l :: sigma) set v)
-                    with
-                    | res_i, set_i -> (res_i :: result_accum, set_i @ set_accum)
-                    )
+                | FunResult { f = Function (_, e_i, _); l = _; sigma = _ } ->
+                    let sigma' = l :: sigma in
+                    let res_i, set_i =
+                      (*? set element insertion notation is a bit off *)
+                      stub_step e_i (prune_sigma sigma') (sigma' :: set) v'
+                    in
+                    (*? don't union? *)
+                    (res_i :: result_accum, set_i)
                 | _ -> raise Unreachable [@coverage off])
               res_ls ([], [])
           in
           (ChoiceResult { res_ls = result_list; l; sigma }, set_union)
       | _ -> raise Unreachable [@coverage off])
   | Var (Ident x, l) -> (
+      let sigma_hd = List.hd sigma in
+      let sigma_tl = List.tl sigma in
       match get_outer_scope l with
       | Function (Ident x1, _, _) -> (
           if x = x1 then
             (* Var Local *)
-            match get_expr (List.hd sigma) with
+            match get_expr sigma_hd with
             | Appl (_, e2, l') ->
-                (* enumerate all matching stacks in set *)
+                (* enumerate all matching stacks in the set *)
                 let result_list, set_union =
-                  List.fold_left
-                    (fun ((result_accum, set_accum) as accum) sigma0 ->
-                      if List.hd sigma0 = l' && contains_sigma sigma0 sigma then
-                        let result_i, set_i =
-                          analyze_aux e2 (List.tl sigma0) set v
+                  List.fold_right
+                    (fun sigma_i ((result_accum, set_accum) as accum) ->
+                      if
+                        List.hd sigma_i = l'
+                        && contains_sigma (List.tl sigma_i) sigma_tl
+                      then
+                        let res_i, set_i =
+                          (*? pass original sigma (unpopped) to stub? *)
+                          stub_step e2 (List.tl sigma_i) set ((sigma, e) :: vis)
                         in
-                        (result_i :: result_accum, set_i @ set_accum)
+                        (res_i :: result_accum, set_i @ set_accum)
                       else accum)
-                    ([], []) set
+                    set ([], [])
                 in
-                ( ChoiceResult { res_ls = result_list; l; sigma = List.tl sigma },
+                ( ChoiceResult { res_ls = result_list; l; sigma = sigma_tl },
                   set_union )
             | _ -> raise Unreachable [@coverage off]
           else
             (* Var Non-Local *)
-            match get_expr (List.hd sigma) with
+            match get_expr sigma_hd with
             | Appl (e1, _, l2) -> (
-                match analyze_aux e1 sigma set v with
+                match analyze_aux e1 sigma set vis with
                 | FunResult { f; l = l1; sigma = sigma1 }, set1 ->
-                    analyze_aux (Var (Ident x, l1)) sigma1 set1 v
+                    analyze_aux (Var (Ident x, l1)) sigma1 set1 vis
                 | _ -> raise Unreachable [@coverage off])
             | _ -> raise Unreachable [@coverage off])
       | _ -> raise Unreachable [@coverage off])
   | _ -> raise Unreachable [@coverage off]
 
-let analyze e = analyze_aux e [] [] []
+let analyze e =
+  let e = transform_let e in
+  fill_my_fun e None;
+  analyze_aux e [] [] []
+
+(* TODO: multiple layers of ChoiceResult - improve output readability *)

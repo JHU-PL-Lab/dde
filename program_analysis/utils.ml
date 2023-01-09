@@ -9,25 +9,26 @@ let rec pp_result_value fmt (v : result_value) =
   | FunResult { f; l; sigma } -> (
       match f with
       | Function (Ident i, le, l) ->
-          ff fmt "(@[<hv>function %s ->@;<1 4>%a@])^%d" i Ddepp.pp_expr le l
+          ff fmt "@[<hv>function %s ->@;<1 4>%a@]" i Ddepp.pp_expr le
       | _ -> raise Unreachable)
-  | ChoiceResult { ls; l; sigma } ->
-      ff fmt "(%s)^%d"
-        (List.fold_left
-           (fun acc r -> acc ^ " | " ^ Format.asprintf "%a" pp_result_value r)
-           "" ls)
-        l
+  | ChoiceResult { res_ls; l; sigma } ->
+      if List.length res_ls = 1 then
+        ff fmt "(| %a)" pp_result_value (List.hd res_ls)
+      else
+        ff fmt "(%s)"
+          (res_ls
+          |> List.map (fun res -> Format.asprintf "%a" pp_result_value res)
+          |> String.concat " | ")
   | OpResult op -> (
       match op with
       | PlusOp (r1, r2) ->
-          ff fmt "(%a + %a)" pp_result_value r1 pp_result_value r2
+          ff fmt "%a + %a" pp_result_value r1 pp_result_value r2
       | MinusOp (r1, r2) ->
-          ff fmt "(%a - %a)" pp_result_value r1 pp_result_value r2
+          ff fmt "%a - %a" pp_result_value r1 pp_result_value r2
       | EqualOp (r1, r2) ->
-          ff fmt "(%a = %a)" pp_result_value r1 pp_result_value r2
+          ff fmt "%a = %a" pp_result_value r1 pp_result_value r2
       | AndOp (r1, r2) ->
-          ff fmt "(%a and %a)" pp_result_value r1 pp_result_value r2
-      | OrOp (r1, r2) ->
-          ff fmt "(%a or %a)" pp_result_value r1 pp_result_value r2
-      | NotOp r1 -> ff fmt "(not %a)" pp_result_value r1)
+          ff fmt "%a and %a" pp_result_value r1 pp_result_value r2
+      | OrOp (r1, r2) -> ff fmt "%a or %a" pp_result_value r1 pp_result_value r2
+      | NotOp r1 -> ff fmt "not %a" pp_result_value r1)
   | _ -> failwith "unimplemented"
