@@ -23,7 +23,7 @@ and result_value =
       sigma : sigma_t;
     }
   | FunResult of { f : expr; l : label_t; sigma : sigma_t }
-  (*? shouldn't we need expr in addition to l to uniquely identify? *)
+  (*? shouldn't we need expr in addition to l to uniquely identify the stub? *)
   | StubResult of { e : expr; sigma : sigma_t }
   | IntResult of int
   | BoolResult of bool
