@@ -1,0 +1,12 @@
+(library
+ (name program_analysis)
+ (modules lib)
+ (libraries dde))
+
+(executable
+ (name main)
+ (modes byte)
+ (modules main)
+ (preprocess
+  (pps ppx_deriving.show))
+ (libraries program_analysis))

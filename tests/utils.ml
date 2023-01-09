@@ -2,11 +2,9 @@ exception Unreachable
 
 let rec strip_label_fb (e : Ddeast.expr) : Fbast.expr =
   match e with
-  | Value value -> (
-      match value with
-      | Int i -> Int i
-      | Bool b -> Bool b
-      | Function (Ident x, e, _) -> Function (Ident x, strip_label_fb e))
+  | Int i -> Int i
+  | Bool b -> Bool b
+  | Function (Ident x, e, _) -> Function (Ident x, strip_label_fb e)
   | Appl (e1, e2, _) -> Appl (strip_label_fb e1, strip_label_fb e2)
   | Var (Ident x, _) -> Var (Ident x)
   | Plus (e1, e2, _) -> Plus (strip_label_fb e1, strip_label_fb e2)
@@ -21,11 +19,9 @@ let rec strip_label_fb (e : Ddeast.expr) : Fbast.expr =
 
 let rec strip_label_fbenv (e : Ddeast.expr) : Fbenvast.expr =
   match e with
-  | Value value -> (
-      match value with
-      | Int i -> Int i
-      | Bool b -> Bool b
-      | Function (Ident x, e, _) -> Function (Ident x, strip_label_fbenv e))
+  | Int i -> Int i
+  | Bool b -> Bool b
+  | Function (Ident x, e, _) -> Function (Ident x, strip_label_fbenv e)
   | Appl (e1, e2, _) -> Appl (strip_label_fbenv e1, strip_label_fbenv e2)
   | Var (Ident x, _) -> Var (Ident x)
   | Plus (e1, e2, _) -> Plus (strip_label_fbenv e1, strip_label_fbenv e2)
@@ -42,7 +38,7 @@ let dde_to_fb (v : Ddeinterp.result_value) : Fbast.expr =
   match v with
   | IntResult i -> Int i
   | BoolResult b -> Bool b
-  | FunctionResult { f; l; sigma } -> (
+  | FunResult { f; l; sigma } -> (
       match f with
       | Function (Ident x, le, _) -> Function (Ident x, strip_label_fb le)
       | _ -> raise Unreachable)
@@ -52,7 +48,7 @@ let dde_to_fbenv (v : Ddeinterp.result_value) : Fbenvast.expr =
   match v with
   | IntResult i -> Int i
   | BoolResult b -> Bool b
-  | FunctionResult { f; l; sigma } -> (
+  | FunResult { f; l; sigma } -> (
       match f with
       | Function (Ident x, le, _) -> Function (Ident x, strip_label_fbenv le)
       | _ -> raise Unreachable)

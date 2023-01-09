@@ -22,9 +22,9 @@
  (modules ddeparser))
 
 (executable
- (name interpreter)
+ (name main)
  (modes byte)
- (modules interpreter)
+ (modules main)
  (preprocess
   (pps ppx_deriving.show))
  (libraries dde))
@@ -35,7 +35,7 @@
 
 (alias
  (name distributables)
- (deps interpreter.bc toplevel.exe))
+ (deps main.bc toplevel.exe))
 
 (rule
  (target version.ml)

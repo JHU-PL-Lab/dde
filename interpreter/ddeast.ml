@@ -3,10 +3,10 @@ exception Unreachable
 type ident = Ident of string
 [@@coverage off] [@@deriving show { with_path = false }]
 
-type value = Int of int | Bool of bool | Function of ident * expr * int
-
-and expr =
-  | Value of value
+type expr =
+  | Int of int
+  | Bool of bool
+  | Function of ident * expr * int
   | Var of ident * int
   | Appl of expr * expr * int
   | Plus of expr * expr * int
@@ -33,13 +33,11 @@ let add_outer_scope label outer =
 
 let rec fill_my_fun (e : expr) outer =
   match e with
-  | Value v -> (
-      match v with
-      | Int _ -> ()
-      | Bool _ -> ()
-      | Function (i, e', l) ->
-          add_outer_scope l outer;
-          fill_my_fun e' (Some e))
+  | Int _ -> ()
+  | Bool _ -> ()
+  | Function (i, e', l) ->
+      add_outer_scope l outer;
+      fill_my_fun e' (Some e)
   | Var (_, l) -> add_outer_scope l outer
   | Appl (e1, e2, l) ->
       add_outer_scope l outer;
@@ -80,19 +78,19 @@ let get_next_label () =
 
 let build_labeled_int i =
   let label = get_next_label () in
-  let labeled_int = Value (Int i) in
+  let labeled_int = Int i in
   add_expr label labeled_int;
   labeled_int
 
 let build_labeled_bool b =
   let label = get_next_label () in
-  let labeled_bool = Value (Bool b) in
+  let labeled_bool = Bool b in
   add_expr label labeled_bool;
   labeled_bool
 
 let build_labeled_function ident e =
   let label = get_next_label () in
-  let labeled_function = Value (Function (ident, e, label)) in
+  let labeled_function = Function (ident, e, label) in
   add_expr label labeled_function;
   labeled_function
 
