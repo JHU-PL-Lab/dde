@@ -1,5 +1,6 @@
 (library
  (name program_analysis)
+ (public_name dde.program_analysis)
  (modules lib utils debugutils)
  (libraries dde))
 

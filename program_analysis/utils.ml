@@ -11,12 +11,12 @@ let rec pp_result_value fmt (v : result_value) =
       | Function (Ident i, le, l) ->
           ff fmt "@[<hv>function %s ->@;<1 4>%a@]" i Ddepp.pp_expr le
       | _ -> raise Unreachable)
-  | ChoiceResult { res_ls; l; sigma } ->
-      if List.length res_ls = 1 then
-        ff fmt "(| %a)" pp_result_value (List.hd res_ls)
+  | ChoiceResult { choices; l; sigma } ->
+      if List.length choices = 1 then
+        ff fmt "(| %a)" pp_result_value (List.hd choices)
       else
         ff fmt "(%s)"
-          (res_ls
+          (choices
           |> List.map (fun res -> Format.asprintf "%a" pp_result_value res)
           |> String.concat " | ")
   | OpResult op -> (
