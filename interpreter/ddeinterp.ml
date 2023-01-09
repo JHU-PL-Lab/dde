@@ -18,31 +18,6 @@ and result_value =
   | OpResult of op_result_value
 [@@deriving show { with_path = false }]
 
-let rec transform_let e =
-  match e with
-  | Int _ | Bool _ -> e
-  | Function (ident, e, l) ->
-      let e' = transform_let e in
-      let f = Function (ident, e', l) in
-      add_expr l f;
-      f
-  | Let (ident, e1, e2, let_l) ->
-      let fun_l = get_next_label () in
-      let e2' = transform_let e2 in
-      let f = Function (ident, e2', fun_l) in
-      add_expr fun_l f;
-      let e1' = transform_let e1 in
-      let appl = Appl (f, e1', let_l) in
-      add_expr let_l appl;
-      appl
-  | Appl (e1, e2, l) ->
-      let e1' = transform_let e1 in
-      let e2' = transform_let e2 in
-      let appl = Appl (e1', e2', l) in
-      add_expr l appl;
-      appl
-  | _ -> e
-
 let rec eval_int (r : result_value) : int =
   match r with
   | FunResult _ | BoolResult _ -> raise TypeMismatch
