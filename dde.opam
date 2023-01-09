@@ -2,6 +2,10 @@
 opam-version: "2.0"
 synopsis: "Demand-Driven Execution (DDE)"
 description: "Concrete and abstract interpretation based on DDE"
+maintainer: ["JHU PL Lab <scott@cs.jhu.edu>"]
+authors: ["JHU PL Lab <scott@cs.jhu.edu>"]
+homepage: "https://github.com/JHU-PL-Lab/dde"
+bug-reports: "https://github.com/JHU-PL-Lab/dde/issues"
 depends: [
   "dune" {>= "3.6"}
   "odoc" {with-doc}
@@ -20,3 +24,4 @@ build: [
     "@doc" {with-doc}
   ]
 ]
+dev-repo: "git+https://github.com/JHU-PL-Lab/dde.git"
