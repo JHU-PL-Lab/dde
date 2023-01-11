@@ -23,7 +23,6 @@ and result_value =
       sigma : sigma_t;
     }
   | FunResult of { f : expr; l : label_t; sigma : sigma_t }
-  (*? shouldn't we need expr in addition to l to uniquely identify the stub? *)
   | StubResult of { e : expr; sigma : sigma_t }
   | IntResult of int
   | BoolResult of bool
@@ -63,6 +62,7 @@ let rec stub_step e sigma set v =
   | Some _ -> (StubResult { e; sigma }, set)
   | None -> analyze_aux e sigma set v
 
+(* TODO: can refactor to inline logic for Stub *)
 and analyze_aux e sigma set vis =
   match e with
   | Int i -> stub_base e sigma vis (IntResult i, set)
@@ -86,8 +86,7 @@ and analyze_aux e sigma set vis =
                       (*? set element insertion notation is a bit off *)
                       stub_step e_i (prune_sigma sigma') (sigma' :: set) vis'
                     in
-                    (*? don't union? *)
-                    (res_i :: result_accum, set_i)
+                    (res_i :: result_accum, set_accum @ set_i)
                 | _ -> failwith "funresult (appl)" [@coverage off])
               ([], []) choices
           in
@@ -111,9 +110,9 @@ and analyze_aux e sigma set vis =
                         && contains_sigma (List.tl sigma_i) sigma_tl
                       then
                         let res_i, set_i =
-                          (*? pass original sigma (unpopped) to stub? *)
                           stub_step e2 (List.tl sigma_i) set ((sigma, e) :: vis)
                         in
+                        (* TODO: use hashset for S *)
                         (res_i :: result_accum, set_i @ set_accum)
                       else accum)
                     set ([], [])
@@ -128,6 +127,7 @@ and analyze_aux e sigma set vis =
                 let vis' = (sigma, e) :: vis in
                 match stub_step e1 sigma set vis' with
                 | ChoiceResult { choices; _ }, set1 -> (
+                    (* TODO: disjunction; function with different sigmas *)
                     let fun_res =
                       find_choice
                         (fun res ->
@@ -146,27 +146,27 @@ and analyze_aux e sigma set vis =
          as code is clearer here and thus they are less ambiguous. *)
       let vis' = (sigma, e) :: vis in
       let r1, s1 = stub_step e1 sigma set vis' in
-      let r2, s2 = stub_step e1 sigma s1 vis' in
+      let r2, s2 = stub_step e2 sigma s1 vis' in
       (OpResult (PlusOp (r1, r2)), s2)
   | Minus (e1, e2, _) ->
       let vis' = (sigma, e) :: vis in
       let r1, s1 = stub_step e1 sigma set vis' in
-      let r2, s2 = stub_step e1 sigma s1 vis' in
+      let r2, s2 = stub_step e2 sigma s1 vis' in
       (OpResult (MinusOp (r1, r2)), s2)
   | Equal (e1, e2, _) ->
       let vis' = (sigma, e) :: vis in
       let r1, s1 = stub_step e1 sigma set vis' in
-      let r2, s2 = stub_step e1 sigma s1 vis' in
+      let r2, s2 = stub_step e2 sigma s1 vis' in
       (OpResult (EqualOp (r1, r2)), s2)
   | And (e1, e2, _) ->
       let vis' = (sigma, e) :: vis in
       let r1, s1 = stub_step e1 sigma set vis' in
-      let r2, s2 = stub_step e1 sigma s1 vis' in
+      let r2, s2 = stub_step e2 sigma s1 vis' in
       (OpResult (AndOp (r1, r2)), s2)
   | Or (e1, e2, _) ->
       let vis' = (sigma, e) :: vis in
       let r1, s1 = stub_step e1 sigma set vis' in
-      let r2, s2 = stub_step e1 sigma s1 vis' in
+      let r2, s2 = stub_step e2 sigma s1 vis' in
       (OpResult (OrOp (r1, r2)), s2)
   | Not (e', _) ->
       let r, s = stub_step e' sigma set ((sigma, e) :: vis) in
@@ -174,8 +174,8 @@ and analyze_aux e sigma set vis =
   | If (e', e1, e2, l) ->
       let vis' = (sigma, e) :: vis in
       let _r, s0 = stub_step e' sigma set vis' in
-      (* TODO: eval r to type check *)
-      (*? see if all choices converge to one type and if that type is valid? *)
+      (* TODO: eval r *)
+      (* on stub, denote as `anynum` *)
       let r_true, s_true = stub_step e1 sigma set vis' in
       let r_false, s_false = stub_step e2 sigma set vis' in
       ( ChoiceResult { choices = [ r_true; r_false ]; l; sigma },
