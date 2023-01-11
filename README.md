@@ -1,6 +1,6 @@
 # Essence of Demand-Driven Execution (DDE)
 
-This repo contains an interpreter for DDE.
+This repo contains a [concrete](./interpreter) and an [abstract](./program_analysis) interpreter based on DDE.
 
 ## Set up
 
@@ -17,30 +17,33 @@ Then `dune build`.
 
 ### utop
 
-`dune utop` to start an interactive environment with DDE.
+`dune utop` to start an interactive environment with all libraries loaded.
+Or, `dune utop <interpreter/program_analysis>` to load either the concrete or
+the abstract interpreter.
 
 ```ocaml
+open Program_analysis;; (* first if only working with program analysis *)
+
 open Debugutils;; (* to simplify calling utility functions such as `peu` *)
 
-Debugutils.is_debug_mode := true;; (* or *)
 is_debug_mode := true;; (* to print debug information from the
-evaluation. *)
+concrete interpretation. *)
 
-Debugutils.should_simplify := true;; (* or *)
 should_simplify := true;; (* to perform variable substitution, function
-application, etc. on the evaluation result. *)
+application, etc. on the concrete interpretation result. *)
 
 ```
 
 ### Binary
 
-`dune exec interpreter/main.exe` to run the interpreter.
+`dune exec interpreter/main.exe` to run the interpreter. Same applies
+to `program_analysis/main.exe`.
 
 Optionally pass in the `--debug` flag to print debug information from the
 evaluation:
 
 ```sh
-dune exec --interpreter/main.exe --debug
+dune exec -- interpreter/main.exe --debug
 ```
 
 Optionally pass in a file name to run the interpreter on the file:
