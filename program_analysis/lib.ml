@@ -103,8 +103,8 @@ and analyze_aux e sigma set vis =
             | Appl (_, e2, l') ->
                 (* enumerate all matching stacks in the set *)
                 let result_list, set_union =
-                  List.fold_right
-                    (fun sigma_i ((result_accum, set_accum) as accum) ->
+                  List.fold_left
+                    (fun ((result_accum, set_accum) as accum) sigma_i ->
                       if
                         List.hd sigma_i = l'
                         && contains_sigma (List.tl sigma_i) sigma_tl
@@ -115,7 +115,7 @@ and analyze_aux e sigma set vis =
                         (* TODO: use hashset for S *)
                         (res_i :: result_accum, set_i @ set_accum)
                       else accum)
-                    set ([], [])
+                    ([], []) set
                 in
                 ( ChoiceResult { choices = result_list; l; sigma = sigma_tl },
                   set_union )
