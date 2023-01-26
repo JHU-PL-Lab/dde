@@ -83,7 +83,7 @@ let rec analyze_aux e sigma set vis =
                         in
                         (res_i :: result_accum, set_i)
                     | _ -> failwith "funresult (appl)" [@coverage off])
-                  ([], []) choices
+                  ([], set_1) choices
               in
               ( ChoiceResult { choices = result_list; l; sigma = sigma_app_l },
                 set_union )
