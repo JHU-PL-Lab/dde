@@ -32,26 +32,20 @@ and result_value =
 let prune_sigma ?(k = 2) sigma = List.filteri (fun i _ -> i < k) sigma
 
 let rec contains_sigma sigma_parent sigma_child =
-  match (sigma_child, sigma_parent) with
-  | [], [] -> true
-  | [], _ -> true
-  | _, [] -> false
+  match (sigma_parent, sigma_child) with
+  | _, [] -> true
+  | [], _ -> false
   | l_child :: ls_child, l_parent :: ls_parent ->
       l_child = l_parent && contains_sigma ls_parent ls_child
 
 let rec fold_choices f accum choices =
   match choices with
   | ChoiceResult { choices = choices'; _ } :: rest ->
-      fold_choices f accum choices'
+      fold_choices f accum (choices' @ rest)
   | res :: rest -> fold_choices f (f res accum) rest
   | [] -> accum
 
-let rec find_choice f choices =
-  match choices with
-  | ChoiceResult { choices = choices'; _ } :: rest -> find_choice f choices'
-  | res :: rest -> if f res then res else find_choice f rest
-  | [] -> failwith "choice not found" [@coverage off]
-
+(* TODO: use hashset for S *)
 let rec analyze_aux e sigma set vis =
   match e with
   | Int i -> (IntResult i, set)
@@ -106,35 +100,43 @@ let rec analyze_aux e sigma set vis =
                         && contains_sigma (List.tl sigma_i) sigma_tl
                       then
                         let res_i, set_i =
-                          analyze_aux e2 (List.tl sigma_i) set
-                            ((e, sigma) :: vis)
+                          analyze_aux e2 (List.tl sigma_i) set_accum vis
                         in
-                        (* TODO: use hashset for S *)
-                        (res_i :: result_accum, set_i @ set_accum)
+                        (res_i :: result_accum, set_i)
                       else accum)
-                    ([], []) set
+                    ([], set) set
                 in
-                ( ChoiceResult { choices = result_list; l; sigma = sigma_tl },
-                  set_union )
+                (ChoiceResult { choices = result_list; l; sigma }, set_union)
             | _ -> failwith "appl (var local)" [@coverage off]
           else
             (* Var Non-Local *)
             match get_expr sigma_hd with
             | Appl (e1, _, l2) -> (
-                let vis' = (e, sigma) :: vis in
-                match analyze_aux e1 sigma set vis' with
-                | ChoiceResult { choices; _ }, set1 -> (
-                    (* TODO: disjunction; function with different sigmas *)
-                    let fun_res =
-                      find_choice
-                        (fun res ->
-                          match res with FunResult _ -> true | _ -> false)
-                        choices
+                match analyze_aux e1 sigma set vis with
+                | ChoiceResult { choices; _ }, set_1 ->
+                    let result_list, set_union =
+                      fold_choices
+                        (fun fun_res (result_accum, set_accum) ->
+                          match fun_res with
+                          | FunResult
+                              {
+                                f = Function (Ident x1, _, _);
+                                l = l1;
+                                sigma = sigma_i;
+                              } ->
+                              let res_i, set_i =
+                                analyze_aux
+                                  (Var (Ident x, l1))
+                                  sigma_i set_accum vis
+                              in
+                              (res_i :: result_accum, set_i)
+                          | _ ->
+                              (* TODO: throw or skip *)
+                              failwith "FunResult (var non-local)"
+                              [@coverage off])
+                        ([], set_1) choices
                     in
-                    match fun_res with
-                    | FunResult { f; l = l1; sigma = sigma1 } ->
-                        analyze_aux (Var (Ident x, l1)) sigma1 set1 vis'
-                    | _ -> failwith "fun" [@coverage off])
+                    (ChoiceResult { choices = result_list; l; sigma }, set_union)
                 | _ -> failwith "choice" [@coverage off])
             | _ -> failwith "appl" [@coverage off])
       | _ -> failwith "function" [@coverage off])
