@@ -4,7 +4,7 @@
  (preprocess
   (pps ppx_deriving.show bisect_ppx))
  (modules lib utils debugutils)
- (libraries dde))
+ (libraries dde hashset))
 
 (executable
  (name main)
