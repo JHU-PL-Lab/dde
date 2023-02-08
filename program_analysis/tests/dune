@@ -1,4 +1,4 @@
 (test
  (name tests)
- (modules tests tests_self utils)
- (libraries ounit2 dde.program_analysis core))
+ (modules tests tests_self test_utils)
+ (libraries ounit2 dde.program_analysis))

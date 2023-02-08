@@ -1,12 +1,6 @@
-(* open OUnit2
-   open Utils
+open OUnit2
+open Test_utils
 
-   let pa_basics _ =
-     assert_equal
-       (dde_eval_fb "(fun x -> fun y -> x) ((fun z -> z + 1) (1 + 2 + 3));;")
-       (dde_parse "fun y -> 7")
-
-   let pa_self_tests =
-     [ "Laziness" >:: test_laziness; "Memoization" >:: test_memoization ]
-
-   let pa_self = "Program analysis against self" >::: dde_self_tests *)
+let test_basics _ = assert_equal "| | 1" (pau "(fun x -> x) 1;;")
+let pa_self_tests = [ "Basics" >:: test_basics ]
+let pa_self = "Program analysis against self" >::: pa_self_tests

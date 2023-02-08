@@ -1,6 +1,6 @@
 (test
  (name tests)
- (modules tests tests_subst tests_env tests_self benchmarks utils)
+ (modules tests tests_subst tests_env tests_self benchmarks test_utils)
  (libraries
   ounit2
   dde
