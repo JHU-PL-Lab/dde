@@ -46,7 +46,7 @@ let rec fold_choices f accum choices =
 let set : sigma_t Hashset.t = Hashset.create 100
 let vis : (expr * sigma_t) Hashset.t = Hashset.create 50
 
-let rec analyze_aux e sigma =
+let rec analyze_aux ?(stub = true) e sigma =
   match e with
   | Int i -> IntResult i
   | Bool b -> BoolResult b
@@ -54,9 +54,9 @@ let rec analyze_aux e sigma =
       (*? should ChoiceResult wrap all results? *)
       ChoiceResult { choices = [ FunResult { f = e; l; sigma } ]; l; sigma }
   | Appl (e', _, l) -> (
-      (* Stub *)
       let sigma_app_l = prune_sigma (l :: sigma) in
-      if Hashset.mem vis (e, sigma_app_l) then
+      (* Stub *)
+      if stub && Hashset.mem vis (e, sigma_app_l) then
         StubResult { e; sigma = sigma_app_l }
       else
         (* Application *)
@@ -102,7 +102,7 @@ let rec analyze_aux e sigma =
             (* Var Non-Local *)
             match get_expr sigma_hd with
             | Appl (e1, _, l2) -> (
-                match analyze_aux e1 sigma_tl with
+                match analyze_aux e1 sigma_tl ~stub:false with
                 | ChoiceResult { choices; _ } ->
                     let result_list =
                       fold_choices
