@@ -1,5 +1,5 @@
 open OUnit2
-open Utils
+open Test_utils
 
 let test_numerical _ =
   assert_equal (dde_eval_fb "1;;") (fb_eval "1;;");

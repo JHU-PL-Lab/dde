@@ -1,5 +1,5 @@
 open OUnit2
-open Utils
+open Test_utils
 
 let test_numerical _ =
   assert_equal (dde_eval_fbenv "1;;") (fbenv_eval "1;;");

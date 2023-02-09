@@ -1,4 +1,4 @@
-open Utils
+open Test_utils
 open Core_bench
 
 (* TODO: mutable vs immutable data structures *)

@@ -1,5 +1,5 @@
 open OUnit2
-open Utils
+open Test_utils
 
 let test_laziness _ =
   assert_equal
