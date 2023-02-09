@@ -102,7 +102,7 @@ let rec analyze_aux e sigma =
             (* Var Non-Local *)
             match get_expr sigma_hd with
             | Appl (e1, _, l2) -> (
-                match analyze_aux e1 sigma with
+                match analyze_aux e1 sigma_tl with
                 | ChoiceResult { choices; _ } ->
                     let result_list =
                       fold_choices
@@ -113,7 +113,8 @@ let rec analyze_aux e sigma =
                                 f = Function (Ident x1, _, _);
                                 l = l1;
                                 sigma = sigma_i;
-                              } ->
+                              }
+                            when x <> x1 ->
                               analyze_aux (Var (Ident x, l1)) sigma_i :: accum
                           | _ -> accum)
                         [] choices
