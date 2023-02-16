@@ -44,9 +44,18 @@ let rec fold_choices f accum choices =
   | [] -> accum
 
 let set : sigma_t Hashset.t = Hashset.create 100
-let vis : (expr * sigma_t) Hashset.t = Hashset.create 50
+(* let vis : (expr * sigma_t) Hashset.t = Hashset.create 50 *)
 
-let rec analyze_aux ?(stub = true) e sigma =
+module ProgramPoint = struct
+  type t = expr * sigma_t
+
+  let compare (e1, sigma1) (e2, sigma2) =
+    match compare e1 e2 with 0 -> compare sigma1 sigma2 | n -> n
+end
+
+module VisSet = Set.Make (ProgramPoint)
+
+let rec analyze_aux e sigma vis =
   match e with
   | Int i -> IntResult i
   | Bool b -> BoolResult b
@@ -56,11 +65,11 @@ let rec analyze_aux ?(stub = true) e sigma =
   | Appl (e', _, l) -> (
       let sigma_app_l = prune_sigma (l :: sigma) in
       (* Stub *)
-      if stub && Hashset.mem vis (e, sigma_app_l) then
+      if VisSet.mem (e, sigma_app_l) vis then
         StubResult { e; sigma = sigma_app_l }
       else
         (* Application *)
-        match analyze_aux e' sigma with
+        match analyze_aux e' sigma vis with
         | ChoiceResult { choices; _ } ->
             let result_list =
               fold_choices
@@ -68,8 +77,10 @@ let rec analyze_aux ?(stub = true) e sigma =
                   match fun_res with
                   | FunResult { f = Function (_, e_i, _); _ } ->
                       Hashset.add set (l :: sigma);
-                      Hashset.add vis (e, sigma_app_l);
-                      let res_i = analyze_aux e_i sigma_app_l in
+                      let res_i =
+                        analyze_aux e_i sigma_app_l
+                          (VisSet.add (e, sigma_app_l) vis)
+                      in
                       res_i :: accum
                   | _ -> failwith "funresult (appl)" [@coverage off])
                 [] choices
@@ -92,7 +103,7 @@ let rec analyze_aux ?(stub = true) e sigma =
                       if
                         List.hd sigma_i = l'
                         && contains_sigma (List.tl sigma_i) sigma_tl
-                      then analyze_aux e2 (List.tl sigma_i) :: accum
+                      then analyze_aux e2 (List.tl sigma_i) vis :: accum
                       else accum)
                     set []
                 in
@@ -102,7 +113,7 @@ let rec analyze_aux ?(stub = true) e sigma =
             (* Var Non-Local *)
             match get_expr sigma_hd with
             | Appl (e1, _, l2) -> (
-                match analyze_aux e1 sigma_tl ~stub:false with
+                match analyze_aux e1 sigma_tl vis with
                 | ChoiceResult { choices; _ } ->
                     let result_list =
                       fold_choices
@@ -115,7 +126,8 @@ let rec analyze_aux ?(stub = true) e sigma =
                                 sigma = sigma_i;
                               }
                             when x <> x1 ->
-                              analyze_aux (Var (Ident x, l1)) sigma_i :: accum
+                              analyze_aux (Var (Ident x, l1)) sigma_i vis
+                              :: accum
                           | _ -> accum)
                         [] choices
                     in
@@ -126,40 +138,40 @@ let rec analyze_aux ?(stub = true) e sigma =
   | Plus (e1, e2, _) ->
       (* hereafter we use short forms `r1` (`res1`), `s2` (`set2`), etc.
          as code is clearer here and thus they are less ambiguous. *)
-      let r1 = analyze_aux e1 sigma in
-      let r2 = analyze_aux e2 sigma in
+      let r1 = analyze_aux e1 sigma vis in
+      let r2 = analyze_aux e2 sigma vis in
       OpResult (PlusOp (r1, r2))
   | Minus (e1, e2, _) ->
-      let r1 = analyze_aux e1 sigma in
-      let r2 = analyze_aux e2 sigma in
+      let r1 = analyze_aux e1 sigma vis in
+      let r2 = analyze_aux e2 sigma vis in
       OpResult (MinusOp (r1, r2))
   | Equal (e1, e2, _) ->
-      let r1 = analyze_aux e1 sigma in
-      let r2 = analyze_aux e2 sigma in
+      let r1 = analyze_aux e1 sigma vis in
+      let r2 = analyze_aux e2 sigma vis in
       OpResult (EqualOp (r1, r2))
   | And (e1, e2, _) ->
-      let r1 = analyze_aux e1 sigma in
-      let r2 = analyze_aux e2 sigma in
+      let r1 = analyze_aux e1 sigma vis in
+      let r2 = analyze_aux e2 sigma vis in
       OpResult (AndOp (r1, r2))
   | Or (e1, e2, _) ->
-      let r1 = analyze_aux e1 sigma in
-      let r2 = analyze_aux e2 sigma in
+      let r1 = analyze_aux e1 sigma vis in
+      let r2 = analyze_aux e2 sigma vis in
       OpResult (OrOp (r1, r2))
   | Not (e', _) ->
-      let r = analyze_aux e' sigma in
+      let r = analyze_aux e' sigma vis in
       OpResult (NotOp r)
   | If (e', e1, e2, l) ->
-      let _r = analyze_aux e' sigma in
+      let _r = analyze_aux e' sigma vis in
       (* TODO: eval r *)
       (* on stub, denote as `anynum` *)
-      let r_true = analyze_aux e1 sigma in
-      let r_false = analyze_aux e2 sigma in
+      let r_true = analyze_aux e1 sigma vis in
+      let r_false = analyze_aux e2 sigma vis in
       ChoiceResult { choices = [ r_true; r_false ]; l; sigma }
   | Let _ -> raise Unreachable [@coverage off]
 
 let analyze e =
   let e = transform_let e in
   fill_my_fun e None;
-  analyze_aux e []
+  analyze_aux e [] VisSet.empty
 
 (* TODO: multiple layers of ChoiceResult - improve output readability *)
