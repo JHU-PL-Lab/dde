@@ -1,7 +1,10 @@
+open Base_quickcheck
+open Sexplib.Std
+
 exception Unreachable
 
 type ident = Ident of string
-[@@coverage off] [@@deriving show { with_path = false }]
+[@@coverage off] [@@deriving show { with_path = false }, quickcheck, sexp_of]
 
 type expr =
   | Int of int
@@ -17,7 +20,7 @@ type expr =
   | Not of expr * int
   | If of expr * expr * expr * int
   | Let of ident * expr * expr * int
-[@@deriving show { with_path = false }]
+[@@deriving show { with_path = false }, quickcheck, sexp_of]
 
 type fbtype = TArrow of fbtype * fbtype | TVar of string
 [@@coverage off] [@@deriving show { with_path = false }]

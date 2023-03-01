@@ -3,7 +3,7 @@
  (public_name dde.interpreter)
  (wrapped false)
  (preprocess
-  (pps ppx_deriving.show bisect_ppx))
+  (pps ppx_deriving.show bisect_ppx ppx_jane))
  (modules
   fbdk
   debugutils
