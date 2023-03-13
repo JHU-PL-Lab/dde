@@ -1,9 +1,13 @@
 open Ddeast
+open Base_quickcheck
+open Sexplib.Std
 
 exception Unreachable
 
-type label_t = int [@@deriving show { with_path = false }]
-type sigma_t = label_t list [@@deriving show { with_path = false }]
+type label_t = int [@@deriving show { with_path = false }, quickcheck, sexp_of]
+
+type sigma_t = label_t list
+[@@deriving show { with_path = false }, quickcheck, sexp_of]
 
 type op_result_value =
   | PlusOp of result_value * result_value
@@ -25,7 +29,7 @@ and result_value =
   | StubResult of { e : expr; sigma : sigma_t }
   | IntResult of int
   | BoolResult of bool
-[@@deriving show { with_path = false }]
+[@@deriving show { with_path = false }, quickcheck, sexp_of]
 
 let prune_sigma ?(k = 2) sigma = List.filteri (fun i _ -> i < k) sigma
 
@@ -88,7 +92,9 @@ let rec analyze_aux e sigma vis =
             ChoiceResult { choices = result_list; l; sigma = sigma_app_l }
         | _ -> failwith "choice (appl)" [@coverage off])
   | Var (Ident x, l) -> (
+      (* print_endline "before"; *)
       let sigma_hd = List.hd sigma in
+      (* print_endline "after"; *)
       let sigma_tl = List.tl sigma in
       match get_outer_scope l with
       | Function (Ident x1, _, _) -> (
