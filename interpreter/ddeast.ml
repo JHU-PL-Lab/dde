@@ -3,12 +3,16 @@ open Sexplib.Std
 
 exception Unreachable
 
-type ident = Ident of string
+type ident =
+  | Ident of
+      (string
+      [@quickcheck.generator
+        Generator.string_non_empty_of Generator.char_lowercase])
 [@@coverage off] [@@deriving show { with_path = false }, quickcheck, sexp_of]
 
 type expr =
-  | Int of int
-  | Bool of bool
+  | Int of int [@quickcheck.weight 0.1]
+  | Bool of bool [@quickcheck.weight 0.1]
   | Function of ident * expr * int
   | Var of ident * int
   | Appl of expr * expr * int
@@ -19,7 +23,7 @@ type expr =
   | Or of expr * expr * int
   | Not of expr * int
   | If of expr * expr * expr * int
-  | Let of ident * expr * expr * int
+  | Let of ident * expr * expr * int [@quickcheck.do_not_generate]
 [@@deriving show { with_path = false }, quickcheck, sexp_of]
 
 type fbtype = TArrow of fbtype * fbtype | TVar of string
