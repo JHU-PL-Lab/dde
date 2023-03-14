@@ -1,6 +1,6 @@
 {
   [@@@coverage off]
-  open Ddeparser;;
+  open Parser;;
 }
 
 let blank = [' ' '\t' '\n' '\r']

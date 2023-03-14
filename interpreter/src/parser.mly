@@ -1,7 +1,7 @@
 %{
 
 [@@@coverage off]
-open Ddeast;;
+open Ast;;
 
 %}
 
@@ -45,7 +45,7 @@ open Ddeast;;
  * The entry point.
  */
 %start main
-%type <Ddeast.expr> main
+%type <Ast.expr> main
 
 %%
 

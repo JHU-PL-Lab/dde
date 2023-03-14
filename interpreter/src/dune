@@ -1,38 +1,25 @@
 (library
- (name dde)
+ (name interpreter)
  (public_name dde.interpreter)
- (wrapped false)
  (preprocess
   (pps ppx_deriving.show bisect_ppx ppx_jane))
- (modules
-  fbdk
-  debugutils
-  version
-  ddeast
-  ddetype
-  ddeinterp
-  ddelexer
-  ddeoptions
-  ddeparser
-  ddepp))
+ (modules fbdk debugutils version ast type interp lexer options parser pp))
 
 (ocamllex
- (modules ddelexer))
+ (modules lexer))
 
 (menhir
- (modules ddeparser))
+ (modules parser))
 
 (executable
  (name main)
  (modes byte)
  (modules main)
- (preprocess
-  (pps ppx_deriving.show))
- (libraries dde))
+ (libraries interpreter))
 
 (toplevel
  (name toplevel)
- (libraries utop dde))
+ (libraries utop interpreter))
 
 (alias
  (name distributables)

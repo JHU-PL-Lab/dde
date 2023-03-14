@@ -1,13 +1,11 @@
-open Ddeast
+open Interpreter.Ast
 open Base_quickcheck
 open Sexplib.Std
 
 exception Unreachable
 
-type label_t = int [@@deriving show { with_path = false }, quickcheck, sexp_of]
-
+type label_t = int
 type sigma_t = label_t list
-[@@deriving show { with_path = false }, quickcheck, sexp_of]
 
 type op_result_value =
   | PlusOp of result_value * result_value
@@ -29,7 +27,6 @@ and result_value =
   | StubResult of { e : expr; sigma : sigma_t }
   | IntResult of int
   | BoolResult of bool
-[@@deriving show { with_path = false }, quickcheck, sexp_of]
 
 let prune_sigma ?(k = 2) sigma = List.filteri (fun i _ -> i < k) sigma
 

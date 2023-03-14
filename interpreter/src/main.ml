@@ -1,3 +1,5 @@
+open Interpreter
+
 let toplevel_loop typechecking_enabled show_types is_debug_mode should_simplify
     =
   (* Prints exceptions and associated stack traces *)

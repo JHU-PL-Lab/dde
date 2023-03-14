@@ -1,11 +1,10 @@
 (test
  (name tests)
- (modules tests tests_subst tests_env tests_self benchmarks test_utils)
+ (modules tests tests_subst tests_env tests_self bench utils)
  (libraries
   ounit2
-  dde
+  dde.interpreter
   fbdk.fb
   fbdk.fbenv
   core_bench
-  core_unix.command_unix
-  core))
+  core_unix.command_unix))

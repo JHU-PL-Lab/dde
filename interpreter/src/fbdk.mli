@@ -1,7 +1,7 @@
 val name : string
 
 module Ast : sig
-  type ident = Ddeast.ident = Ident of string
+  type ident = Ast.ident = Ident of string
 
   type expr =
     | Int of int
@@ -18,7 +18,7 @@ module Ast : sig
     | If of expr * expr * expr * int
     | Let of ident * expr * expr * int
 
-  type fbtype = Ddeast.fbtype = TArrow of fbtype * fbtype | TVar of string
+  type fbtype = Ast.fbtype = TArrow of fbtype * fbtype | TVar of string
 
   val show_expr : expr -> string
   val pp_expr : Format.formatter -> expr -> unit [@@ocaml.toplevel_printer]
