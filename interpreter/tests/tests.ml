@@ -7,5 +7,5 @@ let tests =
 let () =
   let bench = ref false in
   Arg.parse [ ("--bench", Arg.Set bench, "run benchmarks") ] (fun _ -> ()) "";
-  if !bench then Benchmarks.fib_bench ();
+  if !bench then Bench.fib_bench ();
   run_test_tt_main tests

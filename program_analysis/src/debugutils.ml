@@ -1,7 +1,9 @@
 [@@@coverage off]
 
+open Interpreter
+
 let analyze = Lib.analyze
-let parse s = s ^ ";;" |> Lexing.from_string |> Ddeparser.main Ddelexer.token
+let parse s = s ^ ";;" |> Lexing.from_string |> Parser.main Lexer.token
 let unparse v = v |> Format.asprintf "%a" Utils.pp_result_value
 let parse_analyze s = s |> parse |> analyze
 let parse_analyze_unparse s = s |> parse |> analyze |> unparse

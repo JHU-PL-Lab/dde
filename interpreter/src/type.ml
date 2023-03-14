@@ -1,6 +1,6 @@
 [@@@coverage off]
 
-open Ddeast
+open Ast
 
 exception TypecheckerNotImplementedException
 
