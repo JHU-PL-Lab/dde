@@ -24,7 +24,7 @@ let rec rename_vars ?(vars = IdentSet.empty) (e : Ast.expr) =
   | Int _ | Bool _ -> e
   | Function (id, e, _) ->
       let vars = IdentSet.add id vars in
-      Function (id, rename_vars e ~vars, fresh_label ())
+      Function (id, rename_vars ~vars e, fresh_label ())
   | Var (id, _) -> (
       match IdentSet.find_opt id vars with
       | Some _ -> Var (id, fresh_label ())
@@ -33,24 +33,24 @@ let rec rename_vars ?(vars = IdentSet.empty) (e : Ast.expr) =
           | Some (Ident chosen_id) -> Var (Ident chosen_id, fresh_label ())
           | None -> Var (id, fresh_label ())))
   | Appl (e1, e2, _) ->
-      Appl (rename_vars e1 ~vars, rename_vars e2 ~vars, fresh_label ())
+      Appl (rename_vars ~vars e1, rename_vars ~vars e2, fresh_label ())
   | If (e1, e2, e3, _) ->
       If
-        ( rename_vars e1 ~vars,
-          rename_vars e2 ~vars,
-          rename_vars e3 ~vars,
+        ( rename_vars ~vars e1,
+          rename_vars ~vars e2,
+          rename_vars ~vars e3,
           fresh_label () )
   | Plus (e1, e2, _) ->
-      Plus (rename_vars e1 ~vars, rename_vars e2 ~vars, fresh_label ())
+      Plus (rename_vars ~vars e1, rename_vars ~vars e2, fresh_label ())
   | Minus (e1, e2, _) ->
-      Minus (rename_vars e1 ~vars, rename_vars e2 ~vars, fresh_label ())
+      Minus (rename_vars ~vars e1, rename_vars ~vars e2, fresh_label ())
   | Equal (e1, e2, _) ->
-      Equal (rename_vars e1 ~vars, rename_vars e2 ~vars, fresh_label ())
+      Equal (rename_vars ~vars e1, rename_vars ~vars e2, fresh_label ())
   | And (e1, e2, _) ->
-      And (rename_vars e1 ~vars, rename_vars e2 ~vars, fresh_label ())
+      And (rename_vars ~vars e1, rename_vars ~vars e2, fresh_label ())
   | Or (e1, e2, _) ->
-      Or (rename_vars e1 ~vars, rename_vars e2 ~vars, fresh_label ())
-  | Not (e, _) -> Not (rename_vars e ~vars, fresh_label ())
+      Or (rename_vars ~vars e1, rename_vars ~vars e2, fresh_label ())
+  | Not (e, _) -> Not (rename_vars ~vars e, fresh_label ())
   | Let _ -> failwith "unreachable"
 
 let ( |>% ) v f = Option.map f v
@@ -86,14 +86,14 @@ let run () =
       |> (fun e ->
            try
              (* run Fb interpreter to validate (closed + well-typed) *)
-             e |> strip_label_fb |> Fbinterp.eval |> ignore;
+             let e' = strip_label_fb e in
+             e' |> Fbinterp.eval |> ignore;
+             Format.printf "Fb: %a\n" Fbpp.pp_expr e';
              Some e
            with _ -> None)
       |>% au
       (* |>% (fun e -> Format.asprintf "%a" pp_expr e) *)
-      |>% (fun s ->
-            print_endline s;
-            print_endline "")
+      |>% (fun s -> Format.printf "PA:%s\n" s)
       |> ignore)
 
 (*
