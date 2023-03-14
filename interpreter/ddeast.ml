@@ -11,18 +11,18 @@ type ident =
 [@@coverage off] [@@deriving show { with_path = false }, quickcheck, sexp_of]
 
 type expr =
-  | Int of int [@quickcheck.weight 0.1]
-  | Bool of bool [@quickcheck.weight 0.1]
-  | Function of ident * expr * int
-  | Var of ident * int
-  | Appl of expr * expr * int
-  | Plus of expr * expr * int
-  | Minus of expr * expr * int
-  | Equal of expr * expr * int
-  | And of expr * expr * int
-  | Or of expr * expr * int
-  | Not of expr * int
-  | If of expr * expr * expr * int
+  | Int of int [@quickcheck.weight 0.05]
+  | Bool of bool [@quickcheck.weight 0.05]
+  | Function of ident * expr * int [@quickcheck.weight 0.1]
+  | Var of ident * int [@quickcheck.weight 0.2]
+  | Appl of expr * expr * int [@quickcheck.weight 0.25]
+  | Plus of expr * expr * int [@quickcheck.weight 0.05]
+  | Minus of expr * expr * int [@quickcheck.weight 0.05]
+  | Equal of expr * expr * int [@quickcheck.weight 0.05]
+  | And of expr * expr * int [@quickcheck.weight 0.05]
+  | Or of expr * expr * int [@quickcheck.weight 0.05]
+  | Not of expr * int [@quickcheck.weight 0.05]
+  | If of expr * expr * expr * int [@quickcheck.weight 0.05]
   | Let of ident * expr * expr * int [@quickcheck.do_not_generate]
 [@@deriving show { with_path = false }, quickcheck, sexp_of]
 
