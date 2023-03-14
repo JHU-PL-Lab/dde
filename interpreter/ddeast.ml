@@ -13,9 +13,9 @@ type ident =
 type expr =
   | Int of int [@quickcheck.weight 0.05]
   | Bool of bool [@quickcheck.weight 0.05]
-  | Function of ident * expr * int [@quickcheck.weight 0.15]
+  | Function of ident * expr * int [@quickcheck.weight 0.1]
   | Var of ident * int [@quickcheck.weight 0.2]
-  | Appl of expr * expr * int [@quickcheck.weight 0.2]
+  | Appl of expr * expr * int [@quickcheck.weight 0.25]
   | Plus of expr * expr * int [@quickcheck.weight 0.05]
   | Minus of expr * expr * int [@quickcheck.weight 0.05]
   | Equal of expr * expr * int [@quickcheck.weight 0.05]
