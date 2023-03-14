@@ -1,6 +1,10 @@
 (library
  (name program_analysis)
  (public_name dde.program_analysis)
+ (preprocess
+  (pps bisect_ppx))
+ (instrumentation
+  (backend bisect_ppx --bisect-file _build/bisect))
  (modules lib utils debugutils)
  (libraries dde.interpreter hashset))
 
