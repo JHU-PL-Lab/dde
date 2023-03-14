@@ -1,3 +1,4 @@
+open Interpreter
 open Program_analysis
 
 let toplevel_loop =
@@ -10,7 +11,7 @@ let toplevel_loop =
   let safe_parse () =
     try
       let lexbuf = Lexing.from_channel stdin in
-      Some (Ddeparser.main Ddelexer.token lexbuf)
+      Some (Parser.main Lexer.token lexbuf)
     with
     | Exit -> exit 0
     | ex ->

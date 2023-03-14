@@ -1,3 +1,4 @@
+open Interpreter
 open Lib
 
 let ff = Format.fprintf
@@ -9,7 +10,7 @@ let rec pp_result_value fmt (v : result_value) =
   | FunResult { f; l; sigma } -> (
       match f with
       | Function (Ident i, le, l) ->
-          ff fmt "@[<hv>function %s ->@;<1 4>%a@]" i Ddepp.pp_expr le
+          ff fmt "@[<hv>function %s ->@;<1 4>%a@]" i Pp.pp_expr le
       | _ -> raise Unreachable)
   | ChoiceResult { choices; l; sigma } ->
       if List.length choices = 1 then

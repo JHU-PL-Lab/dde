@@ -1,7 +1,7 @@
 [@@@coverage off]
 
-open Ddeast
-open Ddeinterp
+open Ast
+open Interp
 
 let ff = Format.fprintf
 

@@ -1,15 +1,11 @@
 (library
  (name program_analysis)
  (public_name dde.program_analysis)
- (preprocess
-  (pps ppx_deriving.show bisect_ppx ppx_jane))
  (modules lib utils debugutils)
- (libraries dde hashset core))
+ (libraries dde.interpreter hashset))
 
 (executable
  (name main)
  (modes byte)
  (modules main)
- (preprocess
-  (pps ppx_deriving.show))
  (libraries program_analysis))

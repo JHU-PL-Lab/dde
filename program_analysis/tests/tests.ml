@@ -1,5 +1,5 @@
 open OUnit2
-open Test_utils
+open Utils
 
 let test_basics _ =
   assert_equal "| | 1" (pau "(fun x -> x) 1;;");
@@ -21,5 +21,5 @@ let pa_tests =
 let tests = "Program analysis tests" >::: pa_tests
 
 let () =
-  Tests_prop.run ();
+  Pbt.run ();
   run_test_tt_main tests

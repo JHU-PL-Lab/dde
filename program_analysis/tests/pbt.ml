@@ -1,13 +1,14 @@
 open Program_analysis.Lib
-open Test_utils
-open Ddeast
+open Utils
+open Interpreter
 module QC = Core.Quickcheck
 
 module IdentSet = Set.Make (struct
-  type t = ident
+  type t = Ast.ident
 
   let compare ident1 ident2 =
-    match (ident1, ident2) with Ident id1, Ident id2 -> compare id1 id2
+    match (ident1, ident2) with
+    | Ast.Ident id1, Ast.Ident id2 -> compare id1 id2
 end)
 
 let label = ref (-1)
@@ -18,7 +19,7 @@ let fresh_label () =
 
 let reset_label () = label := -1
 
-let rec rename_vars ?(vars = IdentSet.empty) e =
+let rec rename_vars ?(vars = IdentSet.empty) (e : Ast.expr) =
   match e with
   | Int _ | Bool _ -> e
   | Function (id, e, _) ->
@@ -54,7 +55,7 @@ let rec rename_vars ?(vars = IdentSet.empty) e =
 
 let ( |>% ) v f = Option.map f v
 
-let rec strip_label_fb (e : Ddeast.expr) : Fbast.expr =
+let rec strip_label_fb (e : Ast.expr) : Fbast.expr =
   match e with
   | Int i -> Int i
   | Bool b -> Bool b
@@ -72,8 +73,8 @@ let rec strip_label_fb (e : Ddeast.expr) : Fbast.expr =
   | _ -> raise Unreachable
 
 let run () =
-  QC.test quickcheck_generator_expr (* ~sexp_of:sexp_of_expr *)
-    ~sexp_of:(fun e -> e |> rename_vars |> sexp_of_expr)
+  QC.test Ast.quickcheck_generator_expr (* ~sexp_of:sexp_of_expr *)
+    ~sexp_of:(fun e -> e |> rename_vars |> Ast.sexp_of_expr)
     ~trials:1000
     ~sizes:(Base.Sequence.cycle_list_exn (Core.List.range 3 5 ~stop:`inclusive))
     ~seed:`Nondeterministic
