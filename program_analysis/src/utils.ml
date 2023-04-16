@@ -7,12 +7,12 @@ let rec pp_result_value fmt (v : result_value) =
   match v with
   | IntResult x -> ff fmt "%d" x
   | BoolResult b -> ff fmt "%b" b
-  | FunResult { f; l; sigma } -> (
+  | FunResult { f; _ } -> (
       match f with
-      | Function (Ident i, le, l) ->
+      | Function (Ident i, le, _) ->
           ff fmt "@[<hv>function %s ->@;<1 4>%a@]" i Pp.pp_expr le
       | _ -> raise Unreachable)
-  | ChoiceResult { choices; l; sigma } ->
+  | ChoiceResult { choices; _ } ->
       if List.length choices = 1 then
         ff fmt "| %a" pp_result_value (List.hd choices)
       else
@@ -33,4 +33,4 @@ let rec pp_result_value fmt (v : result_value) =
       | OrOp (r1, r2) ->
           ff fmt "(%a or %a)" pp_result_value r1 pp_result_value r2
       | NotOp r1 -> ff fmt "(not %a)" pp_result_value r1)
-  | _ -> failwith "unimplemented"
+  | StubResult { l; _ } -> ff fmt "stub_%d" l
