@@ -1,6 +1,7 @@
 open Interpreter.Ast
 open Base_quickcheck
 open Sexplib.Std
+open Core.Option.Let_syntax
 
 exception Unreachable
 
@@ -65,69 +66,88 @@ let pp_pair_list fmt ls =
 
 let rec analyze_aux e sigma vis =
   match e with
-  | Int i -> IntResult i
-  | Bool b -> BoolResult b
+  | Int i -> Some (IntResult i)
+  | Bool b -> Some (BoolResult b)
   | Function (_, _, l) ->
       (*? should ChoiceResult wrap all results? *)
-      ChoiceResult { choices = [ FunResult { f = e; l; sigma } ]; l; sigma }
+      Some
+        (ChoiceResult { choices = [ FunResult { f = e; l; sigma } ]; l; sigma })
   | Appl (e', _, l) -> (
       let l_app_sigma = prune_sigma (l :: sigma) in
       let vis_state = (l, l_app_sigma) in
       (* Stub *)
-      (* TODO: most likely failure *)
-      (* Format.printf "%a\n" pp_pair vis_state;
-         Format.printf "[%a]\n\n" pp_pair_list vis; *)
-      if List.mem vis_state vis then StubResult { l; sigma = l_app_sigma }
+      Format.printf "%a\n" pp_pair vis_state;
+      Format.printf "[%a]\n\n" pp_pair_list vis;
+      if List.mem vis_state vis then (
+        print_endline "stubbed";
+        Some (StubResult { l; sigma = l_app_sigma }))
       else
         (* Application *)
-        match analyze_aux e' sigma vis with
+        match%bind analyze_aux e' sigma vis with
         | ChoiceResult { choices; _ } ->
             let result_list =
               fold_choices
                 (fun fun_res accum ->
                   match fun_res with
-                  | FunResult { f = Function (_, e_i, _); _ } ->
+                  | FunResult { f = Function (_, e_i, _); _ } -> (
                       Hashset.add set (l :: sigma);
-                      let res_i =
-                        analyze_aux e_i l_app_sigma (vis_state :: vis)
-                      in
-                      res_i :: accum
+                      if l = 5 then Format.printf "%s\n" @@ show_expr e_i;
+                      match analyze_aux e_i l_app_sigma (vis_state :: vis) with
+                      | Some res_i -> res_i :: accum
+                      | None -> IntResult (-999) :: accum)
                   | _ -> failwith "funresult (appl)" [@coverage off])
                 [] choices
             in
-            ChoiceResult { choices = result_list; l; sigma = l_app_sigma }
+            Some
+              (ChoiceResult { choices = result_list; l; sigma = l_app_sigma })
         | _ -> failwith "choice (appl)" [@coverage off])
   | Var (Ident x, l) -> (
-      (* print_endline x;
-         List.iter (fun i -> Printf.printf "%d " i) sigma;
-         print_endline ""; *)
-      let sigma_hd, sigma_tl = (List.hd sigma, List.tl sigma) in
-      let sigma_hd_expr = get_expr sigma_hd in
       match get_outer_scope l with
       | Function (Ident x1, _, l_myfun) -> (
           if x = x1 then
             (* Var Local *)
-            match sigma_hd_expr with
-            | Appl (_, e2, l') ->
-                (* enumerate all matching stacks in the set *)
-                let result_list =
-                  Hashset.fold
-                    (fun sigma_i accum ->
-                      let sigma_i_hd, sigma_i_tl =
-                        (List.hd sigma_i, List.tl sigma_i)
-                      in
-                      if sigma_i_hd = l' && contains_sigma sigma_i_tl sigma_tl
-                      then analyze_aux e2 sigma_i_tl vis :: accum
-                      else accum)
-                    set []
-                in
-                ChoiceResult { choices = result_list; l; sigma }
-            | _ -> failwith "appl (var local)" [@coverage off]
+            if List.length sigma = 0 then (
+              print_endline "*********debug*********";
+              Format.printf "MyFun: %d\n" l_myfun;
+              Format.printf "(%s, %d)\n" x l;
+              print_endline "var local: empty sigma\n";
+              print_endline "*********debug*********";
+              None)
+            else
+              let sigma_hd, sigma_tl = (List.hd sigma, List.tl sigma) in
+              let sigma_hd_expr = get_expr sigma_hd in
+              match sigma_hd_expr with
+              | Appl (_, e2, l') ->
+                  (* enumerate all matching stacks in the set *)
+                  let result_list =
+                    Hashset.fold
+                      (fun sigma_i accum ->
+                        let sigma_i_hd, sigma_i_tl =
+                          (List.hd sigma_i, List.tl sigma_i)
+                        in
+                        (* the fact that we can prune away "bad" stacks like this
+                           makes DDE for program analysis superior *)
+                        if sigma_i_hd = l' && contains_sigma sigma_i_tl sigma_tl
+                        then
+                          match analyze_aux e2 sigma_i_tl vis with
+                          | Some res_i -> res_i :: accum
+                          | None -> IntResult (-999) :: accum
+                        else accum)
+                      set []
+                  in
+                  Some (ChoiceResult { choices = result_list; l; sigma })
+              | _ -> failwith "appl (var local)" [@coverage off]
+          else if (* Var Non-Local *)
+                  List.length sigma = 0 then (
+            print_endline x;
+            print_endline "var non-local: empty sigma\n";
+            None)
           else
-            (* Var Non-Local *)
+            let sigma_hd, sigma_tl = (List.hd sigma, List.tl sigma) in
+            let sigma_hd_expr = get_expr sigma_hd in
             match sigma_hd_expr with
             | Appl (e1, _, l2) -> (
-                match analyze_aux e1 sigma_tl vis with
+                match%bind analyze_aux e1 sigma_tl vis with
                 | ChoiceResult { choices; _ } ->
                     let result_list =
                       fold_choices
@@ -139,51 +159,60 @@ let rec analyze_aux e sigma vis =
                                 l = _;
                                 sigma = sigma_i;
                               }
-                            when x1 = x1' && l_myfun = l1 ->
-                              analyze_aux (Var (Ident x, l1)) sigma_i vis
-                              :: accum
+                            when x1 = x1' && l_myfun = l1 -> (
+                              match
+                                analyze_aux (Var (Ident x, l1)) sigma_i vis
+                              with
+                              | Some res_i -> res_i :: accum
+                              | None -> IntResult (-999) :: accum)
                           | _ -> accum)
                         [] choices
                     in
-                    ChoiceResult { choices = result_list; l; sigma }
+                    Some (ChoiceResult { choices = result_list; l; sigma })
                 | _ -> failwith "choice" [@coverage off])
             | _ -> failwith "appl" [@coverage off])
       | _ -> failwith "function" [@coverage off])
   | Plus (e1, e2) ->
-      let r1 = analyze_aux e1 sigma vis in
-      let r2 = analyze_aux e2 sigma vis in
-      OpResult (PlusOp (r1, r2))
+      let%bind r1 = analyze_aux e1 sigma vis in
+      let%bind r2 = analyze_aux e2 sigma vis in
+      Some (OpResult (PlusOp (r1, r2)))
   | Minus (e1, e2) ->
-      let r1 = analyze_aux e1 sigma vis in
-      let r2 = analyze_aux e2 sigma vis in
-      OpResult (MinusOp (r1, r2))
+      let%bind r1 = analyze_aux e1 sigma vis in
+      let%bind r2 = analyze_aux e2 sigma vis in
+      Some (OpResult (MinusOp (r1, r2)))
   | Equal (e1, e2) ->
-      let r1 = analyze_aux e1 sigma vis in
-      let r2 = analyze_aux e2 sigma vis in
-      OpResult (EqualOp (r1, r2))
+      let%bind r1 = analyze_aux e1 sigma vis in
+      let%bind r2 = analyze_aux e2 sigma vis in
+      Some (OpResult (EqualOp (r1, r2)))
   | And (e1, e2) ->
-      let r1 = analyze_aux e1 sigma vis in
-      let r2 = analyze_aux e2 sigma vis in
-      OpResult (AndOp (r1, r2))
+      let%bind r1 = analyze_aux e1 sigma vis in
+      let%bind r2 = analyze_aux e2 sigma vis in
+      Some (OpResult (AndOp (r1, r2)))
   | Or (e1, e2) ->
-      let r1 = analyze_aux e1 sigma vis in
-      let r2 = analyze_aux e2 sigma vis in
-      OpResult (OrOp (r1, r2))
+      let%bind r1 = analyze_aux e1 sigma vis in
+      let%bind r2 = analyze_aux e2 sigma vis in
+      Some (OpResult (OrOp (r1, r2)))
   | Not e' ->
-      let r = analyze_aux e' sigma vis in
-      OpResult (NotOp r)
+      let%bind r = analyze_aux e' sigma vis in
+      Some (OpResult (NotOp r))
   | If (e', e1, e2, l) ->
       let _r = analyze_aux e' sigma vis in
       (* TODO: eval r *)
       (* on stub, denote as `anynum` *)
-      let r_true = analyze_aux e1 sigma vis in
-      let r_false = analyze_aux e2 sigma vis in
-      ChoiceResult { choices = [ r_true; r_false ]; l; sigma }
+      let%bind r_true = analyze_aux e1 sigma vis in
+      let%bind r_false = analyze_aux e2 sigma vis in
+      Some (ChoiceResult { choices = [ r_true; r_false ]; l; sigma })
   | Let _ -> raise Unreachable [@coverage off]
 
 let analyze e =
   let e = transform_let e in
+  Format.printf "%s\n\n" @@ show_expr e;
   fill_my_fun e None;
-  analyze_aux e [] []
+  let r = analyze_aux e [] [] in
+  print_endline "****** Label Table ******";
+  print_my_expr my_expr;
+  print_endline "****** Label Table ******\n";
+  (* TODO: must be Some? *)
+  Option.get r
 
 (* TODO: multiple layers of ChoiceResult - improve output readability *)
