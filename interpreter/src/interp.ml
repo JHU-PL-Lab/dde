@@ -82,27 +82,27 @@ let rec eval_aux (e : expr) (sigma : int list) : result_value =
                       | _ -> raise Unreachable [@coverage off])
                   | _ -> raise Unreachable [@coverage off])
             | _ -> raise Unreachable [@coverage off])
-        | Plus (e1, e2, _) ->
+        | Plus (e1, e2) ->
             let r1 = eval_aux e1 sigma in
             let r2 = eval_aux e2 sigma in
             OpResult (PlusOp (r1, r2))
-        | Minus (e1, e2, _) ->
+        | Minus (e1, e2) ->
             let r1 = eval_aux e1 sigma in
             let r2 = eval_aux e2 sigma in
             OpResult (MinusOp (r1, r2))
-        | Equal (e1, e2, _) ->
+        | Equal (e1, e2) ->
             let r1 = eval_aux e1 sigma in
             let r2 = eval_aux e2 sigma in
             OpResult (EqualOp (r1, r2))
-        | And (e1, e2, _) ->
+        | And (e1, e2) ->
             let r1 = eval_aux e1 sigma in
             let r2 = eval_aux e2 sigma in
             OpResult (AndOp (r1, r2))
-        | Or (e1, e2, _) ->
+        | Or (e1, e2) ->
             let r1 = eval_aux e1 sigma in
             let r2 = eval_aux e2 sigma in
             OpResult (OrOp (r1, r2))
-        | Not (e, _) -> OpResult (NotOp (eval_aux e sigma))
+        | Not e -> OpResult (NotOp (eval_aux e sigma))
         | If (e1, e2, e3, _) ->
             let r = eval_aux e1 sigma in
             if eval_bool r then eval_aux e2 sigma else eval_aux e3 sigma
@@ -135,21 +135,18 @@ let rec subst_free_vars (e : expr) (target_l : int) (sigma : int list)
         ( subst_free_vars e1 target_l sigma seen,
           subst_free_vars e2 target_l sigma seen,
           l )
-  | Plus (e1, e2, l)
-  | Minus (e1, e2, l)
-  | Equal (e1, e2, l)
-  | And (e1, e2, l)
-  | Or (e1, e2, l) -> (
+  | Plus (e1, e2) | Minus (e1, e2) | Equal (e1, e2) | And (e1, e2) | Or (e1, e2)
+    -> (
       let e1 = subst_free_vars e1 target_l sigma seen in
       let e2 = subst_free_vars e2 target_l sigma seen in
       match e with
-      | Plus (_, _, _) -> Plus (e1, e2, l)
-      | Minus (_, _, _) -> Minus (e1, e2, l)
-      | Equal (_, _, _) -> Equal (e1, e2, l)
-      | And (_, _, _) -> And (e1, e2, l)
-      | Or (_, _, _) -> Or (e1, e2, l)
+      | Plus (_, _) -> Plus (e1, e2)
+      | Minus (_, _) -> Minus (e1, e2)
+      | Equal (_, _) -> Equal (e1, e2)
+      | And (_, _) -> And (e1, e2)
+      | Or (_, _) -> Or (e1, e2)
       | _ -> raise Unreachable [@coverage off])
-  | Not (e, l) -> Not (subst_free_vars e target_l sigma seen, l)
+  | Not e -> Not (subst_free_vars e target_l sigma seen)
   | If (e1, e2, e3, l) ->
       If
         ( subst_free_vars e1 target_l sigma seen,

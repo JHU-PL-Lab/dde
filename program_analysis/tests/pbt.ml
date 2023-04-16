@@ -27,17 +27,12 @@ let rec rename_vars ?(vars = IdentSet.empty) (e : Ast.expr) =
           rename_vars ~vars e2,
           rename_vars ~vars e3,
           fresh_label () )
-  | Plus (e1, e2, _) ->
-      Plus (rename_vars ~vars e1, rename_vars ~vars e2, fresh_label ())
-  | Minus (e1, e2, _) ->
-      Minus (rename_vars ~vars e1, rename_vars ~vars e2, fresh_label ())
-  | Equal (e1, e2, _) ->
-      Equal (rename_vars ~vars e1, rename_vars ~vars e2, fresh_label ())
-  | And (e1, e2, _) ->
-      And (rename_vars ~vars e1, rename_vars ~vars e2, fresh_label ())
-  | Or (e1, e2, _) ->
-      Or (rename_vars ~vars e1, rename_vars ~vars e2, fresh_label ())
-  | Not (e, _) -> Not (rename_vars ~vars e, fresh_label ())
+  | Plus (e1, e2) -> Plus (rename_vars ~vars e1, rename_vars ~vars e2)
+  | Minus (e1, e2) -> Minus (rename_vars ~vars e1, rename_vars ~vars e2)
+  | Equal (e1, e2) -> Equal (rename_vars ~vars e1, rename_vars ~vars e2)
+  | And (e1, e2) -> And (rename_vars ~vars e1, rename_vars ~vars e2)
+  | Or (e1, e2) -> Or (rename_vars ~vars e1, rename_vars ~vars e2)
+  | Not e -> Not (rename_vars ~vars e)
   | Let _ -> failwith "unreachable"
 
 let fix_appl (e : Ast.expr) =
@@ -61,12 +56,12 @@ let rec strip_label_fb (e : Ast.expr) : Fbast.expr =
   | Function (Ident x, e, _) -> Function (Ident x, strip_label_fb e)
   | Appl (e1, e2, _) -> Appl (strip_label_fb e1, strip_label_fb e2)
   | Var (Ident x, _) -> Var (Ident x)
-  | Plus (e1, e2, _) -> Plus (strip_label_fb e1, strip_label_fb e2)
-  | Minus (e1, e2, _) -> Minus (strip_label_fb e1, strip_label_fb e2)
-  | Equal (e1, e2, _) -> Equal (strip_label_fb e1, strip_label_fb e2)
-  | And (e1, e2, _) -> And (strip_label_fb e1, strip_label_fb e2)
-  | Or (e1, e2, _) -> Or (strip_label_fb e1, strip_label_fb e2)
-  | Not (e, _) -> Not (strip_label_fb e)
+  | Plus (e1, e2) -> Plus (strip_label_fb e1, strip_label_fb e2)
+  | Minus (e1, e2) -> Minus (strip_label_fb e1, strip_label_fb e2)
+  | Equal (e1, e2) -> Equal (strip_label_fb e1, strip_label_fb e2)
+  | And (e1, e2) -> And (strip_label_fb e1, strip_label_fb e2)
+  | Or (e1, e2) -> Or (strip_label_fb e1, strip_label_fb e2)
+  | Not e -> Not (strip_label_fb e)
   | If (e1, e2, e3, _) ->
       If (strip_label_fb e1, strip_label_fb e2, strip_label_fb e3)
   | _ -> raise Unreachable
