@@ -3,21 +3,8 @@ open Utils
 open Interpreter
 module QC = Core.Quickcheck
 
-module IdentSet = Set.Make (struct
-  type t = Ast.ident
-
-  let compare ident1 ident2 =
-    match (ident1, ident2) with
-    | Ast.Ident id1, Ast.Ident id2 -> compare id1 id2
-end)
-
-let label = ref (-1)
-
-let fresh_label () =
-  label := !label + 1;
-  !label
-
-let reset_label () = label := -1
+let filter_simple (e : Ast.expr) =
+  match e with Function _ | Int _ | Bool _ | Var _ -> None | _ -> Some e
 
 let rec rename_vars ?(vars = IdentSet.empty) (e : Ast.expr) =
   match e with
@@ -53,7 +40,19 @@ let rec rename_vars ?(vars = IdentSet.empty) (e : Ast.expr) =
   | Not (e, _) -> Not (rename_vars ~vars e, fresh_label ())
   | Let _ -> failwith "unreachable"
 
-let ( |>% ) v f = Option.map f v
+let fix_appl (e : Ast.expr) =
+  match e with
+  | Appl (e1, e2, _) -> (
+      match e1 with
+      | Function _ | Appl _ | If _ -> e1
+      | _ ->
+          let fun_gen =
+            QC.Generator.filter Ast.quickcheck_generator_expr ~f:(function
+              | Function _ | Appl _ | If _ | Var _ -> true
+              | _ -> false)
+          in
+          QC.random_value fun_gen)
+  | _ -> e
 
 let rec strip_label_fb (e : Ast.expr) : Fbast.expr =
   match e with
@@ -73,31 +72,35 @@ let rec strip_label_fb (e : Ast.expr) : Fbast.expr =
   | _ -> raise Unreachable
 
 let run () =
-  QC.test Ast.quickcheck_generator_expr (* ~sexp_of:sexp_of_expr *)
+  QC.test Ast.quickcheck_generator_expr
     ~sexp_of:(fun e -> e |> rename_vars |> Ast.sexp_of_expr)
     ~trials:1000
     ~sizes:(Base.Sequence.cycle_list_exn (Core.List.range 3 5 ~stop:`inclusive))
     ~seed:`Nondeterministic
     ~f:(fun e ->
-      e |> rename_vars
+      e |> filter_simple |>> rename_vars |>> fix_appl
       |> (fun e ->
            reset_label ();
            e)
-      |> (fun e ->
-           try
-             (* run Fb interpreter to validate (closed + well-typed) *)
-             let e' = strip_label_fb e in
-             e' |> Fbinterp.eval |> ignore;
-             Format.printf "Fb: %a\n" Fbpp.pp_expr e';
-             Some e
-           with _ -> None)
-      |>% au
-      (* |>% (fun e -> Format.asprintf "%a" pp_expr e) *)
-      |>% (fun s -> Format.printf "PA:%s\n" s)
+      |>-> (fun e ->
+             try
+               (* run Fb interpreter to validate (closed + well-typed) *)
+               let e' = strip_label_fb e in
+               e' |> Fbinterp.eval |> ignore;
+               Format.printf "Fb: %a\n" Fbpp.pp_expr e';
+               Some e
+             with _ -> None)
+      |>> au
+      (* |>> (fun e -> Format.asprintf "%a" pp_expr e) *)
+      |>> (fun s -> Format.printf "PA:%s\n" s)
       |> ignore)
 
 (*
   TODOs:
+  - generate good programs in the first place v.s. correcting programs post-hoc
+  - PA result superset of Fb
+  - keep database of generated expression and use them as combinators
+  - future: keep database of contexts (holes)
   - check number of |'s in output involving appls and lookups
   - check exception thrown
   - generated node labels are messed up
