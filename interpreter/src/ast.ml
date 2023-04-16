@@ -13,9 +13,16 @@ type ident =
 type expr =
   | Int of int [@quickcheck.weight 0.05]
   | Bool of bool [@quickcheck.weight 0.05]
-  | Function of ident * expr * int [@quickcheck.weight 0.1]
+  | Function of ident * expr * int [@quickcheck.weight 0.05]
   | Var of ident * int [@quickcheck.weight 0.2]
-  | Appl of expr * expr * int [@quickcheck.weight 0.25]
+  | Appl of
+      expr
+      (*[@quickcheck.generator
+        Generator.filter quickcheck_generator_expr ~f:(function
+          | Function _ | Appl _ | If _ | Var _ -> true
+          | _ -> false)]*)
+      * expr
+      * int [@quickcheck.weight 0.3]
   | Plus of expr * expr * int [@quickcheck.weight 0.05]
   | Minus of expr * expr * int [@quickcheck.weight 0.05]
   | Equal of expr * expr * int [@quickcheck.weight 0.05]
