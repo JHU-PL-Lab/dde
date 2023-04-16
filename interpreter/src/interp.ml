@@ -226,6 +226,6 @@ let eval e ~is_debug_mode ~should_simplify =
   if not should_simplify then r
   else
     let v = eval_result_value r in
-    Hashtbl.reset my_expr;
+    Core.Hashtbl.clear my_expr;
     Hashtbl.reset my_fun;
     v

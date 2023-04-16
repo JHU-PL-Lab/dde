@@ -36,10 +36,10 @@ type expr =
 type fbtype = TArrow of fbtype * fbtype | TVar of string
 [@@coverage off] [@@deriving show { with_path = false }]
 
-let my_expr = Hashtbl.create 10000
+let my_expr = Core.Hashtbl.create (module Core.Int)
 let my_fun = Hashtbl.create 10000
-let get_expr label = Hashtbl.find my_expr label
-let add_expr label e = Hashtbl.replace my_expr label e
+let get_expr label = Core.Hashtbl.find_exn my_expr label
+let add_expr label e = Core.Hashtbl.set my_expr ~key:label ~data:e
 let get_outer_scope label = Hashtbl.find my_fun label
 
 let add_outer_scope label outer =
@@ -70,11 +70,15 @@ let rec fill_my_fun e outer =
   | Let (_, _, _, _) -> raise Unreachable [@coverage off]
 
 let print_my_expr tbl =
-  Hashtbl.iter (fun x y -> Printf.printf "%d -> %s\n" x (show_expr y)) tbl
+  let sorted =
+    Core.Hashtbl.to_alist tbl
+    |> List.sort (fun (k1, v1) (k2, v2) -> Int.compare k1 k2)
+  in
+  List.iter (fun (k, v) -> Format.printf "%d -> %s\n" k (show_expr v)) sorted
   [@@coverage off]
 
 let print_my_fun tbl =
-  Hashtbl.iter (fun x y -> Printf.printf "%d -> %s\n" x (show_expr y)) tbl
+  Hashtbl.iter (fun x y -> Format.printf "%d -> %s\n" x (show_expr y)) tbl
   [@@coverage off]
 
 let next_label = ref 0

@@ -5,7 +5,8 @@
   (pps ppx_deriving.show bisect_ppx ppx_jane))
  (instrumentation
   (backend bisect_ppx --bisect-file _build/bisect))
- (modules fbdk debugutils version ast type interp lexer options parser pp))
+ (modules fbdk debugutils version ast type interp lexer options parser pp)
+ (libraries core))
 
 (ocamllex
  (modules lexer))
