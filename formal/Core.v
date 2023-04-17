@@ -84,21 +84,29 @@ Fixpoint build_mylexpr (le : lexpr) (mylexpr : partial_map lexpr) : partial_map 
 
 (* Compute build_mylexpr <{ (fun X -> X@1 ) @@ 2 }> empty. *)
 
+Reserved Notation
+         "{{ myfun , mylexpr , s }} |- e => r"
+         (at level 40, e custom lang at level 99,
+          myfun constr, mylexpr constr, s constr, r custom lang at level 99).
+
 Inductive eval : lexpr -> sigma -> res -> partial_map nat -> partial_map lexpr -> Prop :=
-  | E_Val : forall s v l myfun mylexpr, eval <{ v @@ l }> s <{ #[v, l, s] }> myfun mylexpr
+  | E_Val : forall s v l myfun mylexpr,
+    {{ myfun, mylexpr, s }} |- v@@l => #[v, l, s]
   (* TODO: forall sound? *)
   | E_Appl : forall e1 e2 l s r e l1 s1 myfun mylexpr x,
-    eval e1 s <{ #[fun x -> e, l1, s1] }> myfun mylexpr ->
-    eval e (l :: s) r myfun mylexpr ->
-    eval <{ (e1 <- e2) @ l }> s r myfun mylexpr
+    {{ myfun, mylexpr, s }} |- e1 => #[fun x -> e, l1, s1] ->
+    {{ myfun, mylexpr, l :: s }} |- e => r ->
+    {{ myfun, mylexpr, s }} |- (e1 <- e2) @ l => r
   | E_VarLocal : forall (x : string) l s r myfun mylexpr e1 e2 l' e myfun_l,
     length s <> 0 ->
     (* TODO: hd default value sound? *)
     mylexpr (hd 0 s) = Some <{ (e1 <- e2) @ l' }> ->
     myfun l = Some myfun_l ->
     mylexpr myfun_l = Some <{ (fun x -> e) @@ myfun_l }> ->
-    eval e2 (tl s) r myfun mylexpr ->
-    eval <{ x@l }> s r myfun mylexpr.
+    {{ myfun, mylexpr, tl s }} |- e2 => r ->
+    {{ myfun, mylexpr, s }} |- x@l => r
+
+  where "{{ myfun , mylexpr , s }} |- e => r" := (eval e s r myfun mylexpr).
 
 Hint Unfold build_myfun build_mylexpr update t_update : core.
 
@@ -110,7 +118,7 @@ Definition id_val_mylexpr :=
   build_mylexpr id_val empty.
 
 Example val_correct :
-  eval id_val [] <{ #[fun X -> X@0, 1, []] }> id_val_myfun id_val_mylexpr.
+  {{ id_val_myfun, id_val_mylexpr, [] }} |- id_val => #[fun X -> X@0, 1, []].
 Proof.
   apply E_Val.
 Qed.
@@ -123,7 +131,7 @@ Definition id_appl_mylexpr :=
   build_mylexpr id_appl empty.
 
 Example appl_correct :
-  eval id_appl [] <{ #[fun Y -> Y@2, 3, []] }> id_appl_myfun id_appl_mylexpr.
+  {{ id_appl_myfun, id_appl_mylexpr, [] }} |- id_appl => #[fun Y -> Y@2, 3, []].
 Proof.
   eapply E_Appl.
   - apply E_Val.
