@@ -23,12 +23,12 @@ type expr =
           | _ -> false)]*)
       * expr
       * int [@quickcheck.weight 0.3]
-  | Plus of expr * expr * int [@quickcheck.weight 0.05]
-  | Minus of expr * expr * int [@quickcheck.weight 0.05]
-  | Equal of expr * expr * int [@quickcheck.weight 0.05]
-  | And of expr * expr * int [@quickcheck.weight 0.05]
-  | Or of expr * expr * int [@quickcheck.weight 0.05]
-  | Not of expr * int [@quickcheck.weight 0.05]
+  | Plus of expr * expr [@quickcheck.weight 0.05]
+  | Minus of expr * expr [@quickcheck.weight 0.05]
+  | Equal of expr * expr [@quickcheck.weight 0.05]
+  | And of expr * expr [@quickcheck.weight 0.05]
+  | Or of expr * expr [@quickcheck.weight 0.05]
+  | Not of expr [@quickcheck.weight 0.05]
   | If of expr * expr * expr * int [@quickcheck.weight 0.05]
   | Let of ident * expr * expr * int [@quickcheck.do_not_generate]
 [@@deriving show { with_path = false }, quickcheck, sexp_of]
@@ -57,17 +57,11 @@ let rec fill_my_fun e outer =
       add_outer_scope l outer;
       fill_my_fun e1 outer;
       fill_my_fun e2 outer
-  | Plus (e1, e2, l)
-  | Minus (e1, e2, l)
-  | Equal (e1, e2, l)
-  | And (e1, e2, l)
-  | Or (e1, e2, l) ->
-      add_outer_scope l outer;
+  | Plus (e1, e2) | Minus (e1, e2) | Equal (e1, e2) | And (e1, e2) | Or (e1, e2)
+    ->
       fill_my_fun e1 outer;
       fill_my_fun e2 outer
-  | Not (e, l) ->
-      add_outer_scope l outer;
-      fill_my_fun e outer
+  | Not e -> fill_my_fun e outer
   | If (e1, e2, e3, l) ->
       add_outer_scope l outer;
       fill_my_fun e1 outer;
@@ -115,11 +109,7 @@ let rec transform_let e =
       appl
   | _ -> e
 
-let build_labeled_int i =
-  let label = get_next_label () in
-  let labeled_int = Int i in
-  add_expr label labeled_int;
-  labeled_int
+let build_labeled_int i = Int i
 
 let build_labeled_bool b =
   let label = get_next_label () in
@@ -145,41 +135,12 @@ let build_labeled_var ident =
   add_expr label labeled_var;
   labeled_var
 
-let build_labeled_plus e1 e2 =
-  let label = get_next_label () in
-  let labeled_plus = Plus (e1, e2, label) in
-  add_expr label labeled_plus;
-  labeled_plus
-
-let build_labeled_minus e1 e2 =
-  let label = get_next_label () in
-  let labeled_minus = Minus (e1, e2, label) in
-  add_expr label labeled_minus;
-  labeled_minus
-
-let build_labeled_equal e1 e2 =
-  let label = get_next_label () in
-  let labeled_equal = Equal (e1, e2, label) in
-  add_expr label labeled_equal;
-  labeled_equal
-
-let build_labeled_and e1 e2 =
-  let label = get_next_label () in
-  let labeled_and = And (e1, e2, label) in
-  add_expr label labeled_and;
-  labeled_and
-
-let build_labeled_or e1 e2 =
-  let label = get_next_label () in
-  let labeled_or = Or (e1, e2, label) in
-  add_expr label labeled_or;
-  labeled_or
-
-let build_labeled_not e =
-  let label = get_next_label () in
-  let labeled_not = Not (e, label) in
-  add_expr label labeled_not;
-  labeled_not
+let build_labeled_plus e1 e2 = Plus (e1, e2)
+let build_labeled_minus e1 e2 = Minus (e1, e2)
+let build_labeled_equal e1 e2 = Equal (e1, e2)
+let build_labeled_and e1 e2 = And (e1, e2)
+let build_labeled_or e1 e2 = Or (e1, e2)
+let build_labeled_not e = Not e
 
 let build_labeled_if e1 e2 e3 =
   let label = get_next_label () in
