@@ -74,7 +74,6 @@ let rec analyze_aux e sigma vis =
       let l_app_sigma = prune_sigma (l :: sigma) in
       let vis_state = (l, l_app_sigma) in
       (* Stub *)
-      (* TODO: most likely failure *)
       (* Format.printf "%a\n" pp_pair vis_state;
          Format.printf "[%a]\n\n" pp_pair_list vis; *)
       if List.mem vis_state vis then StubResult { l; sigma = l_app_sigma }
