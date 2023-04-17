@@ -151,6 +151,9 @@ Definition eg_loc_mylexpr :=
   build_mylexpr eg_loc empty.
 
 (* local variable lookup *)
+(* N.B. that I'm intentionally not using automation to the greatest extent
+   so that the proof can be better traced to see what's happening. Proof
+   scripts can be almost entirely automated in our logic. *)
 Example eg_loc_correct :
   {{ eg_loc_myfun, eg_loc_mylexpr, [] }} |- eg_loc => #[fun Y -> Y@2, 3, []].
 Proof.
@@ -164,7 +167,6 @@ Proof.
     + apply E_Val.
 Qed.
 
-(* non-local variable lookup *)
 Definition eg_noloc :=
   <{ (((fun X -> (fun Y -> X@0) @@ 1) @@ 2
        <- (fun Z -> Z@3) @@ 4) @ 5
@@ -174,6 +176,7 @@ Definition eg_noloc_myfun :=
 Definition eg_noloc_mylexpr :=
   build_mylexpr eg_noloc empty.
 
+(* non-local variable lookup *)
 Example eg_noloc_correct :
   {{ eg_noloc_myfun, eg_noloc_mylexpr, [] }} |- eg_noloc => #[fun Z -> Z@3, 4, []].
 Proof.
