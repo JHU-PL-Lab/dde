@@ -4,6 +4,7 @@ From Coq Require Import Strings.String Lists.List Arith.Arith.
 From DDE Require Import Maps.
 Import ListNotations.
 
+(* slightly adjusted definition to more easily define notations *)
 Inductive expr : Type :=
   | Appl (e1 : lexpr) (e2 : lexpr)
   | Val (v : val)
@@ -15,11 +16,13 @@ Definition sigma : Type := list nat.
 
 Inductive res : Type := Res (v : val) (l : nat) (s : sigma).
 
+(* coherce strings into exprs via the Ident constructor *)
 Coercion Ident : string >-> expr.
 
 Declare Custom Entry lang.
 Declare Scope lang_scope.
 
+(* custom language syntax *)
 Notation "<{ e }>" := e (at level 0, e custom lang at level 99) : lang_scope.
 Notation "( x )" := x (in custom lang, x at level 99) : lang_scope.
 Notation "x" := x (in custom lang at level 0, x constr at level 0) : lang_scope.
@@ -29,7 +32,7 @@ Notation "'fun' x -> e" :=
     (in custom lang at level 20, e at level 30, right associativity) : lang_scope.
 Notation "e1 <- e2" :=
   (Appl e1 e2)
-    (* associativity doesn't matter here as e1 and e2 are lexpr's *)
+    (* associativity doesn't matter here as e1 and e2 are lexprs *)
     (in custom lang at level 30, left associativity).
 Notation "e @ l" :=
   (Lexpr e l)
@@ -57,6 +60,7 @@ Example sample_fun_lexpr' := <{ (fun X -> (fun Y -> X@1) @@ 2) @@ 3 }>.
 Example sample_appl := <{ (X@1 <- X@2) @ 3}>.
 Example sample_res := <{ #[fun X -> X@1, 2, nil] }>.
 
+(* build mapping from label to label of enclosing function given a root lexpr *)
 Fixpoint build_myfun (le : lexpr) (myfun_l : option nat) (myfun : partial_map nat) : partial_map nat :=
   match le with
   | <{ e @ l }> =>
@@ -72,6 +76,7 @@ Fixpoint build_myfun (le : lexpr) (myfun_l : option nat) (myfun : partial_map na
 
 (* Compute build_myfun <{ (fun X -> X@1 ) @@ 2 }> None empty. *)
 
+(* build mapping from label to lexpr given a root lexpr *)
 Fixpoint build_mylexpr (le : lexpr) (mylexpr : partial_map lexpr) : partial_map lexpr :=
   match le with
   | <{ e @ l }> =>
@@ -87,11 +92,13 @@ Fixpoint build_mylexpr (le : lexpr) (mylexpr : partial_map lexpr) : partial_map 
 
 (* Compute build_mylexpr <{ (fun X -> X@1 ) @@ 2 }> empty. *)
 
+(* custom syntax for evaluation; I try to mirror the written syntax as much as possible *)
 Reserved Notation
          "{{ myfun , mylexpr , s }} |- e => r"
          (at level 40, e custom lang at level 99,
           myfun constr, mylexpr constr, s constr, r custom lang at level 99).
 
+(* logic for DDE's concrete lambda calculus operational semantics *)
 Inductive eval : lexpr -> sigma -> res -> partial_map nat -> partial_map lexpr -> Prop :=
   | E_Val : forall s v l myfun mylexpr,
     {{ myfun, mylexpr, s }} |- v@@l => #[v, l, s]
@@ -129,6 +136,7 @@ Definition id_val_myfun :=
 Definition id_val_mylexpr :=
   build_mylexpr id_val empty.
 
+(* simple value *)
 Example val_correct :
   {{ id_val_myfun, id_val_mylexpr, [] }} |- id_val => #[fun X -> X@0, 1, []].
 Proof.
@@ -142,6 +150,7 @@ Definition eg_loc_myfun :=
 Definition eg_loc_mylexpr :=
   build_mylexpr eg_loc empty.
 
+(* local variable lookup *)
 Example eg_loc_correct :
   {{ eg_loc_myfun, eg_loc_mylexpr, [] }} |- eg_loc => #[fun Y -> Y@2, 3, []].
 Proof.
@@ -155,6 +164,7 @@ Proof.
     + apply E_Val.
 Qed.
 
+(* non-local variable lookup *)
 Definition eg_noloc :=
   <{ (((fun X -> (fun Y -> X@0) @@ 1) @@ 2
        <- (fun Z -> Z@3) @@ 4) @ 5
