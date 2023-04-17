@@ -53,12 +53,14 @@ Definition Z : string := "z".
 Definition M : string := "m".
 Definition N : string := "n".
 
-Example sample_ident := <{ X@1 }>.
-Example sample_fun := <{ fun X -> X@1 }>.
-Example sample_fun_lexpr := <{ (fun X -> X@1) @@ 2 }>.
-Example sample_fun_lexpr' := <{ (fun X -> (fun Y -> X@1) @@ 2) @@ 3 }>.
-Example sample_appl := <{ (X@1 <- X@2) @ 3}>.
-Example sample_res := <{ #[fun X -> X@1, 2, nil] }>.
+Example sample_ident := <{ X@0 }>.
+Example sample_fun := <{ fun X -> X@0 }>.
+Example sample_fun_lexpr := <{ (fun X -> X@0) @@ 1 }>.
+Example sample_fun_lexpr' := <{ (fun X -> (fun Y -> X@0) @@ 1) @@ 2 }>.
+Example sample_appl := <{ (X@0 <- X@1) @ 2}>.
+Example sample_res := <{ #[ fun X -> X@0, 1, [] ] }>.
+
+(* TODO: auto-generate labels *)
 
 (* build mapping from label to label of enclosing function given a root lexpr *)
 Fixpoint build_myfun (le : lexpr) (myfun_l : option nat) (myfun : partial_map nat) : partial_map nat :=
@@ -101,10 +103,10 @@ Reserved Notation
 (* logic for DDE's concrete lambda calculus operational semantics *)
 Inductive eval : lexpr -> sigma -> res -> partial_map nat -> partial_map lexpr -> Prop :=
   | E_Val : forall s v l myfun mylexpr,
-    {{ myfun, mylexpr, s }} |- v@@l => #[v, l, s]
+    {{ myfun, mylexpr, s }} |- v@@l => #[ v, l, s ]
   (* TODO: forall sound? *)
   | E_Appl : forall e1 e2 l s r e l1 s1 myfun mylexpr x,
-    {{ myfun, mylexpr, s }} |- e1 => #[fun x -> e, l1, s1] ->
+    {{ myfun, mylexpr, s }} |- e1 => #[ fun x -> e, l1, s1 ] ->
     {{ myfun, mylexpr, l :: s }} |- e => r ->
     {{ myfun, mylexpr, s }} |- (e1 <- e2) @ l => r
   | E_VarLocal : forall (x : string) l s r myfun mylexpr e1 e2 l' e myfun_l,
@@ -121,7 +123,7 @@ Inductive eval : lexpr -> sigma -> res -> partial_map nat -> partial_map lexpr -
     myfun l = Some myfun_l ->
     mylexpr myfun_l = Some <{ (fun x1 -> e) @@ myfun_l }> ->
     x <> x1 ->
-    {{ myfun, mylexpr, tl s }} |- e1 => #[fun x1 -> e, myfun_l, s1] ->
+    {{ myfun, mylexpr, tl s }} |- e1 => #[ fun x1 -> e, myfun_l, s1 ] ->
     {{ myfun, mylexpr, s1 }} |- x@myfun_l => r ->
     {{ myfun, mylexpr, s }} |- x@l => r
 
@@ -138,7 +140,7 @@ Definition id_val_mylexpr :=
 
 (* simple value *)
 Example val_correct :
-  {{ id_val_myfun, id_val_mylexpr, [] }} |- id_val => #[fun X -> X@0, 1, []].
+  {{ id_val_myfun, id_val_mylexpr, [] }} |- id_val => #[ fun X -> X@0, 1, [] ].
 Proof.
   apply E_Val.
 Qed.
@@ -155,7 +157,7 @@ Definition eg_loc_mylexpr :=
    so that the proof can be better traced to see what's happening. Proof
    scripts can be almost entirely automated in our logic. *)
 Example eg_loc_correct :
-  {{ eg_loc_myfun, eg_loc_mylexpr, [] }} |- eg_loc => #[fun Y -> Y@2, 3, []].
+  {{ eg_loc_myfun, eg_loc_mylexpr, [] }} |- eg_loc => #[ fun Y -> Y@2, 3, [] ].
 Proof.
   eapply E_Appl.
   - apply E_Val.
@@ -169,8 +171,8 @@ Qed.
 
 Definition eg_noloc :=
   <{ (((fun X -> (fun Y -> X@0) @@ 1) @@ 2
-       <- (fun Z -> Z@3) @@ 4) @ 5
-       <- (fun M -> M@6) @@ 7) @ 8 }>.
+      <- (fun Z -> Z@3) @@ 4) @ 5
+      <- (fun M -> M@6) @@ 7) @ 8 }>.
 Definition eg_noloc_myfun :=
   build_myfun eg_noloc None empty.
 Definition eg_noloc_mylexpr :=
@@ -178,7 +180,7 @@ Definition eg_noloc_mylexpr :=
 
 (* non-local variable lookup *)
 Example eg_noloc_correct :
-  {{ eg_noloc_myfun, eg_noloc_mylexpr, [] }} |- eg_noloc => #[fun Z -> Z@3, 4, []].
+  {{ eg_noloc_myfun, eg_noloc_mylexpr, [] }} |- eg_noloc => #[ fun Z -> Z@3, 4, [] ].
 Proof.
   eapply E_Appl.
   - eapply E_Appl.
@@ -202,4 +204,43 @@ Proof.
       * apply E_Val.
 Qed.
 
-(* TODO: auto-generate labels *)
+Ltac subst_map_lookup mymap prog :=
+  match goal with
+    H: mymap _ = _
+    |- _ => unfold mymap, prog in H; autounfold in H; simpl in H;
+            injection H as H; subst
+  end.
+
+(* bad non-local variable lookup *)
+Example eg_noloc_bad:
+  ~ {{ eg_noloc_myfun, eg_noloc_mylexpr, [] }} |- eg_noloc => #[ fun M -> M@6, 7, [] ].
+Proof.
+  intro contra.
+  inversion contra. subst. clear contra.
+  inversion H6. subst. clear H6.
+  inversion H8. subst. clear H8.
+  inversion H9. subst. clear H9.
+  inversion H7; subst; clear H7.
+  (* E_VarLocal *)
+  - subst_map_lookup eg_noloc_myfun eg_noloc.
+    subst_map_lookup eg_noloc_mylexpr eg_noloc.
+    discriminate H4.
+  (* E_VarNonLocal *)
+  - subst_map_lookup eg_noloc_mylexpr eg_noloc.
+    subst_map_lookup eg_noloc_myfun eg_noloc.
+    subst_map_lookup eg_noloc_mylexpr eg_noloc.
+    inversion H6. subst. clear H6.
+    inversion H9. subst. clear H9.
+    inversion H10. subst. clear H10.
+    inversion H12; subst; clear H12.
+    (* E_VarLocal *)
+    + subst_map_lookup eg_noloc_mylexpr eg_noloc.
+      subst_map_lookup eg_noloc_myfun eg_noloc.
+      subst_map_lookup eg_noloc_mylexpr eg_noloc.
+      inversion H11.
+    (* E_VarNonLocal *)
+    + subst_map_lookup eg_noloc_mylexpr eg_noloc.
+      subst_map_lookup eg_noloc_myfun eg_noloc.
+      subst_map_lookup eg_noloc_mylexpr eg_noloc.
+      contradiction.
+Qed.
