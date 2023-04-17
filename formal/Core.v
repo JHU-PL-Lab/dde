@@ -177,6 +177,7 @@ Proof.
     + reflexivity.
     + unfold eg_noloc_mylexpr, eg_noloc. autounfold. reflexivity.
     + intro contra. discriminate contra.
+    (* N.B. that we re-do the application here, as expected from the rules *)
     + eapply E_Appl.
       * apply E_Val.
       * apply E_Val.
