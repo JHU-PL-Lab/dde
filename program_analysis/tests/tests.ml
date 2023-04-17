@@ -27,8 +27,6 @@ let _test_curried_funs _ =
        "let add = fun num -> fun n -> n + num in let add1 = add 1 in let add2 \
         = add 2 in add1 2 + add2 1")
 
-(* remove parts to narrow *)
-
 let pa_tests =
   [
     "Basics" >:: test_basics;
