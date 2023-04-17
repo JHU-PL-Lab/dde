@@ -9,12 +9,12 @@ module Ast : sig
     | Function of ident * expr * int
     | Var of ident * int
     | Appl of expr * expr * int
-    | Plus of expr * expr
-    | Minus of expr * expr
-    | Equal of expr * expr
-    | And of expr * expr
-    | Or of expr * expr
-    | Not of expr
+    | Plus of expr * expr * int
+    | Minus of expr * expr * int
+    | Equal of expr * expr * int
+    | And of expr * expr * int
+    | Or of expr * expr * int
+    | Not of expr * int
     | If of expr * expr * expr * int
     | Let of ident * expr * expr * int
 
