@@ -1,6 +1,8 @@
 # Essence of Demand-Driven Execution (DDE)
 
-This repo contains a [concrete](./interpreter) and an [abstract](./program_analysis) interpreter based on DDE.
+This repo contains a [concrete](./interpreter) and an
+[abstract](./program_analysis) interpreter based on DDE, as well as
+formalizations of semantics in Coq.
 
 ## Set up
 
@@ -31,7 +33,6 @@ concrete interpretation. *)
 
 should_simplify := true;; (* to perform variable substitution, function
 application, etc. on the concrete interpretation result. *)
-
 ```
 
 ### Binary
@@ -65,3 +66,7 @@ dune exec -- tests/tests.exe --bench
 ``` 
 
 `bisect-ppx-report html` or `bisect-ppx-report summary` to view coverage.
+
+# Formalizations
+
+Please refer to [formal/README.md](./formal/README.md) for details.
