@@ -206,13 +206,13 @@ Qed.
 
 Ltac subst_map_lookup mymap prog :=
   match goal with
-    H: mymap _ = _
+    H : mymap _ = _
     |- _ => unfold mymap, prog in H; autounfold in H; simpl in H;
             injection H as H; subst
   end.
 
 (* bad non-local variable lookup *)
-Example eg_noloc_bad:
+Example eg_noloc_bad :
   ~ {{ eg_noloc_myfun, eg_noloc_mylexpr, [] }} |- eg_noloc => #[ fun M -> M@6, 7, [] ].
 Proof.
   intro contra.
