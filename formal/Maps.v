@@ -1,3 +1,6 @@
+(* overall design courtesy of Logical Foundations
+  https://softwarefoundations.cis.upenn.edu/lf-current/Maps.html *)
+
 From Coq Require Import Arith.Arith. Import Nat.
 
 Definition total_map (A : Type) := nat -> A.

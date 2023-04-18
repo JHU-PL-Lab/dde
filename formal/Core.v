@@ -4,7 +4,7 @@ From Coq Require Import Strings.String Lists.List Arith.Arith.
 From DDE Require Import Maps.
 Import ListNotations.
 
-(* slightly adjusted definition to more easily define notations *)
+(* slightly adjusted grammar to more easily define notations *)
 Inductive expr : Type :=
   | Appl (e1 : lexpr) (e2 : lexpr)
   | Val (v : val)
@@ -16,7 +16,7 @@ Definition sigma : Type := list nat.
 
 Inductive res : Type := Res (v : val) (l : nat) (s : sigma).
 
-(* coherce strings into exprs via the Ident constructor *)
+(* coerce strings into exprs via the Ident constructor *)
 Coercion Ident : string >-> expr.
 
 Declare Custom Entry lang.
@@ -105,7 +105,7 @@ Inductive eval : lexpr -> sigma -> res -> partial_map nat -> partial_map lexpr -
   | E_Val : forall s v l myfun mylexpr,
     {{ myfun, mylexpr, s }} |- v@@l => #[ v, l, s ]
   (* TODO: forall sound? *)
-  | E_Appl : forall e1 e2 l s r e l1 s1 myfun mylexpr x,
+  | E_Appl : forall e1 e2 l s r x e l1 s1 myfun mylexpr,
     {{ myfun, mylexpr, s }} |- e1 => #[ fun x -> e, l1, s1 ] ->
     {{ myfun, mylexpr, l :: s }} |- e => r ->
     {{ myfun, mylexpr, s }} |- (e1 <- e2) @ l => r
@@ -206,13 +206,13 @@ Qed.
 
 Ltac subst_map_lookup mymap prog :=
   match goal with
-    H: mymap _ = _
+    H : mymap _ = _
     |- _ => unfold mymap, prog in H; autounfold in H; simpl in H;
             injection H as H; subst
   end.
 
 (* bad non-local variable lookup *)
-Example eg_noloc_bad:
+Example eg_noloc_bad :
   ~ {{ eg_noloc_myfun, eg_noloc_mylexpr, [] }} |- eg_noloc => #[ fun M -> M@6, 7, [] ].
 Proof.
   intro contra.
@@ -243,4 +243,47 @@ Proof.
       subst_map_lookup eg_noloc_myfun eg_noloc.
       subst_map_lookup eg_noloc_mylexpr eg_noloc.
       contradiction.
+Qed.
+
+Theorem eval_deterministic : forall myfun mylexpr s e r1 r2,
+  {{ myfun, mylexpr, s }} |- e => r1 ->
+  {{ myfun, mylexpr, s }} |- e => r2 ->
+  r1 = r2.
+Proof.
+  intros. generalize dependent r2. induction H; intros.
+  (* E_Val *)
+  - inversion H0. subst. reflexivity.
+  (* E_Appl *)
+  - inversion H1. subst. clear H1.
+    apply IHeval1 in H9. injection H9 as H9. subst.
+    apply IHeval2 in H10. assumption.
+  (* E_VarLocal *)
+  - inversion H4; subst; clear H4.
+    (* E_VarLocal *)
+    + rewrite H0 in H8. injection H8 as H8. subst. clear H0.
+      rewrite H1 in H9. injection H9 as H9. subst. clear H1.
+      rewrite H2 in H10. injection H10 as H10. subst. clear H2.
+      clear H. clear H7.
+      apply IHeval in H15. assumption.
+    (* E_VarNonLocal *)
+    + rewrite H0 in H8. injection H8 as H8. subst. clear H0.
+      rewrite H1 in H9. injection H9 as H9. subst. clear H1.
+      rewrite H2 in H10. injection H10 as H10. subst. clear H2.
+      clear H. clear H7.
+      contradiction.
+  (* E_VarNonLocal *)
+  - inversion H6; subst; clear H6.
+    (* E_VarLocal *)
+    + rewrite H0 in H10. injection H10 as H10. subst. clear H0.
+      rewrite H1 in H11. injection H11 as H11. subst. clear H1.
+      rewrite H2 in H12. injection H12 as H12. subst. clear H2.
+      clear H. clear H9.
+      contradiction.
+    (* E_VarNonLocal *)
+    + rewrite H0 in H10. injection H10 as H10. subst. clear H0.
+      rewrite H1 in H11. injection H11 as H11. subst. clear H1.
+      rewrite H2 in H12. injection H12 as H12. subst. clear H2.
+      clear H. clear H9.
+      apply IHeval1 in H14. injection H14 as H14. subst.
+      apply IHeval2 in H19. assumption.
 Qed.
