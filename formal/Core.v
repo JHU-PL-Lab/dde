@@ -204,7 +204,7 @@ Proof.
       * apply E_Val.
 Qed.
 
-Ltac subst_map_lookup mymap prog :=
+Ltac map_lookup mymap prog :=
   match goal with
     H : mymap _ = _
     |- _ => unfold mymap, prog in H; autounfold in H; simpl in H;
@@ -222,28 +222,35 @@ Proof.
   inversion H9. subst. clear H9.
   inversion H7; subst; clear H7.
   (* E_VarLocal *)
-  - subst_map_lookup eg_noloc_myfun eg_noloc.
-    subst_map_lookup eg_noloc_mylexpr eg_noloc.
+  - map_lookup eg_noloc_myfun eg_noloc.
+    map_lookup eg_noloc_mylexpr eg_noloc.
     discriminate H4.
   (* E_VarNonLocal *)
-  - subst_map_lookup eg_noloc_mylexpr eg_noloc.
-    subst_map_lookup eg_noloc_myfun eg_noloc.
-    subst_map_lookup eg_noloc_mylexpr eg_noloc.
+  - map_lookup eg_noloc_mylexpr eg_noloc.
+    map_lookup eg_noloc_myfun eg_noloc.
+    map_lookup eg_noloc_mylexpr eg_noloc.
     inversion H6. subst. clear H6.
     inversion H9. subst. clear H9.
     inversion H10. subst. clear H10.
     inversion H12; subst; clear H12.
     (* E_VarLocal *)
-    + subst_map_lookup eg_noloc_mylexpr eg_noloc.
-      subst_map_lookup eg_noloc_myfun eg_noloc.
-      subst_map_lookup eg_noloc_mylexpr eg_noloc.
+    + map_lookup eg_noloc_mylexpr eg_noloc.
+      map_lookup eg_noloc_myfun eg_noloc.
+      map_lookup eg_noloc_mylexpr eg_noloc.
       inversion H11.
     (* E_VarNonLocal *)
-    + subst_map_lookup eg_noloc_mylexpr eg_noloc.
-      subst_map_lookup eg_noloc_myfun eg_noloc.
-      subst_map_lookup eg_noloc_mylexpr eg_noloc.
+    + map_lookup eg_noloc_mylexpr eg_noloc.
+      map_lookup eg_noloc_myfun eg_noloc.
+      map_lookup eg_noloc_mylexpr eg_noloc.
       contradiction.
 Qed.
+
+Ltac injection_subst :=
+  match goal with
+    H1 : ?E = _,
+    H2 : ?E = _
+    |- _ => rewrite H1 in H2; injection H2 as H2; subst; clear H1
+  end.
 
 Theorem eval_deterministic : forall myfun mylexpr s e r1 r2,
   {{ myfun, mylexpr, s }} |- e => r1 ->
@@ -260,29 +267,17 @@ Proof.
   (* E_VarLocal *)
   - inversion H4; subst; clear H4.
     (* E_VarLocal *)
-    + rewrite H0 in H8. injection H8 as H8. subst. clear H0.
-      rewrite H1 in H9. injection H9 as H9. subst. clear H1.
-      rewrite H2 in H10. injection H10 as H10. subst. clear H2.
+    + repeat injection_subst.
       clear H. clear H7.
       apply IHeval in H15. assumption.
     (* E_VarNonLocal *)
-    + rewrite H0 in H8. injection H8 as H8. subst. clear H0.
-      rewrite H1 in H9. injection H9 as H9. subst. clear H1.
-      rewrite H2 in H10. injection H10 as H10. subst. clear H2.
-      clear H. clear H7.
-      contradiction.
+    + congruence.
   (* E_VarNonLocal *)
   - inversion H6; subst; clear H6.
     (* E_VarLocal *)
-    + rewrite H0 in H10. injection H10 as H10. subst. clear H0.
-      rewrite H1 in H11. injection H11 as H11. subst. clear H1.
-      rewrite H2 in H12. injection H12 as H12. subst. clear H2.
-      clear H. clear H9.
-      contradiction.
+    + congruence.
     (* E_VarNonLocal *)
-    + rewrite H0 in H10. injection H10 as H10. subst. clear H0.
-      rewrite H1 in H11. injection H11 as H11. subst. clear H1.
-      rewrite H2 in H12. injection H12 as H12. subst. clear H2.
+    + repeat injection_subst.
       clear H. clear H9.
       apply IHeval1 in H14. injection H14 as H14. subst.
       apply IHeval2 in H19. assumption.
