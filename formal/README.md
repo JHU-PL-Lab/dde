@@ -3,6 +3,7 @@
 Current progress:
 - [x] concrete lambda calculus opsem
 - [ ] correctness properties of above
+  - [x] deterministic
 - [ ] other concrete opsems, e.g. environment/closure-based opsem
 - [ ] equivalence among concrete opsems
 - [ ] abstract opsems
