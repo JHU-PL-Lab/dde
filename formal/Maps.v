@@ -18,21 +18,6 @@ Notation "'_' '!->' v" := (t_empty v)
 Notation "i '!->' v ';' m" := (t_update m i v)
                               (at level 100, v at next level, right associativity).
 
-Lemma t_update_eq : forall (A : Type) (m : total_map A) i v,
-  (i !-> v ; m) i = v.
-Proof.
-  intros A m x v. unfold t_update. rewrite eqb_refl. reflexivity.
-Qed.
-
-Theorem t_update_neq : forall (A : Type) (m : total_map A) i1 i2 v,
-  i1 <> i2 ->
-  (i1 !-> v ; m) i2 = m i2.
-Proof.
-  intros A m i1 i2 v Hneq.
-  unfold t_update. apply eqb_neq in Hneq.
-  rewrite Hneq. reflexivity.
-Qed.
-
 Definition partial_map (A : Type) := total_map (option A).
 
 Definition empty {A : Type} : partial_map A :=
