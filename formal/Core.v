@@ -1,5 +1,4 @@
 Set Warnings "-notation-overridden,-parsing,-deprecated-hint-without-locality".
-From Coq Require Import Lia.
 From Coq Require Import Strings.String Lists.List Arith.Arith.
 From DDE Require Import Maps.
 Import ListNotations.

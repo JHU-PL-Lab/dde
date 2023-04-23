@@ -2,7 +2,7 @@
 
 This repo contains a [concrete](./interpreter) and an
 [abstract](./program_analysis) interpreter based on DDE, as well as
-formalizations of semantics in Coq.
+[formalizations](./formal) in Coq.
 
 ## Set up
 
