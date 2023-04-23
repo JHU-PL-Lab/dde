@@ -28,7 +28,7 @@ Definition t_update {K : Type} {V : Type} {eqbk : Eqb K}
 Notation "'_' '!->' v" := (t_empty v)
   (at level 100, right associativity).
 
-Notation "k '!->' v ';' m" := (t_update m k v)
+Notation "k '!->' v ; m" := (t_update m k v)
                               (at level 100, v at next level, right associativity).
 
 Definition partial_map (K : Type) (V : Type) := total_map K (option V).
@@ -40,7 +40,7 @@ Definition update {K : Type} {V : Type} {eqbk : Eqb K}
                   (m : partial_map K V) (k : K) (v : V) : partial_map K V :=
   (k !-> Some v ; m).
 
-Notation "k '|->' v ';' m" := (update m k v)
+Notation "k '|->' v ; m" := (update m k v)
   (at level 100, v at next level, right associativity).
 
 Notation "k '|->' v" := (update empty k v)
