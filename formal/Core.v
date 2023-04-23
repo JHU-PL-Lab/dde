@@ -94,7 +94,9 @@ Fixpoint build_mylexpr (le : lexpr) (ml : mylexpr) : mylexpr :=
 
 (* Compute build_mylexpr <{ (fun X -> X@1 ) @@ 2 }> empty. *)
 
-(* custom syntax for evaluation; I try to mirror the written syntax as much as possible *)
+(* custom syntax for evaluation, mirroring the written syntax
+   as much as possible. Uses '/' instead of ',' so notation doesn't
+   clash with that of Ltac's match goal. *)
 Reserved Notation
          "mf / ml / s |- e => r"
          (at level 40, e custom lang at level 99, r custom lang at level 99,
