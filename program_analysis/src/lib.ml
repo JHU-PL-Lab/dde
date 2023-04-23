@@ -24,14 +24,12 @@ and result_value =
       sigma : sigma_t;
     }
   | FunResult of { f : expr; l : label_t; sigma : sigma_t }
-  (* storing just the label instead of the whole expression works
-     because stubbing only happens at Appl and only Var Nonlocal
-     swaps labels *)
+  (* TODO: may need to store entire expression *)
   | StubResult of { l : label_t; sigma : sigma_t }
   | IntResult of int
   | BoolResult of bool
 
-let prune_sigma ?(k = 2) sigma = List.filteri (fun i _ -> i < k) sigma
+let prune_sigma ?(k = 10) sigma = List.filteri (fun i _ -> i < k) sigma
 
 let rec contains_sigma sigma_parent sigma_child =
   match (sigma_parent, sigma_child) with
@@ -77,7 +75,17 @@ let rec analyze_aux e sigma vis =
       let vis_state = (l, l_app_sigma) in
       (* Stub *)
       Format.printf "%a\n" pp_pair vis_state;
-      Format.printf "[%a]\n\n" pp_pair_list vis;
+      flush stdout;
+      Format.printf "[%a]\n" pp_pair_list vis;
+      flush stdout;
+      Format.printf "sigma: [%a]\n" pp_list sigma;
+      flush stdout;
+      print_endline "set:";
+      flush stdout;
+      Hashset.iter (fun s -> Format.printf "[%a]\n" pp_list s) set;
+      flush stdout;
+      print_endline "";
+      flush stdout;
       if List.mem vis_state vis then (
         print_endline "stubbed";
         Some (StubResult { l; sigma = l_app_sigma }))
@@ -91,7 +99,7 @@ let rec analyze_aux e sigma vis =
                   match fun_res with
                   | FunResult { f = Function (_, e_i, _); _ } -> (
                       Hashset.add set (l :: sigma);
-                      if l = 5 then Format.printf "%s\n" @@ show_expr e_i;
+                      (* if l = 5 then Format.printf "%s\n" @@ show_expr e_i; *)
                       match analyze_aux e_i l_app_sigma (vis_state :: vis) with
                       | Some res_i -> res_i :: accum
                       | None -> IntResult (-999) :: accum)
@@ -106,37 +114,48 @@ let rec analyze_aux e sigma vis =
       | Function (Ident x1, _, l_myfun) -> (
           if x = x1 then
             (* Var Local *)
-            if List.length sigma = 0 then (
-              print_endline "*********debug*********";
-              Format.printf "MyFun: %d\n" l_myfun;
-              Format.printf "(%s, %d)\n" x l;
-              print_endline "var local: empty sigma\n";
-              print_endline "*********debug*********";
-              None)
+            (* TODO: *)
+            if List.length sigma = 0 then
+              (* print_endline "*********debug*********";
+                 Format.printf "MyFun: %d\n" l_myfun;
+                 Format.printf "(%s, %d)\n" x l;
+                 print_endline "var local: empty sigma\n";
+                 print_endline "*********debug*********"; *)
+              None
             else
-              let sigma_hd, sigma_tl = (List.hd sigma, List.tl sigma) in
-              let sigma_hd_expr = get_expr sigma_hd in
-              match sigma_hd_expr with
-              | Appl (_, e2, l') ->
-                  (* enumerate all matching stacks in the set *)
-                  let result_list =
-                    Hashset.fold
-                      (fun sigma_i accum ->
-                        let sigma_i_hd, sigma_i_tl =
-                          (List.hd sigma_i, List.tl sigma_i)
-                        in
-                        (* the fact that we can prune away "bad" stacks like this
-                           makes DDE for program analysis superior *)
-                        if sigma_i_hd = l' && contains_sigma sigma_i_tl sigma_tl
-                        then
-                          match analyze_aux e2 sigma_i_tl vis with
-                          | Some res_i -> res_i :: accum
-                          | None -> IntResult (-999) :: accum
-                        else accum)
-                      set []
-                  in
-                  Some (ChoiceResult { choices = result_list; l; sigma })
-              | _ -> failwith "appl (var local)" [@coverage off]
+              let vis_state = (l, sigma) in
+              (* Stub *)
+              if List.mem vis_state vis then (
+                print_endline "stubbed";
+                Some (StubResult { l; sigma }))
+              else
+                let sigma_hd, sigma_tl = (List.hd sigma, List.tl sigma) in
+                let sigma_hd_expr = get_expr sigma_hd in
+                match sigma_hd_expr with
+                | Appl (_, e2, l') ->
+                    (* enumerate all matching stacks in the set *)
+                    let result_list =
+                      Hashset.fold
+                        (fun sigma_i accum ->
+                          let sigma_i_hd, sigma_i_tl =
+                            (List.hd sigma_i, List.tl sigma_i)
+                          in
+                          (* the fact that we can prune away "bad" stacks like this
+                             makes DDE for program analysis superior *)
+                          if
+                            sigma_i_hd = l'
+                            && contains_sigma sigma_i_tl sigma_tl
+                          then
+                            match
+                              analyze_aux e2 sigma_i_tl (vis_state :: vis)
+                            with
+                            | Some res_i -> res_i :: accum
+                            | None -> IntResult (-999) :: accum
+                          else accum)
+                        set []
+                    in
+                    Some (ChoiceResult { choices = result_list; l; sigma })
+                | _ -> failwith "appl (var local)" [@coverage off]
           else if (* Var Non-Local *)
                   List.length sigma = 0 then (
             print_endline x;

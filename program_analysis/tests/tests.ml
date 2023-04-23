@@ -19,6 +19,10 @@ let _test_curried_funs _ =
   assert_equal "TODO"
     (pau "let add = fun num -> fun n -> n + num in let add1 = add 1 in add1 2");
   assert_equal "TODO"
+    (pau
+       "(fun add -> (fun add1 -> (fun add2 -> add1 2) (add 2)) (add 1)) (fun \
+        num -> fun n -> n + num)");
+  assert_equal "TODO"
     (pau "let add = fun num -> fun n -> n + num in let add2 = add 2 in add2 1");
   assert_equal "TODO"
     (pau
