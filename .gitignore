@@ -1,9 +1,4 @@
 _build
 _coverage
 *.coverage
-
-formal/.*
-formal/*.glob
-formal/*.vo*
-
 .DS_Store
