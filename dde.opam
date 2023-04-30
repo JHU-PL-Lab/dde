@@ -7,7 +7,7 @@ authors: ["JHU PL Lab <scott@cs.jhu.edu>"]
 homepage: "https://github.com/JHU-PL-Lab/dde"
 bug-reports: "https://github.com/JHU-PL-Lab/dde/issues"
 depends: [
-  "dune" {>= "3.6"}
+  "dune" {>= "3.7"}
   "odoc" {with-doc}
 ]
 build: [

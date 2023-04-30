@@ -48,7 +48,6 @@ let toplevel_loop typechecking_enabled show_types is_debug_mode should_simplify
       Format.printf "==> %a\n" Fbdk.Pp.pp_result_value result
     with ex -> print_exception ex
   in
-  Format.printf "\t%s version %s\t" Fbdk.name Fbdk.Version.version;
   Format.printf "\t(typechecker %s)\n\n"
     (if typechecking_enabled then "enabled" else "disabled");
   Format.print_flush ();
@@ -71,10 +70,6 @@ let run_file filename is_debug_mode should_simplify =
   Format.printf "%a\n" Fbdk.Pp.pp_result_value result;
   Format.print_flush ()
 
-let print_version () =
-  Format.printf "%s version %s\nBuild Date: %s\n" Fbdk.name Fbdk.Version.version
-    Fbdk.Version.build_date
-
 let main () =
   let filename = ref "" in
   let toplevel = ref true in
@@ -86,7 +81,6 @@ let main () =
   let should_simplify = ref false in
   Arg.parse
     ([
-       ("--version", Arg.Set version, "show version information");
        ("--typecheck", Arg.Clear no_typechecking, "enable typechecking");
        ("--no-typecheck", Arg.Set no_typechecking, "disable typechecking");
        ("--hide-types", Arg.Set no_type_display, "disable displaying of types");
@@ -111,8 +105,7 @@ let main () =
 
   Printexc.record_backtrace !show_exception_stack_trace;
 
-  if !version then print_version ()
-  else if !toplevel then
+  if !toplevel then
     toplevel_loop (not !no_typechecking) (not !no_type_display) !is_debug_mode
       !should_simplify
   else run_file !filename !is_debug_mode !should_simplify

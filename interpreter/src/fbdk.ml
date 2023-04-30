@@ -7,4 +7,3 @@ module Pp = Pp
 module Options = Options
 module Interpreter = Interp
 module Typechecker = Type
-module Version = Version

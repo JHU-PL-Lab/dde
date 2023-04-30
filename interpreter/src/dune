@@ -5,7 +5,7 @@
   (pps ppx_deriving.show bisect_ppx ppx_jane))
  (instrumentation
   (backend bisect_ppx --bisect-file _build/bisect))
- (modules fbdk debugutils version ast type interp lexer options parser pp)
+ (modules fbdk debugutils ast type interp lexer options parser pp)
  (libraries core))
 
 (ocamllex
@@ -27,11 +27,3 @@
 (alias
  (name distributables)
  (deps main.bc toplevel.exe))
-
-(rule
- (target version.ml)
- (deps (universe))
- (action
-  (progn
-   (run chmod +x %{project_root}/scripts/gen_version.sh)
-   (run %{project_root}/scripts/gen_version.sh))))

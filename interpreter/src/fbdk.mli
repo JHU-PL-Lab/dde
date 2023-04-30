@@ -76,8 +76,3 @@ end
 module Options : sig
   val options : (Arg.key * Arg.spec * Arg.doc) list
 end
-
-module Version : sig
-  val version : string
-  val build_date : string
-end
