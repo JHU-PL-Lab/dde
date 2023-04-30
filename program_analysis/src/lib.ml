@@ -5,8 +5,7 @@ open Core.Option.Let_syntax
 
 exception Unreachable
 
-type label_t = int [@@deriving show { with_path = false }]
-type sigma_t = label_t list [@@deriving show { with_path = false }]
+type sigma_t = int list [@@deriving show { with_path = false }]
 
 type op_result_value =
   | PlusOp of result_value * result_value
@@ -18,12 +17,8 @@ type op_result_value =
 
 and result_value =
   | OpResult of op_result_value
-  | ChoiceResult of {
-      choices : result_value list;
-      l : label_t;
-      sigma : sigma_t;
-    }
-  | FunResult of { f : expr; l : label_t; sigma : sigma_t }
+  | ChoiceResult of { choices : result_value list; l : int; sigma : sigma_t }
+  | FunResult of { f : expr; l : int; sigma : sigma_t }
   | StubResult of { e : expr; sigma : sigma_t }
   | IntResult of int
   | BoolResult of bool
@@ -37,18 +32,18 @@ let rec contains_sigma sigma_parent sigma_child =
   | l_parent :: ls_parent, l_child :: ls_child ->
       l_parent = l_child && contains_sigma ls_parent ls_child
 
-let rec fold_choices f accum choices =
+let rec fold_choices f choices acc =
   match choices with
   | ChoiceResult { choices = choices'; _ } :: rest ->
-      fold_choices f accum (choices' @ rest)
-  | res :: rest -> fold_choices f (f res accum) rest
-  | [] -> accum
+      fold_choices f (choices' @ rest) acc
+  | res :: rest -> fold_choices f rest (f res acc)
+  | [] -> acc
 
-let set : sigma_t Hashset.t = Hashset.create 100
-let print_set () = Hashset.iter (fun x -> print_endline @@ show_sigma_t x) set
+let s_set = Hashset.create 1000
+let print_set () = Hashset.iter (fun x -> print_endline @@ show_sigma_t x) s_set
 
-module VisSet = Set.Make (struct
-  type t = label_t * sigma_t
+module VSet = Set.Make (struct
+  type t = expr * sigma_t
 
   let compare (l1, sigma1) (l2, sigma2) =
     match compare l1 l2 with 0 -> compare sigma1 sigma2 | n -> n
@@ -58,8 +53,9 @@ let pp_pair fmt (l, sigma) =
   Format.fprintf fmt "(%d, %s)" l @@ show_sigma_t sigma
 
 let pp_pair_list fmt ls = Format.pp_print_list pp_pair fmt ls
+let is_debug_mode = ref false
 
-let rec analyze_aux ~is_debug_mode expr sigma vis =
+let rec analyze_aux expr sigma v_set =
   match expr with
   | Int i -> Some (IntResult i)
   | Bool b -> Some (BoolResult b)
@@ -71,38 +67,37 @@ let rec analyze_aux ~is_debug_mode expr sigma vis =
   | Appl (e, _, l) -> (
       let l_app_sigma = prune_sigma (l :: sigma) in
       let vis_state = (expr, l_app_sigma) in
-      (if is_debug_mode then print_endline @@ show_label_t l) [@coverage off];
-      (* Stub *)
-      if List.mem vis_state vis then
+      (if !is_debug_mode then Format.printf "%d\n" l) [@coverage off];
+      (* Application Stub *)
+      if VSet.mem vis_state v_set then
         Some (StubResult { e = expr; sigma = l_app_sigma })
       else
         (* Application *)
-        match%bind analyze_aux ~is_debug_mode e sigma vis with
+        match%bind analyze_aux e sigma v_set with
         | ChoiceResult { choices; _ } ->
             let result_list =
               fold_choices
-                (fun fun_res accum ->
+                (fun fun_res acc ->
                   match fun_res with
                   | FunResult { f = Function (_, e_i, _); _ } -> (
-                      Hashset.add set (l :: sigma);
+                      Hashset.add s_set (l :: sigma);
                       match
-                        analyze_aux ~is_debug_mode e_i l_app_sigma
-                          (vis_state :: vis)
+                        analyze_aux e_i l_app_sigma (VSet.add vis_state v_set)
                       with
-                      | Some res_i -> res_i :: accum
-                      | None -> accum)
-                  | _ -> failwith "funresult (appl)" [@coverage off])
-                [] choices
+                      | Some res_i -> res_i :: acc
+                      | None -> acc)
+                  | _ -> raise Unreachable [@coverage off])
+                choices []
             in
             Some
               (ChoiceResult { choices = result_list; l; sigma = l_app_sigma })
-        | _ -> failwith "choice (appl)" [@coverage off])
+        | _ -> raise Unreachable [@coverage off])
   | Var (Ident x, l) -> (
       match get_myfun l with
       | Function (Ident x1, _, l_myfun) ->
           if x = x1 then (
             (* Var Local *)
-            (if is_debug_mode then (
+            (if !is_debug_mode then (
                Format.printf "%s, %d\n" x l;
                flush stdout;
                print_set ()))
@@ -110,8 +105,8 @@ let rec analyze_aux ~is_debug_mode expr sigma vis =
             if List.length sigma = 0 then None
             else
               let vis_state = (expr, sigma) in
-              (* Stub *)
-              if List.mem vis_state vis then
+              (* Var Local Stub *)
+              if VSet.mem vis_state v_set then
                 Some (StubResult { e = expr; sigma })
               else
                 let sigma_hd, sigma_tl = (List.hd sigma, List.tl sigma) in
@@ -121,7 +116,7 @@ let rec analyze_aux ~is_debug_mode expr sigma vis =
                     let res_list =
                       (* enumerate all matching stacks in the set *)
                       Hashset.fold
-                        (fun sigma_i accum ->
+                        (fun sigma_i acc ->
                           let sigma_i_hd, sigma_i_tl =
                             (List.hd sigma_i, List.tl sigma_i)
                           in
@@ -133,18 +128,18 @@ let rec analyze_aux ~is_debug_mode expr sigma vis =
                           then
                             match
                               (* stitch the stack to gain more precision *)
-                              analyze_aux ~is_debug_mode e2 sigma_i_tl
-                                (vis_state :: vis)
+                              analyze_aux e2 sigma_i_tl
+                                (VSet.add vis_state v_set)
                             with
-                            | Some r_i -> r_i :: accum
-                            | None -> accum
-                          else accum)
-                        set []
+                            | Some r_i -> r_i :: acc
+                            | None -> acc
+                          else acc)
+                        s_set []
                     in
                     Some (ChoiceResult { choices = res_list; l; sigma })
-                | _ -> failwith "appl (var local)" [@coverage off])
+                | _ -> raise Unreachable [@coverage off])
           else (
-            (if is_debug_mode then (
+            (if !is_debug_mode then (
                Format.printf "%s, %d\n" x l;
                flush stdout;
                print_endline @@ show_sigma_t sigma;
@@ -157,7 +152,7 @@ let rec analyze_aux ~is_debug_mode expr sigma vis =
                 let res_list =
                   (* enumerate all matching stacks in the set *)
                   Hashset.fold
-                    (fun sigma_i accum ->
+                    (fun sigma_i set_acc ->
                       let sigma_i_hd, sigma_i_tl =
                         (List.hd sigma_i, List.tl sigma_i)
                       in
@@ -165,11 +160,11 @@ let rec analyze_aux ~is_debug_mode expr sigma vis =
                       then
                         match
                           (* stitch the stack to gain more precision *)
-                          analyze_aux ~is_debug_mode e1 sigma_i_tl vis
+                          analyze_aux e1 sigma_i_tl v_set
                         with
                         | Some (ChoiceResult { choices; _ }) ->
                             fold_choices
-                              (fun fun_res accum ->
+                              (fun fun_res acc ->
                                 match fun_res with
                                 | FunResult
                                     {
@@ -179,63 +174,61 @@ let rec analyze_aux ~is_debug_mode expr sigma vis =
                                     }
                                   when x1 = x1' && l_myfun = l1 -> (
                                     match
-                                      analyze_aux ~is_debug_mode
+                                      analyze_aux
                                         (Var (Ident x, l1))
-                                        sigma_i vis
+                                        sigma_i v_set
                                     with
-                                    | Some res_i -> res_i :: accum
-                                    | None -> accum)
-                                | _ -> accum)
-                              accum choices
-                            @ accum
-                        | _ -> failwith "choice" [@coverage off]
-                      else accum)
-                    set []
+                                    | Some res_i -> res_i :: acc
+                                    | None -> acc)
+                                | _ -> acc)
+                              choices set_acc
+                            (* TODO: may want to use Set *)
+                            @ set_acc
+                        | _ -> raise Unreachable [@coverage off]
+                      else set_acc)
+                    s_set []
                 in
                 Some (ChoiceResult { choices = res_list; l; sigma })
-            | _ -> failwith "appl" [@coverage off])
-      | _ -> failwith "function" [@coverage off])
-  | Plus (e1, e2) ->
-      let%bind r1 = analyze_aux ~is_debug_mode e1 sigma vis in
-      let%bind r2 = analyze_aux ~is_debug_mode e2 sigma vis in
-      Some (OpResult (PlusOp (r1, r2)))
-  | Minus (e1, e2) ->
-      let%bind r1 = analyze_aux ~is_debug_mode e1 sigma vis in
-      let%bind r2 = analyze_aux ~is_debug_mode e2 sigma vis in
-      Some (OpResult (MinusOp (r1, r2)))
-  | Equal (e1, e2) ->
-      let%bind r1 = analyze_aux ~is_debug_mode e1 sigma vis in
-      let%bind r2 = analyze_aux ~is_debug_mode e2 sigma vis in
-      Some (OpResult (EqualOp (r1, r2)))
-  | And (e1, e2) ->
-      let%bind r1 = analyze_aux ~is_debug_mode e1 sigma vis in
-      let%bind r2 = analyze_aux ~is_debug_mode e2 sigma vis in
-      Some (OpResult (AndOp (r1, r2)))
-  | Or (e1, e2) ->
-      let%bind r1 = analyze_aux ~is_debug_mode e1 sigma vis in
-      let%bind r2 = analyze_aux ~is_debug_mode e2 sigma vis in
-      Some (OpResult (OrOp (r1, r2)))
-  | Not e' ->
-      let%bind r = analyze_aux ~is_debug_mode e' sigma vis in
-      Some (OpResult (NotOp r))
-  | If (e', e1, e2, l) ->
-      let _r = analyze_aux e' sigma vis in
+            | _ -> raise Unreachable [@coverage off])
+      | _ -> raise Unreachable [@coverage off])
+  | If (e, e_true, e_false, l) ->
+      let _r = analyze_aux e sigma v_set in
       (* TODO: eval r *)
       (* on stub, denote as `any_num` *)
-      let%bind r_true = analyze_aux ~is_debug_mode e1 sigma vis in
-      let%bind r_false = analyze_aux ~is_debug_mode e2 sigma vis in
+      let%bind r_true = analyze_aux e_true sigma v_set in
+      let%bind r_false = analyze_aux e_false sigma v_set in
       Some (ChoiceResult { choices = [ r_true; r_false ]; l; sigma })
+  | Plus (e1, e2) | Minus (e1, e2) | Equal (e1, e2) | And (e1, e2) | Or (e1, e2)
+    ->
+      let%bind r1 = analyze_aux e1 sigma v_set in
+      let%bind r2 = analyze_aux e2 sigma v_set in
+      Some
+        (OpResult
+           (match expr with
+           | Plus _ -> PlusOp (r1, r2)
+           | Minus _ -> MinusOp (r1, r2)
+           | Equal _ -> EqualOp (r1, r2)
+           | And _ -> AndOp (r1, r2)
+           | Or _ -> OrOp (r1, r2)
+           | _ -> raise Unreachable [@coverage off]))
+  | Not e ->
+      let%bind r = analyze_aux e sigma v_set in
+      Some (OpResult (NotOp r))
   | Let _ -> raise Unreachable [@coverage off]
 
-let analyze e ~is_debug_mode =
+let analyze ~debug e =
+  is_debug_mode := debug;
+
   let e = transform_let e in
   build_myfun e None;
-  let r = analyze_aux ~is_debug_mode e [] [] in
+  let r = analyze_aux e [] VSet.empty in
 
-  (if is_debug_mode then Format.printf "\n%s\n\n" @@ show_expr e;
-   print_endline "****** Label Table ******";
-   print_myexpr myexpr;
-   print_endline "****** Label Table ******\n")
+  (if !is_debug_mode then (
+     Format.printf "\n%s\n\n" @@ show_expr e;
+     flush stdout;
+     print_endline "****** Label Table ******";
+     print_myexpr myexpr;
+     print_endline "****** Label Table ******\n"))
   [@coverage off];
 
   Option.get r

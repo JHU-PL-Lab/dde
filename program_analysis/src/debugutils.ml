@@ -46,11 +46,11 @@ let unparse v = v |> Format.asprintf "%a" pp_result_value
 let parse_analyze s = s |> parse |> analyze
 
 let parse_analyze_unparse s =
-  s |> parse |> analyze ~is_debug_mode:!is_debug_mode |> unparse
+  s |> parse |> analyze ~debug:!is_debug_mode |> unparse
 
 let pau = parse_analyze_unparse
 
 let parse_eval_print s =
   s |> parse
-  |> analyze ~is_debug_mode:!is_debug_mode
+  |> analyze ~debug:!is_debug_mode
   |> Format.printf "==> %a\n" pp_result_value
