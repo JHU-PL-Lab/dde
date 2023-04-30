@@ -5,3 +5,5 @@ _coverage
 formal/.*
 formal/*.glob
 formal/*.vo*
+
+.DS_Store

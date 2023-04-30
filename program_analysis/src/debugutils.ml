@@ -36,14 +36,21 @@ let rec pp_result_value fmt (v : result_value) =
       | NotOp r1 -> ff fmt "(not %a)" pp_result_value r1)
   | StubResult { e; _ } -> ff fmt "stub"
 
+let is_debug_mode = ref false
+
 let parse s =
   s ^ ";;" |> Lexing.from_string
   |> Interpreter.Parser.main Interpreter.Lexer.token
 
 let unparse v = v |> Format.asprintf "%a" pp_result_value
 let parse_analyze s = s |> parse |> analyze
-let parse_analyze_unparse s = s |> parse |> analyze |> unparse
+
+let parse_analyze_unparse s =
+  s |> parse |> analyze ~is_debug_mode:!is_debug_mode |> unparse
+
 let pau = parse_analyze_unparse
 
 let parse_eval_print s =
-  s |> parse |> analyze |> Format.printf "==> %a\n" pp_result_value
+  s |> parse
+  |> analyze ~is_debug_mode:!is_debug_mode
+  |> Format.printf "==> %a\n" pp_result_value
