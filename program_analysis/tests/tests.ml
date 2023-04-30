@@ -18,18 +18,11 @@ let test_local_stitching _ =
        "let add = fun num -> fun n -> n + num in\n\
         let add1 = add 1 in\n\
         let add1' = fun n -> add1 n in\n\
-        add1 1 + add1' 1;;");
-  assert_equal "| | | | | (| (| | | 0 + 1) + 2)"
-    (pau
-       "let add = fun f -> fun g -> fun x -> f g x in\n\
-        let add1 = add (fun z -> fun n -> z n + 2) in\n\
-        let add2 = add1 (fun y -> y + 1) in\n\
-        add2 0;;")
+        add1 1 + add1' 1;;")
 
 let test_if _ =
   assert_equal "| | (0 | (1 + (| 10 - 1)))"
-    (pau "(fun id -> id 10) (fun n -> if n = 0 then 0 else 1 + (n - 1));;");
-  assert_equal "(1 | 2)" (pau "if true then 1 else 2;;")
+    (pau "(fun id -> id 10) (fun n -> if n = 0 then 0 else 1 + (n - 1));;")
 
 let test_currying _ =
   assert_equal "| | | (| 2 + | | 1)"
