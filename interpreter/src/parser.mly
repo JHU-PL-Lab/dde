@@ -45,7 +45,7 @@ open Ast;;
  * The entry point.
  */
 %start main
-%type <Ast.expr> main
+%type <expr> main
 
 %%
 
@@ -57,44 +57,44 @@ expr:
   | appl_expr
       { $1 }
   | expr PLUS expr
-      { build_labeled_plus $1 $3 }
+      { build_plus $1 $3 }
   | expr MINUS expr
-      { build_labeled_minus $1 $3 }
+      { build_minus $1 $3 }
   | expr AND expr
-      { build_labeled_and $1 $3 }
+      { build_and $1 $3 }
   | expr OR expr
-      { build_labeled_or $1 $3 }
+      { build_or $1 $3 }
   | NOT expr
-      { build_labeled_not $2 }
+      { build_not $2 }
   | expr EQUAL expr
-      { build_labeled_equal $1 $3 }
+      { build_equal $1 $3 }
   | FUNCTION ident_decl GOESTO expr %prec prec_fun
-      { build_labeled_function $2 $4 }
+      { build_function $2 $4 }
   | LET ident_decl EQUAL expr IN expr %prec prec_let
-      { build_labeled_let $2 $4 $6 }
+      { build_let $2 $4 $6 }
   | IF expr THEN expr ELSE expr %prec prec_if
-      { build_labeled_if $2 $4 $6 }
+      { build_if $2 $4 $6 }
 ;
 
 appl_expr:
   | negatable_expr
       { $1 }
   | appl_expr simple_expr
-      { build_labeled_appl $1 $2 }
+      { build_appl $1 $2 }
 ;
 
 negatable_expr:
   | MINUS INT
-      { build_labeled_int (-$2) }
+      { build_int (-$2) }
   | simple_expr
       { $1 }
 ;
 
 simple_expr:
   | INT
-      { build_labeled_int $1 }
+      { build_int $1 }
   | BOOL
-      { build_labeled_bool $1 }
+      { build_bool $1 }
   | ident_usage
       { $1 }
   | LPAREN expr RPAREN
@@ -103,7 +103,7 @@ simple_expr:
 
 ident_usage:
     ident_decl
-      { build_labeled_var $1 }
+      { build_var $1 }
 ;
 
 ident_decl:

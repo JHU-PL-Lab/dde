@@ -18,5 +18,9 @@ let fresh_label () =
 let reset_label () = label := -1
 let ( |>> ) v f = Option.map f v
 let ( |>-> ) v f = Option.bind v f
-let au e = e |> Lib.analyze |> Format.asprintf "%a" Utils.pp_result_value
+
+let au e =
+  e |> Lib.analyze ~debug:false
+  |> Format.asprintf "%a" Debugutils.pp_result_value
+
 let pau s = Lexing.from_string s |> Parser.main Lexer.token |> au

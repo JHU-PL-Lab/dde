@@ -20,8 +20,8 @@ let toplevel_loop =
   in
   let safe_analyze_and_print ast =
     try
-      let result = Lib.analyze ast in
-      Format.printf "==> %a\n" Utils.pp_result_value result
+      let result = Lib.analyze ast ~is_debug_mode:false in
+      Format.printf "==> %a\n" Debugutils.pp_result_value result
     with ex -> print_exception ex
   in
   Format.printf "\t%s version %s\t\n" Fbdk.name Fbdk.Version.version;

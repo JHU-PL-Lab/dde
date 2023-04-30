@@ -65,16 +65,16 @@ let rec eval_aux (e : expr) (sigma : int list) : result_value =
                 eval_aux e (app_l :: sigma)
             | _ -> raise Unreachable [@coverage off])
         | Var (Ident x, l) -> (
-            match get_outer_scope l with
+            match get_myfun l with
             | Function (Ident x', _, _) -> (
                 if x = x' then
                   (* Var Local *)
-                  match get_expr (List.hd sigma) with
+                  match get_myexpr (List.hd sigma) with
                   | Appl (_, e2, _) -> eval_aux e2 (List.tl sigma)
                   | _ -> raise Unreachable [@coverage off]
                 else
                   (* Var Non-Local *)
-                  match get_expr (List.hd sigma) with
+                  match get_myexpr (List.hd sigma) with
                   | Appl (e1, _, _) -> (
                       match eval_aux e1 (List.tl sigma) with
                       | FunResult { f; l = l1; sigma = sigma1 } ->
@@ -211,21 +211,21 @@ and eval_result_value (r : result_value) : result_value =
 
 let eval e ~is_debug_mode ~should_simplify =
   let e = transform_let e in
-  fill_my_fun e None;
+  build_myfun e None;
   let r = eval_aux e [] in
 
-  if is_debug_mode then (
-    (print_endline "****** Label Table ******";
-     print_my_expr my_expr;
+  (if is_debug_mode then (
+     print_endline "****** Label Table ******";
+     print_myexpr myexpr;
      print_endline "****** Label Table ******\n";
      print_endline "****** MyFun Table ******";
-     print_my_fun my_fun;
-     print_endline "****** MyFun Table ******\n")
-    [@coverage off]);
+     print_myfun myfun;
+     print_endline "****** MyFun Table ******\n"))
+  [@coverage off];
 
   if not should_simplify then r
   else
     let v = eval_result_value r in
-    Hashtbl.reset my_expr;
-    Hashtbl.reset my_fun;
+    Core.Hashtbl.clear myexpr;
+    Core.Hashtbl.clear myfun;
     v
