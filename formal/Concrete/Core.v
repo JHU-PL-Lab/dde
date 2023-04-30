@@ -286,4 +286,3 @@ Proof.
 Qed.
 
 Close Scope lang_scope.
-

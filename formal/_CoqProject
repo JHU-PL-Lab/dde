@@ -1,1 +1,5 @@
--Q . DDE
+# we're only using this file to make IDEs work
+
+-Q ../_build/default/formal/Concrete DDE.Concrete
+-Q ../_build/default/formal/Abstract DDE.Abstract
+-Q ../_build/default/formal DDE
