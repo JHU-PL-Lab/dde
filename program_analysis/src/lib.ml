@@ -40,7 +40,9 @@ let rec fold_choices f choices acc =
   | [] -> acc
 
 let s_set = Hashset.create 1000
-let print_set () = Hashset.iter (fun x -> print_endline @@ show_sigma_t x) s_set
+
+let print_set () =
+  Hashset.fold (fun sigma acc -> show_sigma_t sigma ^ "\n" ^ acc) s_set ""
 
 module VSet = Set.Make (struct
   type t = expr * sigma_t
@@ -67,7 +69,7 @@ let rec analyze_aux expr sigma v_set =
   | Appl (e, _, l) -> (
       let l_app_sigma = prune_sigma (l :: sigma) in
       let vis_state = (expr, l_app_sigma) in
-      (if !is_debug_mode then Format.printf "%d\n" l) [@coverage off];
+      (if !is_debug_mode then Format.printf "Appl: %d\n" l) [@coverage off];
       (* Application Stub *)
       if VSet.mem vis_state v_set then
         Some (StubResult { e = expr; sigma = l_app_sigma })
@@ -75,11 +77,12 @@ let rec analyze_aux expr sigma v_set =
         (* Application *)
         match%bind analyze_aux e sigma v_set with
         | ChoiceResult { choices; _ } ->
-            let result_list =
+            let res_list =
               fold_choices
                 (fun fun_res acc ->
                   match fun_res with
                   | FunResult { f = Function (_, e_i, _); _ } -> (
+                      (* TODO: S contains not just application labels? *)
                       Hashset.add s_set (l :: sigma);
                       match
                         analyze_aux e_i l_app_sigma (VSet.add vis_state v_set)
@@ -89,18 +92,16 @@ let rec analyze_aux expr sigma v_set =
                   | _ -> raise Unreachable [@coverage off])
                 choices []
             in
-            Some
-              (ChoiceResult { choices = result_list; l; sigma = l_app_sigma })
+            Some (ChoiceResult { choices = res_list; l; sigma = l_app_sigma })
         | _ -> raise Unreachable [@coverage off])
   | Var (Ident x, l) -> (
       match get_myfun l with
       | Function (Ident x1, _, l_myfun) ->
           if x = x1 then (
             (* Var Local *)
-            (if !is_debug_mode then (
-               Format.printf "%s, %d\n" x l;
-               flush stdout;
-               print_set ()))
+            (if !is_debug_mode then
+               Format.printf "Var Local:\n%s, %d\nsigma: %s\nS:\n%s" x l
+                 (show_sigma_t sigma) (print_set ()))
             [@coverage off];
             if List.length sigma = 0 then None
             else
@@ -139,11 +140,10 @@ let rec analyze_aux expr sigma v_set =
                     Some (ChoiceResult { choices = res_list; l; sigma })
                 | _ -> raise Unreachable [@coverage off])
           else (
-            (if !is_debug_mode then (
-               Format.printf "%s, %d\n" x l;
-               flush stdout;
-               print_endline @@ show_sigma_t sigma;
-               print_set ()))
+            (* Var Non-Local *)
+            (if !is_debug_mode then
+               Format.printf "Var Non-Local:\n%s, %d\nsigma: %s\nS:\n%s" x l
+                 (show_sigma_t sigma) (print_set ()))
             [@coverage off];
             let sigma_hd, sigma_tl = (List.hd sigma, List.tl sigma) in
             let sigma_hd_expr = get_myexpr sigma_hd in

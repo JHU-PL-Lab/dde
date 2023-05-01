@@ -29,7 +29,10 @@ let test_local_stitching _ =
 let test_if _ =
   assert_equal "| | (0 | (1 + (| 10 - 1)))"
     (pau "(fun id -> id 10) (fun n -> if n = 0 then 0 else 1 + (n - 1));;");
-  assert_equal "(1 | 2)" (pau "if true then 1 else 2;;")
+  assert_equal "(1 | 2)" (pau "if true then 1 else 2;;");
+  (* TODO: improve pretty printing *)
+  assert_equal "| (| | 1 | | | 1)"
+    (pau "(fun x -> (if true then (fun y -> y) else (fun z -> z)) x) 1")
 
 let test_currying _ =
   assert_equal "| | | (| 2 + | | 1)"
