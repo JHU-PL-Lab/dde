@@ -1,7 +1,7 @@
 Set Warnings "-notation-overridden,-parsing,-deprecated-hint-without-locality".
 From Coq Require Import Strings.String Lists.List Arith.Arith.
-From DDE Require Import Maps.
 Import ListNotations.
+From DDE Require Import Maps.
 
 (* slightly adjusted grammar to more easily define notations *)
 Inductive expr : Type :=
@@ -124,7 +124,6 @@ Inductive eval : lexpr -> sigma -> res -> myfun -> mylexpr -> Prop :=
     ml l2 = Some <{ (e1 <- e2) @ l2 }> ->
     mf / ml / s |- e1 => [ fun x1 -> e, l1, s1 ] ->
     mf / ml / s1 |- x@l1 => r ->
-    (* TODO: inline premises *)
     mf / ml / (l2 :: s) |- x@l => r
 
   where "mf / ml / s |- e => r" := (eval e s r mf ml).
