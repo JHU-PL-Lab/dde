@@ -1,7 +1,7 @@
 Set Warnings "-notation-overridden,-parsing,-deprecated-hint-without-locality".
 From Coq Require Import Strings.String Lists.List Arith.Arith.
-From DDE Require Import Maps.
 Import ListNotations.
+From DDE Require Import Maps.
 
 (* slightly adjusted grammar to more easily define notations *)
 Inductive expr : Type :=
@@ -111,7 +111,7 @@ Inductive eval : lexpr -> sigma -> res -> myfun -> mylexpr -> Prop :=
     mf / ml / s |- e1 => [ fun x -> e, l1, s1 ] ->
     mf / ml / l :: s |- e => r ->
     mf / ml / s |- (e1 <- e2) @ l => r
-  | E_VarLocal : forall (x : string) l s r mf ml e1 e2 l' e mf_l,
+  | E_VarLocal : forall x l s r mf ml e1 e2 l' e mf_l,
     List.length s <> 0 ->
     (* hd will never give default *)
     ml (hd 0 s) = Some <{ (e1 <- e2) @ l' }> ->
@@ -119,14 +119,16 @@ Inductive eval : lexpr -> sigma -> res -> myfun -> mylexpr -> Prop :=
     ml mf_l = Some <{ ($fun x -> e) @ mf_l }> ->
     mf / ml / tl s |- e2 => r ->
     mf / ml / s |- x@l => r
-  | E_VarNonLocal : forall (x : string) l s r mf ml e1 e2 l2 e mf_l x1 s1,
+  | E_VarNonLocal : forall x l s r mf ml e1 e2 l2 e mf_l x1 s1,
     List.length s <> 0 ->
+    (* TODO: switch order *)
     ml (hd 0 s) = Some <{ (e1 <- e2) @ l2 }> ->
     mf l = Some mf_l ->
     ml mf_l = Some <{ ($fun x1 -> e) @ mf_l }> ->
     x <> x1 ->
     mf / ml / tl s |- e1 => [ fun x1 -> e, mf_l, s1 ] ->
     mf / ml / s1 |- x@mf_l => r ->
+    (* TODO: inline premises *)
     mf / ml / s |- x@l => r
 
   where "mf / ml / s |- e => r" := (eval e s r mf ml).
