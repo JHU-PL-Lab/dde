@@ -46,7 +46,7 @@ Notation "res / S" :=
   (ResS res S)
     (in custom lang at level 99) : lang_scope.
 
-Open Scope lang_scope.
+#[local] Open Scope lang_scope.
 
 Definition X : string := "x".
 Definition Y : string := "y".
@@ -106,14 +106,16 @@ Inductive analyze : sigma -> s_set -> lexpr -> res_S -> Prop :=
     prune_sigma (l :: s) 2 [] / ((l :: s) :: S1) |-a e => rv / Sv ->
     s / S |-a (e1 <- e2) @ l => rv / Sv
   (* TODO: should s' be universally/exitentially quantified? *)
-  | E_VarLocal : forall e1 e2 l' s S x l rv Sv mf e ml s',
-    mf l = Some <{ $fun x -> e }> ->
+  | E_VarLocal : forall e1 e2 l' s S x l rv Sv mf mf_l e ml s',
+    mf l = mf_l ->
+    ml mf_l = Some <{ ($fun x -> e) @ mf_l }> ->
     ml l' = Some <{ (e1 <- e2) @ l' }> ->
     (exists s0, In s0 S /\ s0 = l' :: s ++ s') ->
     (s ++ s') / S |-a e2 => rv / Sv ->
     (l' :: s) / S |-a x@l => rv / Sv
   | E_VarNonLocal : forall e1 e2 l2 s S x l rv Sv mf x1 e ml l1 s1 S1,
-    mf l = Some <{ $fun x1 -> e }> ->
+    mf l = l1 ->
+    ml l1 = Some <{ ($fun x1 -> e) @ l1 }> ->
     x <> x1 ->
     ml l2 = Some <{ (e1 <- e2) @ l2 }> ->
     s / S |-a e1 => [ fun x1 -> e, l1, s1] / S1 ->
