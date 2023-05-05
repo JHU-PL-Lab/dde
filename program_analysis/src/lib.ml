@@ -49,6 +49,13 @@ module VSet = Set.Make (struct
     match compare l1 l2 with 0 -> compare sigma1 sigma2 | n -> n
 end)
 
+(* used to accumulate disjuncts when stitching stacks at Var Non-Local *)
+module ChoiceSet = Set.Make (struct
+  type t = result_value
+
+  let compare = compare
+end)
+
 let pp_pair fmt (l, sigma) =
   Format.fprintf fmt "(%d, %s)" l @@ show_sigma_t sigma
 
@@ -163,32 +170,33 @@ let rec analyze_aux expr sigma v_set =
                           analyze_aux e1 sigma_i_tl v_set
                         with
                         | Some (ChoiceResult { choices; _ }) ->
-                            fold_choices
-                              (fun fun_res acc ->
-                                match fun_res with
-                                | FunResult
-                                    {
-                                      f = Function (Ident x1', _, l1);
-                                      l = _;
-                                      sigma = sigma_i;
-                                    }
-                                  when x1 = x1' && l_myfun = l1 -> (
-                                    match
-                                      analyze_aux
-                                        (Var (Ident x, l1))
-                                        sigma_i v_set
-                                    with
-                                    | Some res_i -> res_i :: acc
-                                    | None -> acc)
-                                | _ -> acc)
-                              choices set_acc
-                            (* TODO: may want to use Set *)
-                            @ set_acc
+                            ChoiceSet.union set_acc
+                            @@ fold_choices
+                                 (fun fun_res acc ->
+                                   match fun_res with
+                                   | FunResult
+                                       {
+                                         f = Function (Ident x1', _, l1);
+                                         l = _;
+                                         sigma = sigma_i;
+                                       }
+                                     when x1 = x1' && l_myfun = l1 -> (
+                                       match
+                                         analyze_aux
+                                           (Var (Ident x, l1))
+                                           sigma_i v_set
+                                       with
+                                       | Some res_i -> ChoiceSet.add res_i acc
+                                       | None -> acc)
+                                   | _ -> acc)
+                                 choices set_acc
                         | _ -> raise Unreachable [@coverage off]
                       else set_acc)
-                    s_set []
+                    s_set ChoiceSet.empty
                 in
-                Some (ChoiceResult { choices = res_list; l; sigma })
+                Some
+                  (ChoiceResult
+                     { choices = ChoiceSet.elements res_list; l; sigma })
             | _ -> raise Unreachable [@coverage off])
       | _ -> raise Unreachable [@coverage off])
   | If (e, e_true, e_false, l) ->
