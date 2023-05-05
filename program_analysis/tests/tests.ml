@@ -32,7 +32,7 @@ let test_if _ =
   assert_equal "(1 | 2)" (pau "if true then 1 else 2;;");
   (* TODO: improve pretty printing *)
   assert_equal "| (| | 1 | | | 1)"
-    (pau "(fun x -> (if true then (fun y -> y) else (fun z -> z)) x) 1")
+    (pau "(fun x -> (if true then (fun y -> y) else (fun z -> z)) x) 1;;")
 
 let test_currying _ =
   assert_equal "| | | (| 2 + | | 1)"
