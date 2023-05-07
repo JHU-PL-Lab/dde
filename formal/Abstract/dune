@@ -1,4 +1,4 @@
 (coq.theory
  (name DDE.Abstract)
  (modules Pure)
- (theories DDE))
+ (theories DDE.Common))

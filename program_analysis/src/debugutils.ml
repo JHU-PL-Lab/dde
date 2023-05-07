@@ -15,7 +15,7 @@ let rec pp_result_value fmt (v : result_value) =
       | _ -> raise Unreachable)
   | ChoiceResult { choices; _ } ->
       if List.length choices = 1 then
-        ff fmt "| %a" pp_result_value (List.hd choices)
+        ff fmt "%a" pp_result_value (List.hd choices)
       else
         ff fmt "(%s)"
           (choices
