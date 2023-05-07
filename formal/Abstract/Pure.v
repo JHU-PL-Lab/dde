@@ -1,84 +1,9 @@
-From Coq Require Import Lists.List Arith.Arith.
-Import ListNotations.
-From DDE Require Import Maps.
-
-Inductive expr : Type :=
-  | Appl: lexpr -> lexpr -> expr
-  | Val: val -> expr
-  | Ident: string -> expr
-with lexpr : Type := Lexpr : expr -> nat -> lexpr
-with val : Type := Fun : string -> lexpr -> val.
-
-Definition sigma : Type := list nat.
-
-Inductive res : Type := Res : val -> nat -> sigma -> res.
+From Coq Require Import Arith.Arith.
+From DDE.Common Require Import Lang.
 
 Definition s_set : Type := list sigma.
 
-Coercion Ident : string >-> expr.
-
-Declare Custom Entry lang.
-Declare Scope lang_scope.
-
-(* custom language syntax *)
-Notation "<{ e }>" := e (at level 0, e custom lang at level 99) : lang_scope.
-Notation "( x )" := x (in custom lang at level 0, x at level 99) : lang_scope.
-Notation "x" := x (in custom lang at level 0, x constr at level 0) : lang_scope.
-Notation "'fun' x -> e" :=
-  (Fun x e)
-    (in custom lang at level 20, e at next level, right associativity) : lang_scope.
-Notation "e1 <- e2" :=
-  (Appl e1 e2)
-    (* associativity doesn't matter here as e1 and e2 are lexprs *)
-    (in custom lang at level 30, left associativity).
-Notation "$ v" :=
-  (Val v)
-    (in custom lang at level 25) : lang_scope.
-Notation "e @ l" :=
-  (Lexpr e l)
-    (in custom lang at level 15) : lang_scope.
-Notation "[ v , l , s ]" :=
-  (Res v l s)
-    (in custom lang at level 99, v at next level, l at next level, s constr) : lang_scope.
-
 #[local] Open Scope lang_scope.
-
-Definition X : string := "x".
-Definition Y : string := "y".
-Definition Z : string := "z".
-Definition M : string := "m".
-Definition N : string := "n".
-
-Definition myfun : Type := partial_map nat nat.
-Definition mylexpr : Type := partial_map nat lexpr.
-
-(* build mapping from label to label of enclosing function given a root lexpr *)
-Fixpoint build_myfun (le : lexpr) (mf_l : option nat) (mf : myfun) : myfun :=
-  match le with
-  | <{ e @ l }> =>
-    match e with
-    | Val v =>
-      match v with
-      | <{ fun _ -> e' }> => build_myfun e' (Some l) (l !-> mf_l; mf)
-      end
-    | Ident _ => (l !-> mf_l; mf)
-    | <{ e1 <- e2 }> => build_myfun e2 mf_l (build_myfun e1 mf_l mf)
-    end
-  end.
-
-(* build mapping from label to lexpr given a root lexpr *)
-Fixpoint build_mylexpr (le : lexpr) (ml : mylexpr) : mylexpr :=
-  match le with
-  | <{ e @ l }> =>
-    match e with
-    | Val v =>
-      match v with
-      | <{ fun _ -> e' }> => (l |-> le; build_mylexpr e' ml)
-      end
-    | Ident _ => (l |-> le; ml)
-    | <{ e1 <- e2 }> => (l |-> le; build_mylexpr e2 (build_mylexpr e1 ml))
-    end
-  end.
 
 Fixpoint prune_sigma (s : sigma) (k : nat) (acc : sigma) : sigma := 
   match s with
@@ -132,5 +57,3 @@ Theorem analyze_nondeterministic :
       s / S |-a e => rv2 / Sv ->
       rv1 = rv2.
 Admitted.
-
-Close Scope lang_scope.

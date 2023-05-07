@@ -1,4 +1,4 @@
 (coq.theory
  (name DDE.Concrete)
  (modules Core Env)
- (theories DDE))
+ (theories DDE.Common))
