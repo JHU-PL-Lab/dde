@@ -1,5 +1,3 @@
-Set Warnings "-notation-overridden,-parsing,-deprecated-hint-without-locality".
-From Coq Require Import Strings.String Lists.List Arith.Arith.
 From DDE Require Import Maps.
 
 Inductive expr : Type :=
@@ -35,7 +33,7 @@ Notation "[ v , env ]" :=
   (Res v env)
     (in custom lang at level 15, v at next level, env constr) : lang_scope.
 
-Open Scope lang_scope.
+#[local] Open Scope lang_scope.
 
 Definition X : string := "x".
 Definition Y : string := "y".

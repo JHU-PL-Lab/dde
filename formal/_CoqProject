@@ -1,5 +1,6 @@
 # we're only using this file to maintain IDE support
 
+-Q ../_build/default/formal DDE
 -Q ../_build/default/formal/Concrete DDE.Concrete
 -Q ../_build/default/formal/Abstract DDE.Abstract
--Q ../_build/default/formal DDE
+-Q ../_build/default/formal/Common DDE.Common
