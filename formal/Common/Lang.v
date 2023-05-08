@@ -59,24 +59,55 @@ Definition M : string := "m".
 Definition N : string := "n".
 
 (* assign a label to each expr, turning it into an lexpr. *)
-Fixpoint assign_labels (e : expr) (l : nat) : lexpr * nat :=
+Fixpoint assn (e : expr) (l : nat) : lexpr * nat :=
   match e with
   | <{ e1 <- e2 }> =>
-    let (le1, l1) := assign_labels e1 l in
-    let (le2, l2) := assign_labels e2 l1 in
+    let (le1, l1) := assn e1 l in
+    let (le2, l2) := assn e2 l1 in
     (<{ (le1 <-* le2) @ l2 }>, S l2)
   | <{ le1 <-* le2 }> => (le1, l) (* unreachable *)
   | <{ $v }> =>
     match v with
     | <{ fun x -> e' }> =>
-      let (le', l') := assign_labels e' l in
+      let (le', l') := assn e' l in
       (<{ ($fun x *-> le') @ l' }>, S l')
     | <{ fun _ *-> le' }> => (le', l) (* unreachable *)
     end
   | Ident _ => (<{ e @ l }>, S l)
   end.
 
-Definition to_lexpr (e : expr) := fst (assign_labels e 0).
+(* assn will in practice only be used on expr's with no lexpr subcomponents *)
+Inductive assn_prac : expr -> nat -> nat -> Prop :=
+  | assn_prac_ident : forall x l,
+    assn_prac (Ident x) l (S l)
+  | assn_prac_appl : forall e1 e2 l l1' l2',
+    assn_prac e1 l l1' ->
+    assn_prac e2 l1' l2' ->
+    assn_prac <{ e1 <- e2 }> l (S l2')
+  | assn_prac_val : forall v l l' x e',
+    v = <{ fun x -> e' }> ->
+    assn_prac e' l l' ->
+    assn_prac <{ $v }> l (S l').
+
+(* for all possible realistic use cases, assn is sound in terms of
+  correctly assigning labels *)
+Theorem assn_sound : forall e l l',
+  assn_prac e l l' ->
+  l' = snd (assn e l).
+Proof.
+  intros. induction H.
+  - reflexivity.
+  - simpl.
+    destruct (assn e1 l).
+    simpl in IHassn_prac1. rewrite IHassn_prac1 in IHassn_prac2.
+    destruct (assn e2 n).
+    simpl in *. subst. reflexivity.
+  - rewrite H. simpl.
+    destruct (assn e' l).
+    simpl in *. subst. reflexivity.
+Qed.
+
+Definition to_lexpr (e : expr) := fst (assn e 0).
 
 Example sample_fun := to_lexpr <{ $fun X -> X }>.
 Example sample_fun' := to_lexpr <{ $fun X -> $fun Y -> X }>.
