@@ -8,11 +8,11 @@ Class Eqb (A : Type) := {
   eqb: A -> A -> bool
 }.
 
-#[global] Instance nat_Eqb : Eqb nat := {
+#[export] Instance nat_Eqb : Eqb nat := {
   eqb x y := Nat.eqb x y
 }.
 
-#[global] Instance string_Eqb : Eqb string := {
+#[export] Instance string_Eqb : Eqb string := {
   eqb x y := String.eqb x y
 }.
 
