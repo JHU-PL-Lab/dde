@@ -4,6 +4,7 @@ open Sexplib.Std
 open Core.Option.Let_syntax
 
 exception Unreachable
+exception Bad_type
 
 type sigma_t = int list [@@deriving show { with_path = false }]
 
@@ -22,6 +23,7 @@ and result_value =
   | StubResult of { e : expr; sigma : sigma_t }
   | IntResult of int
   | BoolResult of bool
+[@@deriving show { with_path = false }]
 
 let prune_sigma ?(k = 2) sigma = List.filteri (fun i _ -> i < k) sigma
 
@@ -40,7 +42,9 @@ let rec fold_choices f choices acc =
   | [] -> acc
 
 let s_set = Hashset.create 1000
-let print_set () = Hashset.iter (fun x -> print_endline @@ show_sigma_t x) s_set
+
+let print_set () =
+  Hashset.fold (fun sigma acc -> show_sigma_t sigma ^ "\n" ^ acc) s_set ""
 
 module VSet = Set.Make (struct
   type t = expr * sigma_t
@@ -62,19 +66,71 @@ let pp_pair fmt (l, sigma) =
 let pp_pair_list fmt ls = Format.pp_print_list pp_pair fmt ls
 let is_debug_mode = ref false
 
+let all_combs l1 l2 =
+  List.fold_left
+    (fun acc x -> List.fold_left (fun acc y -> (x, y) :: acc) acc l2)
+    [] l1
+
+(* TODO: denote stub as any_num *)
+(*? pretty hard to test ChoiceResult/StubResult because examples are few *)
+let rec eval_int res =
+  match res with
+  | BoolResult _ | FunResult _ -> raise Bad_type
+  | IntResult i -> [ i ]
+  | OpResult op_res -> (
+      match op_res with
+      | PlusOp (i1, i2) ->
+          let i1s = eval_int i1 in
+          let i2s = eval_int i2 in
+          List.map (fun (x, y) -> x + y) (all_combs i1s i2s)
+      | MinusOp (i1, i2) ->
+          let i1s = eval_int i1 in
+          let i2s = eval_int i2 in
+          (* TODO: dedup *)
+          let a = List.map (fun (x, y) -> x - y) (all_combs i1s i2s) in
+          (* List.iter (fun b -> Format.printf "%d, " b) a;
+             Format.printf "\n"; *)
+          a
+      | _ -> raise Unreachable [@coverage off])
+  | ChoiceResult { choices; _ } -> List.map eval_int choices |> List.concat
+  | StubResult _ ->
+      print_endline "int stub";
+      []
+
+and eval_bool res =
+  match res with
+  | IntResult _ | FunResult _ -> raise Bad_type
+  | BoolResult b -> [ b ]
+  | OpResult op_res -> (
+      match op_res with
+      | EqualOp (i1, i2) ->
+          let i1s = eval_int i1 in
+          let i2s = eval_int i2 in
+          [ List.exists (fun x -> List.mem x i2s) i1s ]
+      | AndOp (b1, b2) -> []
+      | OrOp (b1, b2) -> []
+      | NotOp b -> []
+      | _ -> raise Unreachable [@coverage off])
+  | ChoiceResult _ ->
+      print_endline "bool choice";
+      []
+  | StubResult _ ->
+      print_endline "bool stub";
+      []
+
 let rec analyze_aux expr sigma v_set =
   match expr with
   | Int i -> Some (IntResult i)
   | Bool b -> Some (BoolResult b)
   | Function (_, _, l) ->
-      (*? should ChoiceResult wrap all results? *)
+      (* TODO: wrap all results in ChoiceResult *)
       Some
         (ChoiceResult
            { choices = [ FunResult { f = expr; l; sigma } ]; l; sigma })
   | Appl (e, _, l) -> (
       let l_app_sigma = prune_sigma (l :: sigma) in
       let vis_state = (expr, l_app_sigma) in
-      (if !is_debug_mode then Format.printf "%d\n" l) [@coverage off];
+      (if !is_debug_mode then Format.printf "Appl: %d\n" l) [@coverage off];
       (* Application Stub *)
       if VSet.mem vis_state v_set then
         Some (StubResult { e = expr; sigma = l_app_sigma })
@@ -82,11 +138,12 @@ let rec analyze_aux expr sigma v_set =
         (* Application *)
         match%bind analyze_aux e sigma v_set with
         | ChoiceResult { choices; _ } ->
-            let result_list =
+            let res_list =
               fold_choices
                 (fun fun_res acc ->
                   match fun_res with
                   | FunResult { f = Function (_, e_i, _); _ } -> (
+                      (* TODO: S contains not just application labels? *)
                       Hashset.add s_set (l :: sigma);
                       match
                         analyze_aux e_i l_app_sigma (VSet.add vis_state v_set)
@@ -96,20 +153,20 @@ let rec analyze_aux expr sigma v_set =
                   | _ -> raise Unreachable [@coverage off])
                 choices []
             in
-            Some
-              (ChoiceResult { choices = result_list; l; sigma = l_app_sigma })
+            Some (ChoiceResult { choices = res_list; l; sigma = l_app_sigma })
         | _ -> raise Unreachable [@coverage off])
   | Var (Ident x, l) -> (
       match get_myfun l with
       | Function (Ident x1, _, l_myfun) ->
           if x = x1 then (
             (* Var Local *)
-            (if !is_debug_mode then (
-               Format.printf "%s, %d\n" x l;
-               flush stdout;
-               print_set ()))
+            (if !is_debug_mode then
+               Format.printf "Var Local:\n%s, %d\nsigma: %s\nS:\n%s" x l
+                 (show_sigma_t sigma) (print_set ()))
             [@coverage off];
-            if List.length sigma = 0 then None
+            if List.length sigma = 0 then (
+              Format.printf "empty sigma_0\n";
+              None)
             else
               let vis_state = (expr, sigma) in
               (* Var Local Stub *)
@@ -146,11 +203,10 @@ let rec analyze_aux expr sigma v_set =
                     Some (ChoiceResult { choices = res_list; l; sigma })
                 | _ -> raise Unreachable [@coverage off])
           else (
-            (if !is_debug_mode then (
-               Format.printf "%s, %d\n" x l;
-               flush stdout;
-               print_endline @@ show_sigma_t sigma;
-               print_set ()))
+            (* Var Non-Local *)
+            (if !is_debug_mode then
+               Format.printf "Var Non-Local:\n%s, %d\nsigma: %s\nS:\n%s" x l
+                 (show_sigma_t sigma) (print_set ()))
             [@coverage off];
             let sigma_hd, sigma_tl = (List.hd sigma, List.tl sigma) in
             let sigma_hd_expr = get_myexpr sigma_hd in
@@ -200,12 +256,20 @@ let rec analyze_aux expr sigma v_set =
             | _ -> raise Unreachable [@coverage off])
       | _ -> raise Unreachable [@coverage off])
   | If (e, e_true, e_false, l) ->
-      let _r = analyze_aux e sigma v_set in
-      (* TODO: eval r *)
-      (* on stub, denote as `any_num` *)
-      let%bind r_true = analyze_aux e_true sigma v_set in
-      let%bind r_false = analyze_aux e_false sigma v_set in
-      Some (ChoiceResult { choices = [ r_true; r_false ]; l; sigma })
+      let%map res = analyze_aux e sigma v_set in
+      (* Format.printf "%s" (show_result_value res); *)
+      let bs = eval_bool res in
+      (* List.iter (fun b -> Format.printf "%b, " b) bs;
+         Format.printf "\n"; *)
+      let res_list =
+        List.map
+          (fun b ->
+            (* TODO: actually match Some/None *)
+            if b then Option.get @@ analyze_aux e_true sigma v_set
+            else Option.get @@ analyze_aux e_false sigma v_set)
+          bs
+      in
+      ChoiceResult { choices = res_list; l; sigma }
   | Plus (e1, e2) | Minus (e1, e2) | Equal (e1, e2) | And (e1, e2) | Or (e1, e2)
     ->
       let%bind r1 = analyze_aux e1 sigma v_set in
@@ -238,6 +302,8 @@ let analyze ~debug e =
      print_myexpr myexpr;
      print_endline "****** Label Table ******\n"))
   [@coverage off];
+
+  clean_up ();
 
   Option.get r
 

@@ -115,6 +115,10 @@ let rec transform_let e =
       appl
   | _ -> e
 
+let clean_up () =
+  Core.Hashtbl.clear myexpr;
+  Core.Hashtbl.clear myfun
+
 let build_int i = Int i
 let build_bool b = Bool b
 
