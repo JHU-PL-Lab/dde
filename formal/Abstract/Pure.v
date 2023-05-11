@@ -58,12 +58,10 @@ Definition eg_rec :=
 Definition eg_rec_mf := build_myfun eg_rec None empty.
 Definition eg_rec_ml := build_mylexpr eg_rec empty.
 
+(* TODO: find examples *)
 Theorem analyze_nondeterministic :
   ~ forall mf ml s S e Sv rv1 rv2,
       mf / ml / s / S |-a e => rv1 / Sv ->
       mf / ml / s / S |-a e => rv2 / Sv ->
       rv1 = rv2.
 Admitted.
-(* Proof.
-  intro Contra.
-  assert (H: eg_rec_mf / eg_rec_ml / [] / [] |-a eg_rec => ) *)
