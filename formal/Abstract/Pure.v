@@ -50,8 +50,8 @@ Inductive analyze
   where "mf / ml / s / S '|-a' e => rv / Sv" := (analyze mf ml s S e rv Sv).
 
 Definition Self : string := "self".
-Definition self_fun := <{ $fun Self -> $fun N -> Self <- Self }>.
 
+Definition self_fun := <{ $fun Self -> $fun N -> Self <- Self }>.
 Definition eg_rec :=
   to_lexpr <{ self_fun <- self_fun <- $fun X -> X }>.
 (* Compute eg_rec. *)
