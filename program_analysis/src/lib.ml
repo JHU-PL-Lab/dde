@@ -80,22 +80,22 @@ let rec eval_int res =
   | IntResult i -> [ DefInt i ]
   | OpResult op_res -> (
       match op_res with
-      | PlusOp (i1, i2) ->
-          let i1s = eval_int i1 in
-          let i2s = eval_int i2 in
-          List.map
-            (function DefInt x, DefInt y -> DefInt (x + y) | _ -> AnyInt)
-            (all_combs i1s i2s)
-      | MinusOp (i1, i2) ->
+      | PlusOp (i1, i2) | MinusOp (i1, i2) ->
           let i1s = eval_int i1 in
           let i2s = eval_int i2 in
           all_combs i1s i2s
           |> List.map (function
-               | DefInt x, DefInt y -> DefInt (x - y)
+               | DefInt x, DefInt y ->
+                   DefInt
+                     (match op_res with
+                     | PlusOp _ -> x + y
+                     | MinusOp _ -> x - y
+                     | _ -> raise Unreachable [@coverage off])
                | _ -> AnyInt)
-          |> List.sort_uniq (Fun.flip compare)
+          |> List.sort_uniq compare
       | _ -> raise Unreachable [@coverage off])
-  | ChoiceResult { choices; _ } -> List.map eval_int choices |> List.concat
+  | ChoiceResult { choices; _ } ->
+      List.map eval_int choices |> List.concat |> List.sort_uniq compare
   | StubResult _ -> [ AnyInt ]
 
 and eval_bool res =
@@ -107,31 +107,29 @@ and eval_bool res =
       | EqualOp (i1, i2) ->
           let i1s = eval_int i1 in
           let i2s = eval_int i2 in
-          i1s
+          all_combs i1s i2s
           |> List.map (function
-               (* TODO: all combinations *)
-               | DefInt _ as i -> [ DefBool (List.mem i i2s) ]
-               | AnyInt -> [ AnyBool ])
-          |> List.concat
-          |> List.sort_uniq (Fun.flip compare)
+               | DefInt x, DefInt y -> DefBool (x = y)
+               | _ -> AnyBool)
+          |> List.sort_uniq compare
       | AndOp (b1, b2) | OrOp (b1, b2) ->
-          []
-          (* let b1s = eval_bool b1 in
-             let b2s = eval_bool b2 in
-             b1s
-             |> List.map (function
-                  | DefBool _ as b -> [ DefBool (List.mem b b2s) ]
-                  | AnyBool -> [ AnyBool ])
-             |> List.concat
-             |> List.sort_uniq (Fun.flip compare) *)
+          let b1s = eval_bool b1 in
+          let b2s = eval_bool b2 in
+          all_combs b1s b2s
+          |> List.map (function
+               | DefBool x, DefBool y ->
+                   DefBool
+                     (match op_res with
+                     | AndOp _ -> x && y
+                     | OrOp _ -> x || y
+                     | _ -> raise Unreachable [@coverage off])
+               | _ -> AnyBool)
+          |> List.sort_uniq compare
       | NotOp b -> []
       | _ -> raise Unreachable [@coverage off])
-  | ChoiceResult _ ->
-      print_endline "bool choice";
-      []
-  | StubResult _ ->
-      print_endline "bool stub";
-      []
+  | ChoiceResult { choices; _ } ->
+      List.map eval_bool choices |> List.concat |> List.sort_uniq compare
+  | StubResult _ -> [ AnyBool ]
 
 let rec process_maybe_bools bs =
   Core.List.fold_until bs ~init:[]
