@@ -47,6 +47,10 @@ let add_myfun label outer =
   if Option.is_some outer then
     Hashtbl.set myfun ~key:label ~data:(Option.value_exn outer)
 
+let clean_up () =
+  Hashtbl.clear myexpr;
+  Hashtbl.clear myfun
+
 let rec build_myfun e outer =
   match e with
   | Int _ -> ()
@@ -116,10 +120,6 @@ let rec transform_let e =
       add_myexpr l appl;
       appl
   | _ -> e
-
-let clean_up () =
-  Core.Hashtbl.clear myexpr;
-  Core.Hashtbl.clear myfun
 
 let build_int i = Int i
 let build_bool b = Bool b
