@@ -47,6 +47,10 @@ let add_myfun label outer =
   if Option.is_some outer then
     Hashtbl.set myfun ~key:label ~data:(Option.value_exn outer)
 
+let clean_up () =
+  Hashtbl.clear myexpr;
+  Hashtbl.clear myfun
+
 let rec build_myfun e outer =
   match e with
   | Int _ -> ()
@@ -73,7 +77,7 @@ let rec build_myfun e outer =
 
 let print_myexpr tbl =
   Hashtbl.to_alist tbl
-  |> List.sort ~compare:(fun (k1, v1) (k2, v2) -> Int.compare k1 k2)
+  |> List.sort ~compare:(fun (k1, v1) (k2, v2) -> compare k1 k2)
   |> List.iter ~f:(fun (k, v) -> Format.printf "%d -> %s\n" k (show_expr v))
   [@@coverage off]
 
@@ -89,6 +93,8 @@ let get_next_label () =
   let l = !next_label in
   next_label := l + 1;
   l
+
+let reset_label () = next_label := 0
 
 let rec transform_let e =
   match e with
