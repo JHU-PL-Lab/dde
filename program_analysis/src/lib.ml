@@ -1,3 +1,5 @@
+[@@@warning "-21"]
+
 open Interpreter.Ast
 open Base_quickcheck
 open Sexplib.Std
@@ -47,9 +49,9 @@ let print_set () =
   Hashset.fold (fun sigma acc -> show_sigma_t sigma ^ "\n" ^ acc) s_set ""
 
 module VSet = Set.Make (struct
-  type t = expr * sigma_t
+  type t = expr * sigma_t * int
 
-  let compare (l1, sigma1) (l2, sigma2) =
+  let compare (l1, sigma1, _) (l2, sigma2, _) =
     match compare l1 l2 with 0 -> compare sigma1 sigma2 | n -> n
 end)
 
@@ -71,31 +73,33 @@ let all_combs l1 l2 =
     (fun acc x -> List.fold_left (fun acc y -> (x, y) :: acc) acc l2)
     [] l1
 
-(* TODO: denote stub as any_num *)
+type maybe_int = DefInt of int | AnyInt
+type maybe_bool = DefBool of bool | AnyBool
+
 (*? pretty hard to test ChoiceResult/StubResult because examples are few *)
 let rec eval_int res =
   match res with
   | BoolResult _ | FunResult _ -> raise Bad_type
-  | IntResult i -> [ i ]
+  | IntResult i -> [ DefInt i ]
   | OpResult op_res -> (
       match op_res with
       | PlusOp (i1, i2) ->
           let i1s = eval_int i1 in
           let i2s = eval_int i2 in
-          List.map (fun (x, y) -> x + y) (all_combs i1s i2s)
+          List.map
+            (function DefInt x, DefInt y -> DefInt (x + y) | _ -> AnyInt)
+            (all_combs i1s i2s)
       | MinusOp (i1, i2) ->
           let i1s = eval_int i1 in
           let i2s = eval_int i2 in
-          (* TODO: dedup *)
-          let a = List.map (fun (x, y) -> x - y) (all_combs i1s i2s) in
-          (* List.iter (fun b -> Format.printf "%d, " b) a;
-             Format.printf "\n"; *)
-          a
+          all_combs i1s i2s
+          |> List.map (function
+               | DefInt x, DefInt y -> DefInt (x - y)
+               | _ -> AnyInt)
+          |> List.sort_uniq (Core.Fn.flip compare)
       | _ -> raise Unreachable [@coverage off])
   | ChoiceResult { choices; _ } -> List.map eval_int choices |> List.concat
-  | StubResult _ ->
-      print_endline "int stub";
-      []
+  | StubResult _ -> [ AnyInt ]
 
 and eval_bool res =
   match res with
@@ -106,7 +110,12 @@ and eval_bool res =
       | EqualOp (i1, i2) ->
           let i1s = eval_int i1 in
           let i2s = eval_int i2 in
-          [ List.exists (fun x -> List.mem x i2s) i1s ]
+          i1s
+          |> List.map (function
+               | DefInt _ as i -> [ List.mem i i2s ]
+               | _ -> [ true; false ])
+          |> List.concat
+          |> List.sort_uniq (Core.Fn.flip compare)
       | AndOp (b1, b2) -> []
       | OrOp (b1, b2) -> []
       | NotOp b -> []
@@ -129,32 +138,43 @@ let rec analyze_aux expr sigma v_set =
            { choices = [ FunResult { f = expr; l; sigma } ]; l; sigma })
   | Appl (e, _, l) -> (
       let l_app_sigma = prune_sigma (l :: sigma) in
-      let vis_state = (expr, l_app_sigma) in
+      let vis_state = (expr, l_app_sigma, 0) in
       (if !is_debug_mode then Format.printf "Appl: %d\n" l) [@coverage off];
       (* Application Stub *)
-      if VSet.mem vis_state v_set then
-        Some (StubResult { e = expr; sigma = l_app_sigma })
-      else
-        (* Application *)
-        match%bind analyze_aux e sigma v_set with
-        | ChoiceResult { choices; _ } ->
-            let res_list =
-              fold_choices
-                (fun fun_res acc ->
-                  match fun_res with
-                  | FunResult { f = Function (_, e_i, _); _ } -> (
-                      (* TODO: S contains not just application labels? *)
-                      Hashset.add s_set (l :: sigma);
-                      match
-                        analyze_aux e_i l_app_sigma (VSet.add vis_state v_set)
-                      with
-                      | Some res_i -> res_i :: acc
-                      | None -> acc)
-                  | _ -> raise Unreachable [@coverage off])
-                choices []
-            in
-            Some (ChoiceResult { choices = res_list; l; sigma = l_app_sigma })
-        | _ -> raise Unreachable [@coverage off])
+      match VSet.find_opt vis_state v_set with
+      | Some (_, _, pass) when pass = 1 ->
+          (* print_endline "at appl"; *)
+          (* print_endline @@ show_expr expr; *)
+          Some (StubResult { e = expr; sigma = l_app_sigma })
+      | _ -> (
+          (* Application *)
+          match%bind analyze_aux e sigma v_set with
+          | ChoiceResult { choices; _ } ->
+              let res_list =
+                fold_choices
+                  (fun fun_res acc ->
+                    match fun_res with
+                    | FunResult { f = Function (_, e_i, _); _ } -> (
+                        (* TODO: S contains not just application labels? *)
+                        Hashset.add s_set (l :: sigma);
+                        let vis_state =
+                          if VSet.mem vis_state v_set then
+                            ( Core.Tuple3.get1 vis_state,
+                              Core.Tuple3.get2 vis_state,
+                              1 )
+                          else vis_state
+                        in
+                        let v_set = VSet.remove vis_state v_set in
+                        match
+                          analyze_aux e_i l_app_sigma (VSet.add vis_state v_set)
+                        with
+                        | Some res_i -> res_i :: acc
+                        | None -> acc)
+                    | _ -> raise Unreachable [@coverage off])
+                  choices []
+              in
+              Some (ChoiceResult { choices = res_list; l; sigma = l_app_sigma })
+          | _ -> raise Unreachable [@coverage off]))
   | Var (Ident x, l) -> (
       match get_myfun l with
       | Function (Ident x1, _, l_myfun) ->
@@ -168,40 +188,47 @@ let rec analyze_aux expr sigma v_set =
               Format.printf "empty sigma_0\n";
               None)
             else
-              let vis_state = (expr, sigma) in
+              let vis_state = (expr, sigma, 0) in
               (* Var Local Stub *)
-              if VSet.mem vis_state v_set then
-                Some (StubResult { e = expr; sigma })
-              else
-                let sigma_hd, sigma_tl = (List.hd sigma, List.tl sigma) in
-                let sigma_hd_expr = get_myexpr sigma_hd in
-                match sigma_hd_expr with
-                | Appl (_, e2, l') ->
-                    let res_list =
-                      (* enumerate all matching stacks in the set *)
-                      Hashset.fold
-                        (fun sigma_i acc ->
-                          let sigma_i_hd, sigma_i_tl =
-                            (List.hd sigma_i, List.tl sigma_i)
-                          in
-                          (* the fact that we can prune away "bad" stacks like this
-                             makes DDE for program analysis superior *)
-                          if
-                            sigma_i_hd = l'
-                            && contains_sigma sigma_i_tl sigma_tl
-                          then
-                            match
-                              (* stitch the stack to gain more precision *)
-                              analyze_aux e2 sigma_i_tl
-                                (VSet.add vis_state v_set)
-                            with
-                            | Some r_i -> r_i :: acc
-                            | None -> acc
-                          else acc)
-                        s_set []
-                    in
-                    Some (ChoiceResult { choices = res_list; l; sigma })
-                | _ -> raise Unreachable [@coverage off])
+              match VSet.find_opt vis_state v_set with
+              | Some (_, _, _) ->
+                  (* print_endline "at local";
+                     print_endline x; *)
+                  Some (StubResult { e = expr; sigma })
+              | _ -> (
+                  let sigma_hd, sigma_tl = (List.hd sigma, List.tl sigma) in
+                  let sigma_hd_expr = get_myexpr sigma_hd in
+                  match sigma_hd_expr with
+                  | Appl (_, e2, l') ->
+                      let res_list =
+                        (* enumerate all matching stacks in the set *)
+                        Hashset.fold
+                          (fun sigma_i acc ->
+                            let sigma_i_hd, sigma_i_tl =
+                              (List.hd sigma_i, List.tl sigma_i)
+                            in
+                            (* the fact that we can prune away "bad" stacks like this
+                               makes DDE for program analysis superior *)
+                            if
+                              sigma_i_hd = l'
+                              && contains_sigma sigma_i_tl sigma_tl
+                            then
+                              match
+                                (* stitch the stack to gain more precision *)
+                                analyze_aux e2 sigma_i_tl
+                                  (VSet.add vis_state v_set)
+                              with
+                              | Some r_i -> r_i :: acc
+                              | None -> acc
+                            else acc)
+                          s_set []
+                      in
+                      (* if String.(x = "n") then
+                         List.iter
+                           (fun r -> print_endline @@ show_result_value r)
+                           res_list; *)
+                      Some (ChoiceResult { choices = res_list; l; sigma })
+                  | _ -> raise Unreachable [@coverage off]))
           else (
             (* Var Non-Local *)
             (if !is_debug_mode then
