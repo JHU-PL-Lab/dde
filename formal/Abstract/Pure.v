@@ -13,8 +13,7 @@ Fixpoint prune_sigma (s : sigma) (k : nat) (acc : sigma) : sigma :=
     else prune_sigma ls (k - 1) (l :: acc)
   end.
 
-Definition prune_sigma_2 (s : sigma) : sigma :=
-  prune_sigma s 2 [].
+Definition prune_sigma_2 (s : sigma) : sigma := prune_sigma s 2 [].
 
 Reserved Notation
          "mf / ml / s / S '|-a' e => rv / Sv"
