@@ -140,11 +140,11 @@ let rec subst_free_vars (e : expr) (target_l : int) (sigma : int list)
       let e1 = subst_free_vars e1 target_l sigma seen in
       let e2 = subst_free_vars e2 target_l sigma seen in
       match e with
-      | Plus (_, _) -> Plus (e1, e2)
-      | Minus (_, _) -> Minus (e1, e2)
-      | Equal (_, _) -> Equal (e1, e2)
-      | And (_, _) -> And (e1, e2)
-      | Or (_, _) -> Or (e1, e2)
+      | Plus _ -> Plus (e1, e2)
+      | Minus _ -> Minus (e1, e2)
+      | Equal _ -> Equal (e1, e2)
+      | And _ -> And (e1, e2)
+      | Or _ -> Or (e1, e2)
       | _ -> raise Unreachable [@coverage off])
   | Not e -> Not (subst_free_vars e target_l sigma seen)
   | If (e1, e2, e3, l) ->
@@ -153,7 +153,7 @@ let rec subst_free_vars (e : expr) (target_l : int) (sigma : int list)
           subst_free_vars e2 target_l sigma seen,
           subst_free_vars e3 target_l sigma seen,
           l )
-  | Let (_, _, _, _) -> raise Unreachable [@coverage off]
+  | Let _ -> raise Unreachable [@coverage off]
 
 and eval_result_value (r : result_value) : result_value =
   match r with
@@ -223,9 +223,10 @@ let eval e ~is_debug_mode ~should_simplify =
      print_endline "****** MyFun Table ******\n"))
   [@coverage off];
 
-  if not should_simplify then r
-  else
+  if should_simplify then (
     let v = eval_result_value r in
-    Core.Hashtbl.clear myexpr;
-    Core.Hashtbl.clear myfun;
-    v
+    clean_up ();
+    v)
+  else (
+    clean_up ();
+    r)

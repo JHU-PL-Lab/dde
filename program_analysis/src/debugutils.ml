@@ -15,7 +15,7 @@ let rec pp_result_value fmt (v : result_value) =
       | _ -> raise Unreachable)
   | ChoiceResult { choices; _ } ->
       if List.length choices = 1 then
-        ff fmt "| %a" pp_result_value (List.hd choices)
+        ff fmt "%a" pp_result_value (List.hd choices)
       else
         ff fmt "(%s)"
           (choices
@@ -41,8 +41,13 @@ let is_debug_mode = ref false
 let parse s =
   s ^ ";;" |> Lexing.from_string
   |> Interpreter.Parser.main Interpreter.Lexer.token
+  |> fun expr ->
+  (* keep labeling consistent across multiple calls
+     to `analyze` *)
+  Interpreter.Ast.reset_label ();
+  expr
 
-let unparse v = v |> Format.asprintf "%a" pp_result_value
+let unparse v = Format.asprintf "%a" pp_result_value v
 let parse_analyze s = s |> parse |> analyze
 
 let parse_analyze_unparse s =
