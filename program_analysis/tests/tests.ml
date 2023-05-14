@@ -58,7 +58,7 @@ let test_currying _ =
         add1 1 + add2 1 + add3 1 + add4 1 + add5 1;;")
 
 let test_recursion _ =
-  assert_equal "(1 + (1 + (1 + stub)))"
+  assert_equal "(1 + (1 + (1 + (0 | (1 + stub)))))"
     (pau
        "let id = fun self -> fun n -> if n = 0 then 0 else 1 + self self (n - \
         1) in id id 10;;")
