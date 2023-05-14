@@ -42,10 +42,12 @@ let parse s =
   s ^ ";;" |> Lexing.from_string
   |> Interpreter.Parser.main Interpreter.Lexer.token
   |> fun expr ->
-  Interpreter.Ast.next_label := 0;
+  (* keep labeling consistent across multiple calls
+     to `analyze` *)
+  Interpreter.Ast.reset_label ();
   expr
 
-let unparse v = v |> Format.asprintf "%a" pp_result_value
+let unparse v = Format.asprintf "%a" pp_result_value v
 let parse_analyze s = s |> parse |> analyze
 
 let parse_analyze_unparse s =
