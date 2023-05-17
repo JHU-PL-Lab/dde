@@ -123,38 +123,40 @@ Definition myfun : Type := partial_map nat nat.
 Definition mylexpr : Type := partial_map nat lexpr.
 
 (* build mapping from label to label of enclosing function given a root lexpr *)
-Fixpoint build_myfun (le : lexpr) (mf_l : option nat) (mf : myfun) : myfun :=
-  match le with
-  | <{ e @ l }> =>
-    match e with
-    | <{ $v }> =>
-      match v with
-      | <{ fun _ *-> le' }> => build_myfun le' (Some l) (l !-> mf_l; mf)
-      | <{ fun _ -> _ }> => mf (* unreachable *)
+Definition build_myfun (le : lexpr) : myfun :=
+  (fix aux (le : lexpr) (mf_l : option nat) (mf : myfun) : myfun :=
+    match le with
+    | <{ e @ l }> =>
+      match e with
+      | <{ $v }> =>
+        match v with
+        | <{ fun _ *-> le' }> => aux le' (Some l) (l !-> mf_l; mf)
+        | <{ fun _ -> _ }> => mf (* unreachable *)
+        end
+      | Ident _ => (l !-> mf_l; mf)
+      | <{ le1 <-* le2 }> => aux le2 mf_l (aux le1 mf_l mf)
+      | <{ _ <- _ }> => mf (* unreachable *)
       end
-    | Ident _ => (l !-> mf_l; mf)
-    | <{ le1 <-* le2 }> => build_myfun le2 mf_l (build_myfun le1 mf_l mf)
-    | <{ _ <- _ }> => mf (* unreachable *)
-    end
-  end.
+    end) le None empty.
 
 (* Compute build_myfun (to_lexpr <{ $fun X -> X }>) None empty. *)
 
 (* build mapping from label to lexpr given a root lexpr *)
-Fixpoint build_mylexpr (le : lexpr) (ml : mylexpr) : mylexpr :=
+Definition build_mylexpr (le : lexpr) : mylexpr :=
+  (fix aux (le : lexpr) (ml : mylexpr) : mylexpr :=
   match le with
   | <{ e @ l }> =>
     match e with
     | <{ $v }> =>
       match v with
-      | <{ fun _ *-> le' }> => (l |-> le; build_mylexpr le' ml)
+      | <{ fun _ *-> le' }> => (l |-> le; aux le' ml)
       | <{ fun _ -> _ }> => ml (* unreachable *)
       end
     | Ident _ => (l |-> le; ml)
-    | <{ le1 <-* le2 }> => (l |-> le; build_mylexpr le2 (build_mylexpr le1 ml))
+    | <{ le1 <-* le2 }> => (l |-> le; aux le2 (aux le1 ml))
     | <{ _ <- _ }> => ml (* unreachable *)
     end
-  end.
+  end) le empty.
 
 (* Compute build_mylexpr (to_lexpr <{ $fun X -> X }>) empty. *)
 

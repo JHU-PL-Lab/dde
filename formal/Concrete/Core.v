@@ -37,8 +37,8 @@ Inductive eval : lexpr -> sigma -> res -> myfun -> mylexpr -> Prop :=
   where "mf / ml / s |- e => r" := (eval e s r mf ml).
 
 Definition id_val := to_lexpr <{ $fun X -> X }>.
-Definition id_val_mf := build_myfun id_val None empty.
-Definition id_val_ml := build_mylexpr id_val empty.
+Definition id_val_mf := build_myfun id_val.
+Definition id_val_ml := build_mylexpr id_val.
 
 (* simple value *)
 Example eg_val_correct :
@@ -48,8 +48,8 @@ Proof.
 Qed.
 
 Definition eg_loc := to_lexpr <{ $fun X -> X <- $fun Y -> Y }>.
-Definition eg_loc_mf := build_myfun eg_loc None empty.
-Definition eg_loc_ml := build_mylexpr eg_loc empty.
+Definition eg_loc_mf := build_myfun eg_loc.
+Definition eg_loc_ml := build_mylexpr eg_loc.
 
 (* local variable lookup *)
 (* N.B. that I'm intentionally not using automation to the greatest extent
@@ -69,8 +69,8 @@ Qed.
 
 Definition eg_noloc :=
   to_lexpr <{ ($fun X -> $fun Y -> X) <- $fun Z -> Z <- $fun M -> M }>.
-Definition eg_noloc_mf := build_myfun eg_noloc None empty.
-Definition eg_noloc_ml := build_mylexpr eg_noloc empty.
+Definition eg_noloc_mf := build_myfun eg_noloc.
+Definition eg_noloc_ml := build_mylexpr eg_noloc.
 
 (* non-local variable lookup *)
 Example eg_noloc_correct :
@@ -96,6 +96,7 @@ Proof.
       * apply E_Val.
 Qed.
 
+(* TODO: don't need this; just invert *)
 Ltac map_lookup mymap prog :=
   match goal with
     H : mymap _ = _
