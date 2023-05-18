@@ -69,8 +69,8 @@ with union_varlocal : myfun -> mylexpr -> sigma -> v_set -> nat -> lexpr -> s_se
     mf; ml; s; V; l'; e2 |_VL_| (s'' :: S) => r1 + S1
 
   where "mf ; ml ; s ; S ; V '|-aa' e => rc / Sv" := (analyze mf ml s S V e rc Sv)
-  and "mf ; ml ; s ; S ; V |_A_| r1 => r2 + S2" := (union_appl mf ml s S V r1 r2 S2)
-  and "mf ; ml ; s ; V ; l' ; e2 |_VL_| S => r2 + S2" := (union_varlocal mf ml s V l' e2 S r2 S2).
+    and "mf ; ml ; s ; S ; V |_A_| r1 => r2 + S2" := (union_appl mf ml s S V r1 r2 S2)
+    and "mf ; ml ; s ; V ; l' ; e2 |_VL_| S => r2 + S2" := (union_varlocal mf ml s V l' e2 S r2 S2).
 
 Definition eg_val := to_lexpr <{ $fun X -> X }>.
 Definition eg_val_mf := build_myfun eg_val.
