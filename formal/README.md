@@ -2,15 +2,18 @@
 
 Current progress:
 - [ ] concrete operational semantics
-  - [x] lambda calculus
+  - [x] demand-driven
     - [x] deterministic
-  - [ ] environment/closure-based operational semantics
+  - [ ] environment/closure-based
   - [ ] equivalence among concrete operational semantics
-- [ ] abstract operational semantics
-  - [x] non-deterministic lambda calculus
-    - [ ] non-determinism
-  - [ ] all-paths program analysis
+- [ ] abstract (program analysis) operational semantics
+  - [x] non-deterministic demand-driven
+    - [ ] non-deterministic
+  - [x] all-paths
+    - [ ] deterministic
+  - [ ] standard
   - [ ] equivalence among abstract opertional semantics
+- [ ] Soundness of program analyses
 
 ## Set up
 
