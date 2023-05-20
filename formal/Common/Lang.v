@@ -32,14 +32,14 @@ Notation "'fun' x -> e" :=
     (in custom lang at level 20, e at next level, right associativity) : lang_scope.
 Notation "'fun' x '*->' le" :=
   (LFun x le)
-    (in custom lang at level 20, le at next level, right associativity) : lang_scope.
+    (in custom lang at level 20, le at next level, no associativity) : lang_scope.
 Notation "e1 <- e2" :=
   (Appl e1 e2)
     (in custom lang at level 30, left associativity).
 Notation "le1 '<-*' le2" :=
   (LAppl le1 le2)
     (* associativity doesn't matter here as le1 and le2 are lexprs *)
-    (in custom lang at level 30, left associativity).
+    (in custom lang at level 30, no associativity).
 Notation "$ v" :=
   (Val v)
     (in custom lang at level 25) : lang_scope.
