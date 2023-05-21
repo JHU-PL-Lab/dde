@@ -1,4 +1,4 @@
-From Coq Require Import Arith.Arith Sets.Ensembles.
+From Coq Require Import Arith.Arith.
 From DDE.Common Require Export Lang Sets.
 
 (* set of call stacks *)
