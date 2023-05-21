@@ -8,20 +8,20 @@ Reserved Notation
           ml at next level, s at next level, S at next level, Sv at next level).
 
 Inductive analyze
-  : myfun -> mylexpr -> sigma -> s_set -> lexpr -> res -> s_set -> Prop
+  : myfun -> mylexpr -> sigma -> S_set -> lexpr -> res -> S_set -> Prop
 :=
   | A_Val : forall mf ml s S v l,
     mf / ml / s / S |-a ($v)@l => (<v, l, s>) / S
   | A_Appl : forall mf ml s S e1 e2 l rv Sv x e l1 s1 S1,
     mf / ml / s / S |-a e1 => <fun x *-> e, l1, s1> / S1 ->
-    mf / ml / prune_sigma2 (l :: s) / ((l :: s) :: S1) |-a e => rv / Sv ->
+    mf / ml / prune_sigma2 (l :: s) / ((l :: s) ~> S1) |-a e => rv / Sv ->
     mf / ml / s / S |-a (e1 <-* e2) @ l => rv / Sv
   (* TODO: should s' be universally/existentially quantified? *)
   | A_VarLocal : forall mf ml e1 e2 l' s S x l rv Sv mf_l e s',
     mf l = Some mf_l ->
     ml mf_l = Some <{ ($fun x *-> e) @ mf_l }> ->
     ml l' = Some <{ (e1 <-* e2) @ l' }> ->
-    (exists s0, In s0 S /\ s0 = l' :: s ++ s') ->
+    (exists s0, s0 ? S /\ s0 = l' :: s ++ s') ->
     mf / ml / (s ++ s') / S |-a e2 => rv / Sv ->
     mf / ml / (l' :: s) / S |-a x@l => rv / Sv
   | A_VarNonLocal : forall mf ml e1 e2 l2 s S x l rv Sv x1 e l1 s1 S1,

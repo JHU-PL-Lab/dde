@@ -331,7 +331,8 @@ let analyze ~debug e =
      Format.printf "\n%s\n\n" @@ show_expr e;
      Format.printf "****** Label Table ******\n";
      print_myexpr myexpr;
-     Format.printf "****** Label Table ******\n\n"))
+     Format.printf "****** Label Table ******\n\n";
+     Hashset.iter (fun s -> Format.printf "%s\n" (show_sigma_t s)) s_set))
   [@coverage off];
 
   clean_up ();
