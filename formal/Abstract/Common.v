@@ -1,7 +1,9 @@
-From Coq Require Import Arith.Arith.
-From DDE.Common Require Export Lang.
+From Coq Require Import Arith.Arith Sets.Ensembles.
+From DDE.Common Require Export Lang Sets.
 
-Definition s_set : Type := list sigma.
+(* set of call stacks *)
+Definition S_set : Type := set sigma.
+Definition empty_S : S_set := @empty_set sigma.
 
 Fixpoint prune_sigma (s : sigma) (k : nat) (acc : sigma) : sigma := 
   match s with
