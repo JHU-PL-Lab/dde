@@ -8,7 +8,19 @@ authors: ["JHU PL Lab <scott@cs.jhu.edu>"]
 homepage: "https://github.com/JHU-PL-Lab/dde"
 bug-reports: "https://github.com/JHU-PL-Lab/dde/issues"
 depends: [
-  "dune" {>= "3.7"}
+  "ocaml" {>= "4.14.1"}
+  "coq" {>= "8.17.0"}
+  "dune" {>= "3.7" & >= "3.7"}
+  "ounit2" {> "2.2.7"}
+  "core" {> "0.15.1"}
+  "bisect_ppx" {>= "2.8.1"}
+  "ppx_let" {>= "0.15.0"}
+  "ppx_deriving" {>= "5.2.1"}
+  "ppx_jane" {>= "0.15.0"}
+  "utop" {>= "2.11.0"}
+  "core_bench" {>= "0.15.0"}
+  "core_unix" {>= "0.15.2"}
+  "hashset" {>= "1.0.0"}
   "odoc" {with-doc}
 ]
 build: [
