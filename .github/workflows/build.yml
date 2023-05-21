@@ -13,9 +13,8 @@ jobs:
       matrix:
         coq_version:
           - "8.17"
-          - dev
         ocaml_version:
-          - "4.14.1"
+          - "4.14.1-flambda"
       max-parallel: 4
       fail-fast: false
     steps:
