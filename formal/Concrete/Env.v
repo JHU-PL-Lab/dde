@@ -29,9 +29,10 @@ Notation "e1 <- e2" :=
 Notation "$ v" :=
   (Val v)
     (in custom lang at level 25) : lang_scope.
-Notation "[ v , env ]" :=
+
+Notation "< v , env >" :=
   (Res v env)
-    (in custom lang at level 15, v at next level, env constr) : lang_scope.
+    (at level 39, v custom lang at level 99, env at next level) : lang_scope.
 
 #[local] Open Scope lang_scope.
 
@@ -41,37 +42,37 @@ Definition Z : string := "z".
 Definition M : string := "m".
 Definition N : string := "n".
 
-Example sample_res := <{ [ fun Y -> Y, X |-> <{ [ fun Y -> Y, empty] }> ] }>.
+Example sample_res := <fun Y -> Y, (X |-> <fun Y -> Y, empty>) >.
 
 Reserved Notation
-         "env |- e => r"
-         (at level 40, e custom lang at level 99, env constr, r custom lang at level 99).
+         "env '|-e' e => r"
+         (at level 40, e custom lang at level 99, env constr, r at next level).
 
 Inductive eval : expr -> env -> res -> Prop :=
   | E_Val : forall E v,
-    E |- $v => [ v, E ]
+    E |-e $v => <v, E>
   | E_Appl : forall E e1 e2 r x e (E1 : partial_map string res) r2,
-    E |- e1 => [ fun x -> e, E1 ] ->
-    E |- e2 => r2 ->
-    (x |-> r2; E1) |- e => r ->
-    E |- e1 <- e2 => r
+    E |-e e1 => <fun x -> e, E1> ->
+    E |-e e2 => r2 ->
+    (x |-> r2; E1) |-e e => r ->
+    E |-e e1 <- e2 => r
   | E_Var : forall (E : partial_map string res) x r,
     E x = Some r ->
-    E |- x => r
+    E |-e x => r
 
-  where "env |- e => r" := (eval e env r).
+  where "env '|-e' e => r" := (eval e env r).
 
 Example eg_val_correct :
-  empty |- $fun X -> X => [ fun X -> X, empty ].
+  empty |-e $fun X -> X => <fun X -> X, empty>.
 Proof.
   apply E_Val.
 Qed.
 
 Example eg_app_correct :
-  empty |- $fun X -> X <- $fun Y -> Y => [ fun Y -> Y, empty ].
+  empty |-e $fun X -> X <- $fun Y -> Y => <fun Y -> Y, empty>.
 Proof.
   eapply E_Appl.
   - apply E_Val.
   - apply E_Val.
-  - apply E_Var. unfold update, t_update. simpl. reflexivity.
+  - apply E_Var. reflexivity.
 Qed.
