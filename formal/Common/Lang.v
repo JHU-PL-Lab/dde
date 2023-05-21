@@ -46,9 +46,11 @@ Notation "$ v" :=
 Notation "e @ l" :=
   (Lexpr e l)
     (in custom lang at level 15) : lang_scope.
-Notation "[ v , l , s ]" :=
+
+Notation "< v , l , s >" :=
   (Res v l s)
-    (in custom lang at level 99, v at next level, l at next level, s constr) : lang_scope.
+    (at level 39, v custom lang at level 99,
+      l at next level, s at next level) : lang_scope.
 
 #[local] Open Scope lang_scope.
 
@@ -78,13 +80,13 @@ Fixpoint assn (e : expr) (l : nat) : lexpr * nat :=
 
 (* assn will in practice only be used on expr's with no lexpr subcomponents *)
 Inductive assn_prac : expr -> nat -> nat -> Prop :=
-  | assn_prac_ident : forall x l,
+  | AP_Ident : forall x l,
     assn_prac (Ident x) l (S l)
-  | assn_prac_appl : forall e1 e2 l l1' l2',
+  | AP_Appl : forall e1 e2 l l1' l2',
     assn_prac e1 l l1' ->
     assn_prac e2 l1' l2' ->
     assn_prac <{ e1 <- e2 }> l (S l2')
-  | assn_prac_val : forall v l l' x e',
+  | AP_Val : forall v l l' x e',
     v = <{ fun x -> e' }> ->
     assn_prac e' l l' ->
     assn_prac <{ $v }> l (S l').
@@ -101,13 +103,13 @@ Proof.
     destruct (assn e1 l).
     simpl in IHassn_prac1. rewrite IHassn_prac1 in IHassn_prac2.
     destruct (assn e2 n).
-    simpl in *. subst. reflexivity.
+    subst. reflexivity.
   - rewrite H. simpl.
     destruct (assn e' l).
-    simpl in *. subst. reflexivity.
+    subst. reflexivity.
 Qed.
 
-Definition to_lexpr (e : expr) := fst (assn e 0).
+Definition to_lexpr (e : expr) : lexpr := fst (assn e 0).
 
 Example sample_fun := to_lexpr <{ $fun X -> X }>.
 Example sample_fun' := to_lexpr <{ $fun X -> $fun Y -> X }>.
@@ -117,7 +119,7 @@ Example sample_fun'' := to_lexpr <{ $fun X -> (X <- X) }>.
 Example sample_appl := to_lexpr <{ ($fun X -> X) <- ($fun X -> X) }>.
 Example sample_appl' := to_lexpr <{ X <- X }>.
 (* Compute sample_appl'. *)
-Example sample_res := <{ [ fun X *-> X@0, 1, 2 :: [] ] }>.
+Example sample_res := < fun X *-> X@0, 1, (2 :: []) >.
 
 Definition myfun : Type := partial_map nat nat.
 Definition mylexpr : Type := partial_map nat lexpr.
