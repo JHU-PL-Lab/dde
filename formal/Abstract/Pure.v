@@ -21,7 +21,7 @@ Inductive analyze
     mf l = Some mf_l ->
     ml mf_l = Some <{ ($fun x *-> e) @ mf_l }> ->
     ml l' = Some <{ (e1 <-* e2) @ l' }> ->
-    (exists s0, s0 ? S /\ s0 = l' :: s ++ s') ->
+    (exists s0, In s0 S /\ s0 = l' :: s ++ s') ->
     mf / ml / (s ++ s') / S |-a e2 => rv / Sv ->
     mf / ml / (l' :: s) / S |-a x@l => rv / Sv
   | A_VarNonLocal : forall mf ml e1 e2 l2 s S x l rv Sv x1 e l1 s1 S1,

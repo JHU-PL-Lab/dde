@@ -10,6 +10,9 @@ on:
       - "**"
     paths-ignore:
       - "**/*.md"
+concurrency:
+  group: ${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
 jobs:
   build_test:
     runs-on: ubuntu-latest
