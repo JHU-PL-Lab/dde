@@ -1,8 +1,5 @@
 # Essence of Demand-Driven Execution (DDE)
 
-[![Build & test
-project](https://github.com/JHU-PL-Lab/dde/actions/workflows/build.yml/badge.svg)](https://github.com/JHU-PL-Lab/dde/actions/workflows/build.yml)
-
 This repo contains a [concrete](./interpreter) and an
 [abstract](./program_analysis) interpreter based on DDE, as well as
 [formalizations](./formal) in Coq.
