@@ -7,7 +7,7 @@ Definition V_set : Type := set V_state.
 Definition empty_V : V_set := @empty_set V_state.
 
 (* a disjunction of possible analysis results *)
-(* Definition disj : Type := list res. *)
+Definition disj : Type := list res.
 
 #[local] Open Scope lang_scope.
 
