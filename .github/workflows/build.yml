@@ -32,3 +32,6 @@ jobs:
               dune build program_analysis
               dune build formal
             endGroup
+      - name: Revert permissions
+        if: ${{ always() }}
+        run: sudo chown -R 1001:116 .
