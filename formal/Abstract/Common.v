@@ -1,4 +1,4 @@
-From Coq Require Import Arith.Arith.
+From Coq Require Import Arith.Arith Lia.
 From DDE.Common Require Export Lang.
 
 (* a set of call stacks *)
@@ -45,4 +45,17 @@ Fixpoint prune_sigma (s : sigma) (k : nat) (acc : sigma) : sigma :=
     else prune_sigma ls (k - 1) (l :: acc)
   end.
 
-Definition prune_sigma2 (s : sigma) : sigma := prune_sigma s 2 [].
+Definition prune_sigma2 (s : sigma) : sigma := rev (prune_sigma s 2 []).
+
+Lemma prune_sigma2_cap : forall s, List.length (prune_sigma2 s) <= 2.
+Proof.
+  do 3 (destruct s; auto).
+Qed.
+
+Lemma prune_sigma2_order : forall s,
+  List.length s <= 2 ->
+  prune_sigma2 s = s.
+Proof.
+  do 3 (destruct s; auto).
+  simpl. lia.
+Qed.
