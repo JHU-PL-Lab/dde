@@ -2,3 +2,5 @@ _build
 _coverage
 *.coverage
 .DS_Store
+
+.lia.cache
