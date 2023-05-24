@@ -1,4 +1,5 @@
 open OUnit2
+open Church
 open Utils
 
 let test_basics _ =
@@ -30,7 +31,6 @@ let test_if _ =
   assert_equal "(1 + (10 - 1))"
     (pau "(fun id -> id 10) (fun n -> if n = 0 then 0 else 1 + (n - 1));;");
   assert_equal "1" (pau "if true then 1 else 2;;");
-  (* TODO: improve pretty printing *)
   assert_equal "1"
     (pau "(fun x -> (if true then (fun y -> y) else (fun z -> z)) x) 1;;")
 
@@ -63,7 +63,7 @@ let test_recursion _ =
        "let id = fun self -> fun n -> if n = 0 then 0 else 1 + self self (n - \
         1) in id id 10;;")
 
-let pa_tests =
+let test_pa =
   [
     "Basics" >:: test_basics;
     "Non-local variable lookup" >:: test_nonlocal_lookup;
@@ -71,9 +71,10 @@ let pa_tests =
     "If" >:: test_if;
     "Currying" >:: test_currying;
     "Recursion" >:: test_recursion;
+    "Church numerals" >::: test_church;
   ]
 
-let tests = "Program analysis tests" >::: pa_tests
+let tests = "Program analysis tests" >::: test_pa
 
 let () =
   (* Pbt.run (); *)
