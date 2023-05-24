@@ -318,9 +318,14 @@ Theorem deterministic : forall mf ml s S V e r1 S1 r2 S2,
   mf / ml / s / S / V |-aa e => r2 / S2 ->
   r1 = r2.
 Proof.
-  intros. generalize dependent r2.
-  (* issues:
-    1. generated ind principles don't work with notation
-    2. need to apply all three principles "at once" *)
-  (* eapply (analyze_ind H). *)
+  intros.
+  generalize dependent r2.
+  generalize dependent S2.
+  induction H; intros.
+  - invert H0. reflexivity.
+  - subst. invert H3.
+    apply IHanalyze in H5. subst.
+    invert H2.
+    + invert H15. reflexivity.
+    + invert H15.
 Abort.

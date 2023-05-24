@@ -48,7 +48,7 @@ let parse s =
   expr
 
 let unparse v = Format.asprintf "%a" pp_result_value v
-let parse_analyze s = s |> parse |> analyze
+let parse_analyze s = s |> parse |> analyze ~debug:!is_debug_mode
 
 let parse_analyze_unparse s =
   s |> parse |> analyze ~debug:!is_debug_mode |> unparse

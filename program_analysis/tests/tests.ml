@@ -63,7 +63,7 @@ let test_recursion _ =
        "let id = fun self -> fun n -> if n = 0 then 0 else 1 + self self (n - \
         1) in id id 10;;")
 
-let pa_tests =
+let test_pa =
   [
     "Basics" >:: test_basics;
     "Non-local variable lookup" >:: test_nonlocal_lookup;
@@ -71,10 +71,10 @@ let pa_tests =
     "If" >:: test_if;
     "Currying" >:: test_currying;
     "Recursion" >:: test_recursion;
-    "Church numerals" >:: test_church;
+    "Church numerals" >::: test_church;
   ]
 
-let tests = "Program analysis tests" >::: pa_tests
+let tests = "Program analysis tests" >::: test_pa
 
 let () =
   (* Pbt.run (); *)
