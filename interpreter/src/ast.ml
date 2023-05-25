@@ -9,7 +9,8 @@ type ident =
       (string
       [@quickcheck.generator
         Generator.string_non_empty_of Generator.char_lowercase])
-[@@coverage off] [@@deriving show { with_path = false }, quickcheck, sexp_of]
+[@@coverage off]
+[@@deriving show { with_path = false }, quickcheck, compare, sexp]
 
 type expr =
   | Int of int [@quickcheck.weight 0.05]
@@ -32,7 +33,9 @@ type expr =
   | Not of expr [@quickcheck.weight 0.05]
   | If of expr * expr * expr * int [@quickcheck.weight 0.05]
   | Let of ident * expr * expr * int [@quickcheck.do_not_generate]
-[@@deriving show { with_path = false }, quickcheck, sexp_of]
+[@@deriving show { with_path = false }, quickcheck, compare, sexp]
+
+type sigma = int list [@@deriving show { with_path = false }, compare, sexp]
 
 type fbtype = TArrow of fbtype * fbtype | TVar of string
 [@@coverage off] [@@deriving show { with_path = false }]

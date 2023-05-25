@@ -20,7 +20,6 @@ let ( |>> ) v f = Option.map f v
 let ( |>-> ) v f = Option.bind v f
 
 let au e =
-  e |> Lib.analyze ~debug:false
-  |> Format.asprintf "%a" Debugutils.pp_result_value
+  e |> Lib.analyze ~debug:false |> Format.asprintf "%a" Debugutils.pp_res
 
 let pau s = Lexing.from_string s |> Parser.main Lexer.token |> au
