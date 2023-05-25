@@ -66,8 +66,12 @@ and eval_bool r =
                            | OrOp _ -> x || y
                            | _ -> raise Unreachable [@coverage off]))
                   | _ -> Set.add acc AnyBool)
-          (* TODO *)
-          | NotOp b -> acc
+          | NotOp b ->
+              let bs = eval_bool b in
+              Set.fold bs ~init:acc ~f:(fun acc b ->
+                  match b with
+                  | DefBool x -> Set.add acc (DefBool (not x))
+                  | _ -> Set.add acc AnyBool)
           | _ -> raise Unreachable [@coverage off])
       | ResAtom r | LabelResAtom (r, _) | ExprResAtom (r, _) ->
           Set.union acc (eval_bool r)
@@ -108,7 +112,6 @@ let rec analyze_aux expr s v_set =
               ~f:(fun acc a ->
                 match a with
                 | FunAtom (Function (_, e_i, _), _, _) -> (
-                    (* TODO: S contains not just application labels? *)
                     Hashset.add s_set (l :: s);
                     let new_state =
                       (state, if Set.mem v_set (state, 0) then 1 else 0)
@@ -259,5 +262,6 @@ let analyze ~debug e =
   [@coverage off];
 
   clean_up ();
+  Hashset.clear s_set;
 
   Option.value_exn r
