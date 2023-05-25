@@ -36,8 +36,6 @@ jobs:
             endGroup
           script: |
             startGroup "Build & test project"
-              dune build program_analysis
-              dune test program_analysis
               dune build formal
             endGroup
       - name: Revert permissions

@@ -2,10 +2,10 @@
  (name program_analysis)
  (public_name dde.program_analysis)
  (preprocess
-  (pps bisect_ppx ppx_let ppx_deriving.show))
+  (pps bisect_ppx ppx_let ppx_deriving.show ppx_jane))
  (instrumentation
   (backend bisect_ppx --bisect-file _build/bisect))
- (modules lib debugutils)
+ (modules lib grammar utils debugutils)
  (libraries dde.interpreter hashset core))
 
 (executable

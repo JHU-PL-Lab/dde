@@ -1,4 +1,4 @@
 (test
  (name tests)
  (modules tests pbt church utils)
- (libraries ounit2 core dde.program_analysis dde.interpreter))
+ (libraries ounit2 core dde.program_analysis dde.interpreter fbdk.fb))
