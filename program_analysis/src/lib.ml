@@ -33,7 +33,8 @@ let rec eval_int r =
           | _ -> raise Unreachable [@coverage off])
       | ResAtom r | LabelResAtom (r, _) | ExprResAtom (r, _) ->
           Set.union acc (eval_int r)
-      | LabelStubAtom _ | ExprStubAtom _ -> Set.add acc AnyInt)
+      | LabelStubAtom _ | ExprStubAtom _ -> Set.add acc AnyInt
+      | PathCondAtom (_, r) -> Set.union acc (eval_int [ r ]))
 
 and eval_bool r =
   let open Maybe_int in
@@ -75,7 +76,8 @@ and eval_bool r =
           | _ -> raise Unreachable [@coverage off])
       | ResAtom r | LabelResAtom (r, _) | ExprResAtom (r, _) ->
           Set.union acc (eval_bool r)
-      | LabelStubAtom _ | ExprStubAtom _ -> Set.add acc AnyBool)
+      | LabelStubAtom _ | ExprStubAtom _ -> Set.add acc AnyBool
+      | PathCondAtom (_, r) -> Set.union acc (eval_bool [ r ]))
 
 let rec process_maybe_bools bs =
   let open Maybe_bool in
@@ -86,7 +88,7 @@ let rec process_maybe_bools bs =
       | DefBool b -> Continue (b :: acc))
     ~finish:Fun.id
 
-let rec analyze_aux expr s v_set =
+let rec analyze_aux expr s pi v_set =
   match expr with
   | Int i -> Some [ IntAtom i ]
   | Bool b -> Some [ BoolAtom b ]
@@ -105,23 +107,24 @@ let rec analyze_aux expr s v_set =
           Some [ LabelStubAtom (l, ls_pruned) ]
       | _ ->
           (* Application *)
-          let%map r = analyze_aux e s v_set in
+          let%map r = analyze_aux e s pi v_set in
           let r_set =
             fold_res r
               ~init:(Set.empty (module Choice))
               ~f:(fun acc a ->
                 match a with
-                | FunAtom (Function (_, e_i, _), _, _) -> (
+                | FunAtom (Function (_, e1, _), _, _)
+                (* TODO: should path conditions be propagated down the tree? *)
+                | PathCondAtom (_, FunAtom (Function (_, e1, _), _, _)) -> (
                     Hashset.add s_set (l :: s);
                     let new_state =
                       (state, if Set.mem v_set (state, 0) then 1 else 0)
                     in
                     let v_set = Set.remove v_set (state, 0) in
                     match
-                      analyze_aux e_i ls_pruned (Set.add v_set new_state)
+                      analyze_aux e1 ls_pruned pi (Set.add v_set new_state)
                     with
-                    | Some ri ->
-                        fold_res ri ~init:acc ~f:(fun acc a -> Set.add acc a)
+                    | Some ri -> fold_res ri ~init:acc ~f:Set.add
                     | None -> acc)
                 | _ -> raise Unreachable [@coverage off])
           in
@@ -149,7 +152,7 @@ let rec analyze_aux expr s v_set =
                 let s_hd_expr = get_myexpr s_hd in
                 match s_hd_expr with
                 | Appl (_, e2, l') ->
-                    let res_list =
+                    let r_set =
                       (* enumerate all matching stacks in the set *)
                       Hashset.fold
                         (fun sigma_i acc ->
@@ -161,14 +164,15 @@ let rec analyze_aux expr s v_set =
                           if sigma_i_hd = l' && starts_with sigma_i_tl s_tl then
                             match
                               (* stitch the stack to gain more precision *)
-                              analyze_aux e2 sigma_i_tl (Set.add v_set state)
+                              analyze_aux e2 sigma_i_tl pi (Set.add v_set state)
                             with
-                            | Some r_i -> r_i @ acc
+                            | Some ri -> fold_res ri ~init:acc ~f:Set.add
                             | None -> acc
                           else acc)
-                        s_set []
+                        s_set
+                        (Set.empty (module Choice))
                     in
-                    Some [ ExprResAtom (res_list, (expr, s)) ]
+                    Some [ ExprResAtom (Set.elements r_set, (expr, s)) ]
                 | _ -> raise Unreachable [@coverage off])
           else (
             (* Var Non-Local *)
@@ -188,7 +192,7 @@ let rec analyze_aux expr s v_set =
                       if Stdlib.(si_hd = l2) && starts_with si_tl s_tl then
                         match
                           (* stitch the stack to gain more precision *)
-                          analyze_aux e1 si_tl v_set
+                          analyze_aux e1 si_tl pi v_set
                         with
                         | Some r ->
                             Set.union acc
@@ -199,11 +203,10 @@ let rec analyze_aux expr s v_set =
                                        match
                                          analyze_aux
                                            (Var (Ident x, l1))
-                                           s1 v_set
+                                           s1 pi v_set
                                        with
                                        | Some ri ->
-                                           fold_res ri ~init:acc
-                                             ~f:(fun acc a -> Set.add acc a)
+                                           fold_res ri ~init:acc ~f:Set.add
                                        | None -> acc)
                                    | _ -> acc)
                         | _ -> raise Unreachable [@coverage off]
@@ -215,22 +218,30 @@ let rec analyze_aux expr s v_set =
             | _ -> raise Unreachable [@coverage off])
       | _ -> raise Unreachable [@coverage off])
   | If (e, e_true, e_false, l) ->
-      let%map res = analyze_aux e s v_set in
-      let bs = res |> eval_bool |> process_maybe_bools in
-      bs
-      |> List.map ~f:(function
-           | true -> analyze_aux e_true s v_set
-           | false -> analyze_aux e_false s v_set)
-      |> List.filter_map ~f:Fun.id
+      let%map r_cond = analyze_aux e s pi v_set in
+      r_cond |> eval_bool |> process_maybe_bools
+      |> List.map ~f:(fun b ->
+             let path_cond = (e, b) in
+             ( path_cond,
+               analyze_aux
+                 (if b then e_true else e_false)
+                 s (path_cond :: pi) v_set ))
+      |> List.filter_map ~f:(function
+           | _, None -> None
+           | path_cond, Some r -> Some (path_cond, r))
       |> List.fold
-           ~init:(Set.empty (module Choice))
-           ~f:(fun acc r ->
-             List.fold r ~init:acc ~f:(fun acc a -> Set.add acc a))
+           ~init:(Set.empty (module PathChoice))
+           ~f:(fun acc (path_cond, r) ->
+             fold_res r ~init:(Set.empty (module Choice)) ~f:Set.add
+             |> Set.elements
+             |> List.map ~f:(fun a -> (path_cond, a))
+             |> List.fold ~init:acc ~f:Set.add)
       |> Set.elements
+      |> List.map ~f:(fun (path_cond, a) -> PathCondAtom (path_cond, a))
   | Plus (e1, e2) | Minus (e1, e2) | Equal (e1, e2) | And (e1, e2) | Or (e1, e2)
     ->
-      let%bind r1 = analyze_aux e1 s v_set in
-      let%map r2 = analyze_aux e2 s v_set in
+      let%bind r1 = analyze_aux e1 s pi v_set in
+      let%map r2 = analyze_aux e2 s pi v_set in
       [
         OpAtom
           (match expr with
@@ -242,7 +253,7 @@ let rec analyze_aux expr s v_set =
           | _ -> raise Unreachable [@coverage off]);
       ]
   | Not e ->
-      let%map r = analyze_aux e s v_set in
+      let%map r = analyze_aux e s pi v_set in
       [ OpAtom (NotOp r) ]
   | Let _ -> raise Unreachable [@coverage off]
 
@@ -251,7 +262,7 @@ let analyze ~debug e =
 
   let e = transform_let e in
   build_myfun e None;
-  let r = analyze_aux e [] (Set.empty (module State)) in
+  let r = analyze_aux e [] [] (Set.empty (module State)) in
 
   (if !is_debug_mode then (
      Format.printf "\n%s\n\n" @@ show_expr e;
