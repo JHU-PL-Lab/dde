@@ -8,9 +8,9 @@ exception Unreachable
 exception Bad_type
 
 let rec eval_int r =
-  let open Maybe_int in
+  let open Maybe_prim in
   List.fold r
-    ~init:(Core.Set.empty (module Maybe_int))
+    ~init:(Core.Set.empty (module Maybe_prim))
     ~f:(fun acc a ->
       match a with
       | BoolAtom _ | FunAtom _ -> raise Bad_type
@@ -29,18 +29,17 @@ let rec eval_int r =
                            | PlusOp _ -> x + y
                            | MinusOp _ -> x - y
                            | _ -> raise Unreachable [@coverage off]))
-                  | _ -> Set.add acc AnyInt)
+                  | _ -> Set.add acc Any)
           | _ -> raise Unreachable [@coverage off])
       | ResAtom r | LabelResAtom (r, _) | ExprResAtom (r, _) ->
           Set.union acc (eval_int r)
-      | LabelStubAtom _ | ExprStubAtom _ -> Set.add acc AnyInt
+      | LabelStubAtom _ | ExprStubAtom _ -> Set.add acc Any
       | PathCondAtom (_, r) -> Set.union acc (eval_int [ r ]))
 
 and eval_bool r =
-  let open Maybe_int in
-  let open Maybe_bool in
+  let open Maybe_prim in
   List.fold r
-    ~init:(Core.Set.empty (module Maybe_bool))
+    ~init:(Core.Set.empty (module Maybe_prim))
     ~f:(fun acc a ->
       match a with
       | IntAtom _ | FunAtom _ -> raise Bad_type
@@ -53,7 +52,7 @@ and eval_bool r =
               List.fold (all_combs i1s i2s) ~init:acc ~f:(fun acc pair ->
                   match pair with
                   | DefInt x, DefInt y -> Set.add acc (DefBool (Int.equal x y))
-                  | _ -> Set.add acc AnyBool)
+                  | _ -> Set.add acc Any)
           | AndOp (b1, b2) | OrOp (b1, b2) ->
               let b1s = eval_bool b1 in
               let b2s = eval_bool b2 in
@@ -66,26 +65,27 @@ and eval_bool r =
                            | AndOp _ -> x && y
                            | OrOp _ -> x || y
                            | _ -> raise Unreachable [@coverage off]))
-                  | _ -> Set.add acc AnyBool)
+                  | _ -> Set.add acc Any)
           | NotOp b ->
               let bs = eval_bool b in
               Set.fold bs ~init:acc ~f:(fun acc b ->
                   match b with
                   | DefBool x -> Set.add acc (DefBool (not x))
-                  | _ -> Set.add acc AnyBool)
+                  | _ -> Set.add acc Any)
           | _ -> raise Unreachable [@coverage off])
       | ResAtom r | LabelResAtom (r, _) | ExprResAtom (r, _) ->
           Set.union acc (eval_bool r)
-      | LabelStubAtom _ | ExprStubAtom _ -> Set.add acc AnyBool
+      | LabelStubAtom _ | ExprStubAtom _ -> Set.add acc Any
       | PathCondAtom (_, r) -> Set.union acc (eval_bool [ r ]))
 
 let rec process_maybe_bools bs =
-  let open Maybe_bool in
+  let open Maybe_prim in
   Set.fold_until bs ~init:[]
     ~f:(fun acc b ->
       match b with
-      | AnyBool -> Stop [ true; false ]
-      | DefBool b -> Continue (b :: acc))
+      | Any -> Stop [ true; false ]
+      | DefBool b -> Continue (b :: acc)
+      | DefInt _ -> raise Bad_type)
     ~finish:Fun.id
 
 let rec analyze_aux expr s pi v_set =
