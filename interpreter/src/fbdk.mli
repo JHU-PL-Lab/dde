@@ -17,6 +17,26 @@ module Ast : sig
     | Not of expr
     | If of expr * expr * expr * int
     | Let of ident * expr * expr * int
+    | Record of (ident * expr) list
+    | Projection of expr * ident
+    | Inspection of ident * expr
+
+  type sigma = int list
+
+  type op_result_value =
+    | PlusOp of result_value * result_value
+    | MinusOp of result_value * result_value
+    | EqualOp of result_value * result_value
+    | AndOp of result_value * result_value
+    | OrOp of result_value * result_value
+    | NotOp of result_value
+
+  and result_value =
+    | IntResult of int
+    | BoolResult of bool
+    | FunResult of { f : Ast.expr; l : int; sigma : int list }
+    | OpResult of op_result_value
+    | RecordResult of (ident * result_value) list
 
   type fbtype = Ast.fbtype = TArrow of fbtype * fbtype | TVar of string
 
@@ -47,28 +67,14 @@ module Typechecker : sig
 end
 
 module Interpreter : sig
-  type op_result_value =
-    | PlusOp of result_value * result_value
-    | MinusOp of result_value * result_value
-    | EqualOp of result_value * result_value
-    | AndOp of result_value * result_value
-    | OrOp of result_value * result_value
-    | NotOp of result_value
-
-  and result_value =
-    | FunResult of { f : Ast.expr; l : int; sigma : int list }
-    | IntResult of int
-    | BoolResult of bool
-    | OpResult of op_result_value
-
   val eval :
-    Ast.expr -> is_debug_mode:bool -> should_simplify:bool -> result_value
+    Ast.expr -> is_debug_mode:bool -> should_simplify:bool -> Ast.result_value
 end
 
 module Pp : sig
   val show_expr : Ast.expr -> string
   val pp_expr : Format.formatter -> Ast.expr -> unit
-  val pp_result_value : Format.formatter -> Interpreter.result_value -> unit
+  val pp_result_value : Format.formatter -> Ast.result_value -> unit
   val show_fbtype : Ast.fbtype -> string
   val pp_fbtype : Format.formatter -> Ast.fbtype -> unit
 end

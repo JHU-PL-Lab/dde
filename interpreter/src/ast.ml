@@ -33,9 +33,28 @@ type expr =
   | Not of expr [@quickcheck.weight 0.05]
   | If of expr * expr * expr * int [@quickcheck.weight 0.05]
   | Let of ident * expr * expr * int [@quickcheck.do_not_generate]
+  | Record of (ident * expr) list [@quickcheck.do_not_generate]
+  | Projection of expr * ident [@quickcheck.do_not_generate]
+  | Inspection of ident * expr [@quickcheck.do_not_generate]
 [@@deriving show { with_path = false }, quickcheck, compare, sexp]
 
 type sigma = int list [@@deriving show { with_path = false }, compare, sexp]
+
+type op_result_value =
+  | PlusOp of result_value * result_value
+  | MinusOp of result_value * result_value
+  | EqualOp of result_value * result_value
+  | AndOp of result_value * result_value
+  | OrOp of result_value * result_value
+  | NotOp of result_value
+
+(* TODO: consider making projection/inspection lazy *)
+and result_value =
+  | IntResult of int
+  | BoolResult of bool
+  | FunResult of { f : expr; l : int; sigma : int list }
+  | OpResult of op_result_value
+  | RecordResult of (ident * result_value) list
 
 type fbtype = TArrow of fbtype * fbtype | TVar of string
 [@@coverage off] [@@deriving show { with_path = false }]
@@ -76,6 +95,8 @@ let rec build_myfun e outer =
       build_myfun e1 outer;
       build_myfun e2 outer;
       build_myfun e3 outer
+  | Record entries -> List.iter entries ~f:(fun (_, e) -> build_myfun e outer)
+  | Projection (e, _) | Inspection (_, e) -> build_myfun e outer
   | Let (_, _, _, _) -> raise Unreachable [@coverage off]
 
 let print_myexpr tbl =
@@ -163,3 +184,7 @@ let build_let ident e1 e2 =
   let labeled_let = Let (ident, e1, e2, label) in
   add_myexpr label labeled_let;
   labeled_let
+
+let build_record entries = Record entries
+let build_projection e s = Projection (e, Ident s)
+let build_inspection s e = Inspection (Ident s, e)

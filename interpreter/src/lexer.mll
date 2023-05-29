@@ -32,6 +32,10 @@ rule token = parse
 | '='                  { EQUAL }
 | '('                  { LPAREN }
 | ')'                  { RPAREN }
+| '{'                  { LBRACE }
+| '}'                  { RBRACE }
+| ';'                  { SEP }
+| '.'                  { PROJECT }
 | decimal_literal      { INT (int_of_string(Lexing.lexeme lexbuf)) }
 | lowercase identchar* { IDENT (Lexing.lexeme lexbuf) }
 | eof                  { raise Exit }

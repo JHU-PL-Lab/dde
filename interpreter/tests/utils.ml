@@ -36,7 +36,7 @@ let rec strip_label_fbenv (e : Ast.expr) : Fbenvast.expr =
       If (strip_label_fbenv e1, strip_label_fbenv e2, strip_label_fbenv e3)
   | _ -> raise Unreachable
 
-let dde_to_fb (v : Interp.result_value) : Fbast.expr =
+let dde_to_fb (v : Ast.result_value) : Fbast.expr =
   match v with
   | IntResult i -> Int i
   | BoolResult b -> Bool b
@@ -46,7 +46,7 @@ let dde_to_fb (v : Interp.result_value) : Fbast.expr =
       | _ -> raise Unreachable)
   | _ -> raise Unreachable
 
-let dde_to_fbenv (v : Interp.result_value) : Fbenvast.expr =
+let dde_to_fbenv (v : Ast.result_value) : Fbenvast.expr =
   match v with
   | IntResult i -> Int i
   | BoolResult b -> Bool b

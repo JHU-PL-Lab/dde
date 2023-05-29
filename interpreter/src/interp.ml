@@ -3,24 +3,9 @@ open Ast
 exception TypeMismatch
 exception Unreachable
 
-type op_result_value =
-  | PlusOp of result_value * result_value
-  | MinusOp of result_value * result_value
-  | EqualOp of result_value * result_value
-  | AndOp of result_value * result_value
-  | OrOp of result_value * result_value
-  | NotOp of result_value
-
-and result_value =
-  | FunResult of { f : expr; l : int; sigma : int list }
-  | IntResult of int
-  | BoolResult of bool
-  | OpResult of op_result_value
-[@@deriving show { with_path = false }]
-
 let rec eval_int (r : result_value) : int =
   match r with
-  | FunResult _ | BoolResult _ -> raise TypeMismatch
+  | BoolResult _ | FunResult _ | RecordResult _ -> raise TypeMismatch
   | IntResult i -> i
   | OpResult op -> (
       match op with
@@ -33,7 +18,7 @@ let rec eval_int (r : result_value) : int =
 
 let rec eval_bool (r : result_value) : bool =
   match r with
-  | FunResult _ | IntResult _ -> raise TypeMismatch
+  | IntResult _ | FunResult _ | RecordResult _ -> raise TypeMismatch
   | BoolResult b -> b
   | OpResult op_r -> (
       match op_r with
@@ -82,36 +67,71 @@ let rec eval_aux (e : expr) (sigma : int list) : result_value =
                       | _ -> raise Unreachable [@coverage off])
                   | _ -> raise Unreachable [@coverage off])
             | _ -> raise Unreachable [@coverage off])
-        | Plus (e1, e2) ->
-            let r1 = eval_aux e1 sigma in
-            let r2 = eval_aux e2 sigma in
-            OpResult (PlusOp (r1, r2))
-        | Minus (e1, e2) ->
-            let r1 = eval_aux e1 sigma in
-            let r2 = eval_aux e2 sigma in
-            OpResult (MinusOp (r1, r2))
-        | Equal (e1, e2) ->
-            let r1 = eval_aux e1 sigma in
-            let r2 = eval_aux e2 sigma in
-            OpResult (EqualOp (r1, r2))
-        | And (e1, e2) ->
-            let r1 = eval_aux e1 sigma in
-            let r2 = eval_aux e2 sigma in
-            OpResult (AndOp (r1, r2))
+        | Plus (e1, e2)
+        | Minus (e1, e2)
+        | Equal (e1, e2)
+        | And (e1, e2)
         | Or (e1, e2) ->
             let r1 = eval_aux e1 sigma in
             let r2 = eval_aux e2 sigma in
-            OpResult (OrOp (r1, r2))
+            OpResult
+              (match e with
+              | Plus _ -> PlusOp (r1, r2)
+              | Minus _ -> MinusOp (r1, r2)
+              | Equal _ -> EqualOp (r1, r2)
+              | And _ -> AndOp (r1, r2)
+              | Or _ -> OrOp (r1, r2)
+              | _ -> raise Unreachable [@coverage off])
         | Not e -> OpResult (NotOp (eval_aux e sigma))
         | If (e1, e2, e3, _) ->
             let r = eval_aux e1 sigma in
             if eval_bool r then eval_aux e2 sigma else eval_aux e3 sigma
+        | Record entries ->
+            RecordResult
+              (List.map (fun (x, e) -> (x, eval_aux e sigma)) entries)
+        | Projection (e, Ident x) -> (
+            match e with
+            | Record entries -> (
+                match List.find_opt (fun (Ident x', _) -> x = x') entries with
+                | Some (_, e) -> eval_aux e sigma
+                | None -> raise TypeMismatch)
+            | _ -> raise TypeMismatch)
+        | Inspection (Ident x, e) -> (
+            match e with
+            | Record entries ->
+                BoolResult (List.exists (fun (Ident x', _) -> x = x') entries)
+            | _ -> raise TypeMismatch)
         | Let (_, _, _, _) -> raise Unreachable [@coverage off]
       in
       let () = Hashtbl.replace memo_cache (e, sigma) eval_res in
       eval_res
 
 module StringSet = Set.Make (String)
+
+let rec result_value_to_expr (r : result_value) : expr =
+  match r with
+  | IntResult i -> Int i
+  | BoolResult b -> Bool b
+  | FunResult { f; l; sigma } -> f
+  | OpResult op -> (
+      match op with
+      | PlusOp (r1, r2)
+      | MinusOp (r1, r2)
+      | EqualOp (r1, r2)
+      | AndOp (r1, r2)
+      | OrOp (r1, r2) -> (
+          let e1 = result_value_to_expr r1 in
+          let e2 = result_value_to_expr r2 in
+          match op with
+          | PlusOp _ -> Plus (e1, e2)
+          | MinusOp _ -> Minus (e1, e2)
+          | EqualOp _ -> Equal (e1, e2)
+          | AndOp _ -> And (e1, e2)
+          | OrOp _ -> Or (e1, e2)
+          | NotOp _ -> raise Unreachable [@coverage off])
+      | NotOp r -> Not (result_value_to_expr r))
+  | RecordResult entries ->
+      Record (List.map (fun (x, v) -> (x, result_value_to_expr v)) entries)
 
 let rec subst_free_vars (e : expr) (target_l : int) (sigma : int list)
     (seen : StringSet.t) =
@@ -121,15 +141,11 @@ let rec subst_free_vars (e : expr) (target_l : int) (sigma : int list)
   | Function (Ident x, e', l) ->
       Function
         (Ident x, subst_free_vars e' target_l sigma (StringSet.add x seen), l)
-  | Var (Ident x, _) -> (
+  | Var (Ident x, _) ->
       if StringSet.mem x seen then e (* only substitute free variables *)
       else
-        let r = eval_aux (Var (Ident x, target_l)) sigma in
-        match eval_result_value r with
-        | IntResult i -> Int i
-        | BoolResult b -> Bool b
-        | FunResult { f; _ } -> f
-        | OpResult _ -> raise Unreachable [@coverage off])
+        eval_aux (Var (Ident x, target_l)) sigma
+        |> eval_result_value |> result_value_to_expr
   | Appl (e1, e2, l) ->
       Appl
         ( subst_free_vars e1 target_l sigma seen,
@@ -153,6 +169,13 @@ let rec subst_free_vars (e : expr) (target_l : int) (sigma : int list)
           subst_free_vars e2 target_l sigma seen,
           subst_free_vars e3 target_l sigma seen,
           l )
+  | Record entries ->
+      Record
+        (List.map
+           (fun (x, e) -> (x, subst_free_vars e target_l sigma seen))
+           entries)
+  | Projection (e, x) -> Projection (subst_free_vars e target_l sigma seen, x)
+  | Inspection (x, e) -> Inspection (x, subst_free_vars e target_l sigma seen)
   | Let _ -> raise Unreachable [@coverage off]
 
 and eval_result_value (r : result_value) : result_value =
@@ -208,6 +231,8 @@ and eval_result_value (r : result_value) : result_value =
           match v with
           | BoolResult b -> BoolResult (not b)
           | _ -> raise TypeMismatch [@coverage off]))
+  | RecordResult entries ->
+      RecordResult (List.map (fun (x, r) -> (x, eval_result_value r)) entries)
 
 let eval e ~is_debug_mode ~should_simplify =
   let e = transform_let e in
