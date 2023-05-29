@@ -28,9 +28,9 @@ let test_local_stitching _ =
         add2 0;;")
 
 let test_if _ =
-  assert_equal "(1 + (10 - 1))"
+  assert_equal "((n = 0) = false ⊩ (1 + (10 - 1)))"
     (pau "(fun id -> id 10) (fun n -> if n = 0 then 0 else 1 + (n - 1));;");
-  assert_equal "1" (pau "if true then 1 else 2;;");
+  assert_equal "(true = true ⊩ 1)" (pau "if true then 1 else 2;;");
   assert_equal "1"
     (pau "(fun x -> (if true then (fun y -> y) else (fun z -> z)) x) 1;;")
 
@@ -58,7 +58,9 @@ let test_currying _ =
         add1 1 + add2 1 + add3 1 + add4 1 + add5 1;;")
 
 let test_recursion _ =
-  assert_equal "(1 + (1 + (1 + ((1 + stub) | 0))))"
+  assert_equal
+    "((n = 0) = false ⊩ (1 + ((n = 0) = false ⊩ (1 + ((n = 0) = false ⊩ (1 + \
+     (((n = 0) = false ⊩ (1 + stub)) | ((n = 0) = true ⊩ 0))))))))"
     (pau
        "let id = fun self -> fun n -> if n = 0 then 0 else 1 + self self (n - \
         1) in id id 10;;")
