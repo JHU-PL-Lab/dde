@@ -59,18 +59,9 @@ module PathChoice = struct
   include Comparable.Make (T)
 end
 
-module Maybe_int = struct
+module Maybe_prim = struct
   module T = struct
-    type t = DefInt of int | AnyInt [@@deriving compare, sexp]
-  end
-
-  include T
-  include Comparable.Make (T)
-end
-
-module Maybe_bool = struct
-  module T = struct
-    type t = DefBool of bool | AnyBool [@@deriving compare, sexp]
+    type t = DefInt of int | DefBool of bool | Any [@@deriving compare, sexp]
   end
 
   include T
