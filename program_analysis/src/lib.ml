@@ -221,7 +221,7 @@ let rec analyze_aux expr s pi v_set =
       let%map r_cond = analyze_aux e s pi v_set in
       r_cond |> eval_bool |> process_maybe_bools
       |> List.map ~f:(fun b ->
-             let path_cond = (e, b) in
+             let path_cond = (r_cond, b) in
              ( path_cond,
                analyze_aux
                  (if b then e_true else e_false)

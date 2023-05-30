@@ -31,8 +31,7 @@ let rec pp_atom fmt (v : atom) =
       | OrOp (r1, r2) -> ff fmt "(%a or %a)" pp_res r1 pp_res r2
       | NotOp r1 -> ff fmt "(not %a)" pp_res r1)
   | LabelStubAtom _ | ExprStubAtom _ -> ff fmt "stub"
-  | PathCondAtom ((e, b), a) ->
-      ff fmt "(%a = %b ⊩ %a)" Interpreter.Pp.pp_expr e b pp_atom a
+  | PathCondAtom ((r, b), a) -> ff fmt "(%a = %b ⊩ %a)" pp_res r b pp_atom a
 
 and pp_res fmt = function
   | [] -> ()

@@ -16,8 +16,6 @@ module State = struct
   include Comparable.Make (T)
 end
 
-type path_cond = expr * bool [@@deriving compare, sexp]
-
 type op =
   | PlusOp of res * res
   | MinusOp of res * res
@@ -38,7 +36,8 @@ and atom =
   | ExprStubAtom of State.estate
   | PathCondAtom of path_cond * atom
 
-and res = atom list [@@deriving compare, sexp]
+and res = atom list
+and path_cond = res * bool [@@deriving compare, sexp]
 
 (* used to accumulate disjuncts when stitching stacks at Var Non-Local *)
 module Choice = struct
