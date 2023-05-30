@@ -48,13 +48,14 @@ type op_result_value =
   | OrOp of result_value * result_value
   | NotOp of result_value
 
-(* TODO: consider making projection/inspection lazy *)
 and result_value =
   | IntResult of int
   | BoolResult of bool
   | FunResult of { f : expr; l : int; sigma : int list }
   | OpResult of op_result_value
   | RecordResult of (ident * result_value) list
+  | ProjectionResult of result_value * ident
+  | InspectionResult of ident * result_value
 
 type fbtype = TArrow of fbtype * fbtype | TVar of string
 [@@coverage off] [@@deriving show { with_path = false }]

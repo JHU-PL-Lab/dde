@@ -76,6 +76,8 @@ let rec pp_result_value fmt (v : result_value) =
       ff fmt
         (if List.length entries = 0 then "{%a}" else "{ %a }")
         pp_record_result entries
+  | ProjectionResult (r, Ident s) -> ff fmt "%a.%s" pp_result_value r s
+  | InspectionResult (Ident s, r) -> ff fmt "%s in %a" s pp_result_value r
 
 and pp_record_result fmt = function
   | [] -> ()
