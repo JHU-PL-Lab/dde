@@ -1,4 +1,11 @@
 (test
  (name tests)
- (modules tests pbt church utils)
- (libraries ounit2 core dde.program_analysis dde.interpreter fbdk.fb))
+ (modules tests pbt church bench utils)
+ (libraries
+  core
+  core_bench
+  core_unix.command_unix
+  dde.interpreter
+  dde.program_analysis
+  fbdk.fb
+  ounit2))
