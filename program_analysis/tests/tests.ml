@@ -50,7 +50,7 @@ let test_local_stitching _ = gen_test local_stitching
 let conidtional =
   [
     (fun _ ->
-      ( "((n = 0) = false ⊩ (1 + (10 - 1)))",
+      ( "((10 = 0) = false ⊩ (1 + (10 - 1)))",
         pau "(fun id -> id 10) (fun n -> if n = 0 then 0 else 1 + (n - 1));;" ));
     (fun _ -> ("(true = true ⊩ 1)", pau "if true then 1 else 2;;"));
     (fun _ ->
@@ -98,8 +98,11 @@ let test_currying _ = gen_test currying
 let recursion =
   [
     (fun _ ->
-      ( "((n = 0) = false ⊩ (1 + ((n = 0) = false ⊩ (1 + ((n = 0) = false ⊩ (1 \
-         + (((n = 0) = false ⊩ (1 + stub)) | ((n = 0) = true ⊩ 0))))))))",
+      (* TODO: make more readable *)
+      ( "((10 = 0) = false ⊩ (1 + (((10 - 1) = 0) = false ⊩ (1 + ((((10 - 1) - \
+         1) = 0) = false ⊩ (1 + ((((((10 - 1) - 1) | ((((10 - 1) - 1) | (stub \
+         - 1)) - 1)) = 0) = false ⊩ (1 + stub)) | (((((10 - 1) - 1) | ((((10 - \
+         1) - 1) | (stub - 1)) - 1)) = 0) = true ⊩ 0))))))))",
         pau
           "let id = fun self -> fun n -> if n = 0 then 0 else 1 + self self (n \
            - 1) in id id 10;;" ));
