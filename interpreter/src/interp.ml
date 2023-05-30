@@ -47,7 +47,7 @@ let rec eval_aux (e : expr) (sigma : int list) : result_value =
         | Appl (e1, e2, app_l) -> (
             match eval_aux e1 sigma with
             | FunResult { f = Function (_, e, _); l; sigma = sigma' } ->
-                (* make system call by value *)
+                (* make sure e2 doesn't diverge - call-by-value-ish *)
                 let _ = eval_aux e2 sigma in
                 eval_aux e (app_l :: sigma)
             | _ -> raise Unreachable [@coverage off])
@@ -198,35 +198,26 @@ and eval_result_value (r : result_value) : result_value =
       | _ -> raise Unreachable [@coverage off])
   | OpResult op -> (
       match op with
-      | PlusOp (r1, r2) -> (
+      | PlusOp (r1, r2) | MinusOp (r1, r2) | EqualOp (r1, r2) -> (
           let v1 = eval_result_value r1 in
           let v2 = eval_result_value r2 in
           match (v1, v2) with
-          | IntResult i1, IntResult i2 -> IntResult (i1 + i2)
+          | IntResult i1, IntResult i2 -> (
+              match op with
+              | PlusOp _ -> IntResult (i1 + i2)
+              | MinusOp _ -> IntResult (i1 - i2)
+              | EqualOp _ -> BoolResult (i1 = i2)
+              | _ -> raise Unreachable [@coverage off])
           | _ -> raise TypeMismatch [@coverage off])
-      | MinusOp (r1, r2) -> (
+      | AndOp (r1, r2) | OrOp (r1, r2) -> (
           let v1 = eval_result_value r1 in
           let v2 = eval_result_value r2 in
           match (v1, v2) with
-          | IntResult i1, IntResult i2 -> IntResult (i1 - i2)
-          | _ -> raise TypeMismatch [@coverage off])
-      | EqualOp (r1, r2) -> (
-          let v1 = eval_result_value r1 in
-          let v2 = eval_result_value r2 in
-          match (v1, v2) with
-          | IntResult i1, IntResult i2 -> BoolResult (i1 = i2)
-          | _ -> raise TypeMismatch [@coverage off])
-      | AndOp (r1, r2) -> (
-          let v1 = eval_result_value r1 in
-          let v2 = eval_result_value r2 in
-          match (v1, v2) with
-          | BoolResult b1, BoolResult b2 -> BoolResult (b1 && b2)
-          | _ -> raise TypeMismatch [@coverage off])
-      | OrOp (r1, r2) -> (
-          let v1 = eval_result_value r1 in
-          let v2 = eval_result_value r2 in
-          match (v1, v2) with
-          | BoolResult b1, BoolResult b2 -> BoolResult (b1 || b2)
+          | BoolResult b1, BoolResult b2 -> (
+              match op with
+              | AndOp _ -> BoolResult (b1 && b2)
+              | OrOp _ -> BoolResult (b1 || b2)
+              | _ -> raise Unreachable [@coverage off])
           | _ -> raise TypeMismatch [@coverage off])
       | NotOp r -> (
           let v = eval_result_value r in
