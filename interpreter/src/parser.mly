@@ -21,12 +21,16 @@ open Ast;;
 %token IF
 %token <int> INT
 %token LET
+%token LBRACE
 %token LPAREN
 %token MINUS
 %token NOT
 %token OR
 %token PLUS
+%token PROJECT
+%token RBRACE
 %token RPAREN
+%token SEP
 %token THEN
 
 /*
@@ -74,7 +78,17 @@ expr:
       { build_let $2 $4 $6 }
   | IF expr THEN expr ELSE expr %prec prec_if
       { build_if $2 $4 $6 }
+  | LBRACE separated_list(SEP, record_entry) RBRACE
+      { build_record $2 }
+  | expr PROJECT IDENT
+      { build_projection $1 $3 }
+  | IDENT IN expr
+      { build_inspection $1 $3 }
 ;
+
+record_entry:
+    ident_decl EQUAL expr
+      { ($1, $3) }
 
 appl_expr:
   | negatable_expr

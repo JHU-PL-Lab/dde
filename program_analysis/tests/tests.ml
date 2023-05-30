@@ -16,13 +16,13 @@ let test_nonlocal_lookup _ =
 let test_local_stitching _ =
   assert_equal "((1 + 1) + (1 + 1))"
     (pau
-       "let add = fun num -> fun n -> n + num in\n\
+       "let add = (fun num -> fun n -> n + num) in\n\
         let add1 = add 1 in\n\
-        let add1' = fun n -> add1 n in\n\
+        let add1' = (fun n -> add1 n) in\n\
         add1 1 + add1' 1;;");
   assert_equal "((0 + 1) + 2)"
     (pau
-       "let add = fun f -> fun g -> fun x -> f g x in\n\
+       "let add = (fun f -> fun g -> fun x -> f g x) in\n\
         let add1 = add (fun z -> fun n -> z n + 2) in\n\
         let add2 = add1 (fun y -> y + 1) in\n\
         add2 0;;")
@@ -36,20 +36,22 @@ let test_if _ =
 
 let test_currying _ =
   assert_equal "(2 + 1)"
-    (pau "let add = fun num -> fun n -> n + num in let add1 = add 1 in add1 2;;");
+    (pau
+       "let add = (fun num -> fun n -> n + num) in let add1 = add 1 in add1 2;;");
   assert_equal "(2 + 1)"
     (pau
        "(fun add -> (fun add1 -> (fun add2 -> add1 2) (add 2)) (add 1)) (fun \
         num -> fun n -> n + num);;");
   assert_equal "(1 + 2)"
-    (pau "let add = fun num -> fun n -> n + num in let add2 = add 2 in add2 1;;");
+    (pau
+       "let add = (fun num -> fun n -> n + num) in let add2 = add 2 in add2 1;;");
   assert_equal "((2 + 1) + (1 + 2))"
     (pau
-       "let add = fun num -> fun n -> n + num in let add1 = add 1 in let add2 \
-        = add 2 in add1 2 + add2 1;;");
+       "let add = (fun num -> fun n -> n + num) in let add1 = add 1 in let \
+        add2 = add 2 in add1 2 + add2 1;;");
   assert_equal "(((((1 + 1) + (1 + 2)) + (1 + 3)) + (1 + 4)) + (1 + 5))"
     (pau
-       "let add = fun num -> fun n -> n + num in\n\
+       "let add = (fun num -> fun n -> n + num) in\n\
         let add1 = add 1 in\n\
         let add2 = add 2 in\n\
         let add3 = add 3 in\n\

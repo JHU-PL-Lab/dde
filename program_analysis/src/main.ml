@@ -1,4 +1,3 @@
-open Interpreter
 open Program_analysis
 
 let toplevel_loop =
@@ -11,7 +10,7 @@ let toplevel_loop =
   let safe_parse () =
     try
       let lexbuf = Lexing.from_channel stdin in
-      Some (Parser.main Lexer.token lexbuf)
+      Some (Interpreter.Parser.main Interpreter.Lexer.token lexbuf)
     with
     | Exit -> exit 0
     | ex ->
@@ -21,7 +20,7 @@ let toplevel_loop =
   let safe_analyze_and_print ast =
     try
       let result = Lib.analyze ast ~debug:false in
-      Format.printf "==> %a\n" Debugutils.pp_result_value result
+      Format.printf "==> %a\n" Debugutils.pp_res result
     with ex -> print_exception ex
   in
   while true do

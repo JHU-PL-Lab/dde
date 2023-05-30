@@ -1,7 +1,6 @@
 [@@@coverage off]
 
 open Ast
-open Interp
 
 let ff = Format.fprintf
 
@@ -39,6 +38,18 @@ let rec pp_expr fmt (e : expr) =
   | Let (Ident i, e1, e2, l) ->
       ff fmt "@[<hv>let %s =@;<1 4>%a@;<1 0>In@;<1 4>%a@]" i pp_expr e1 pp_expr
         e2
+  | Record entries ->
+      ff fmt
+        (if List.length entries = 0 then "{%a}" else "{ %a }")
+        pp_record entries
+  | Projection (e, Ident x) -> ff fmt "%a.%s" pp_expr e x
+  | Inspection (Ident x, e) -> ff fmt "%s.%a" x pp_expr e
+
+and pp_record fmt = function
+  | [] -> ()
+  | [ (Ident x, e) ] -> Format.fprintf fmt "%s = %a" x pp_expr e
+  | (Ident x, e) :: rest ->
+      Format.fprintf fmt "%s = %a; %a" x pp_expr e pp_record rest
 
 let rec pp_result_value fmt (v : result_value) =
   match v with
@@ -61,6 +72,16 @@ let rec pp_result_value fmt (v : result_value) =
           ff fmt "%a and %a" pp_result_value r1 pp_result_value r2
       | OrOp (r1, r2) -> ff fmt "%a or %a" pp_result_value r1 pp_result_value r2
       | NotOp r1 -> ff fmt "not %a" pp_result_value r1)
+  | RecordResult entries ->
+      ff fmt
+        (if List.length entries = 0 then "{%a}" else "{ %a }")
+        pp_record_result entries
+
+and pp_record_result fmt = function
+  | [] -> ()
+  | [ (Ident x, v) ] -> Format.fprintf fmt "%s = %a" x pp_result_value v
+  | (Ident x, v) :: rest ->
+      Format.fprintf fmt "%s = %a; %a" x pp_result_value v pp_record_result rest
 
 let rec pp_fbtype fmt = function
   | TArrow (t1, t2) ->
@@ -70,3 +91,12 @@ let rec pp_fbtype fmt = function
 
 let show_expr (le : expr) = Format.asprintf "%a" pp_expr le
 let show_fbtype t = Format.asprintf "%a" pp_fbtype t
+
+let yo =
+  if Array.length Sys.argv <> 0 then
+    if Sys.argv.(0) = "_build/default/program_analysis/.utop/utop.exe" then (
+      print_endline "open Program_analysis;;";
+      print_endline "open Debugutils;;")
+    else if Sys.argv.(0) = "_build/default/interpreter/.utop/utop.exe" then (
+      print_endline "open Interpreter;;";
+      print_endline "open Debugutils;;")

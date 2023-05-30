@@ -8,10 +8,8 @@ on:
   pull_request:
     branches:
       - "**"
-    paths-ignore:
-      - "**/*.md"
-      - "interpreter"
-      - "program_analysis"
+    paths:
+      - "formal/**/*"
 concurrency:
   group: ${{ github.head_ref || github.ref }}
   cancel-in-progress: true

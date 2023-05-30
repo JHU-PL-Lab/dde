@@ -255,6 +255,9 @@ let rec analyze_aux expr s pi v_set =
   | Not e ->
       let%map r = analyze_aux e s pi v_set in
       [ OpAtom (NotOp r) ]
+  | Record _ -> failwith "unimplemented"
+  | Projection _ -> failwith "unimplemented"
+  | Inspection _ -> failwith "unimplemented"
   | Let _ -> raise Unreachable [@coverage off]
 
 let analyze ~debug e =
