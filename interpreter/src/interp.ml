@@ -44,9 +44,11 @@ let rec eval_aux (e : expr) (sigma : int list) : result_value =
         | Int i -> IntResult i
         | Bool b -> BoolResult b
         (* Application *)
-        | Appl (e1, _, app_l) -> (
+        | Appl (e1, e2, app_l) -> (
             match eval_aux e1 sigma with
             | FunResult { f = Function (_, e, _); l; sigma = sigma' } ->
+                (* make system call by value *)
+                let _ = eval_aux e2 sigma in
                 eval_aux e (app_l :: sigma)
             | _ -> raise Unreachable [@coverage off])
         | Var (Ident x, l) -> (
