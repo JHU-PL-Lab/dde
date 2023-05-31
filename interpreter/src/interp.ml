@@ -58,13 +58,15 @@ let rec eval_bool = function
       | RecordResult entries -> List.exists (fun (x', _) -> x = x') entries
       | _ -> raise TypeMismatch)
 
-let memo_cache = Hashtbl.create 1000
+let memo_cache = Hashtbl.create 10000
 
 (* can't do memoization like this in OCaml/Haskell; better laziness  *)
 (* laziness + memoization *)
 let rec eval_aux (e : expr) (sigma : int list) : result_value =
   match Hashtbl.find_opt memo_cache (e, sigma) with
-  | Some res -> res
+  | Some res ->
+      (* Format.printf "cache hit\n"; *)
+      res
   | None ->
       let eval_res =
         match e with

@@ -15,13 +15,13 @@ let church n =
   "(" ^ aux n ^ ")"
 
 let test_church_basic _ =
-  assert_equal "(0 + 1)" (pau (unchurch ^ church 1 ^ ";;"));
-  assert_equal "((0 + 1) + 1)" (pau (unchurch ^ church 2 ^ ";;"));
-  assert_equal "(((0 + 1) + 1) + 1)" (pau (unchurch ^ church 3 ^ ";;"));
-  assert_equal "((((0 + 1) + 1) + 1) + 1)" (pau (unchurch ^ church 4 ^ ";;"))
+  assert_equal "(0 + 1)" (pau (unchurch ^ church 1));
+  assert_equal "((0 + 1) + 1)" (pau (unchurch ^ church 2));
+  assert_equal "(((0 + 1) + 1) + 1)" (pau (unchurch ^ church 3));
+  assert_equal "((((0 + 1) + 1) + 1) + 1)" (pau (unchurch ^ church 4))
 
 let test_church_binop _ =
-  assert_equal "(0 + 1)" (pau (unchurch ^ "(" ^ add ^ zero ^ one ^ ");;"))
+  assert_equal "(0 + 1)" (pau (unchurch ^ "(" ^ add ^ zero ^ one ^ ")"))
 (* assert_equal "TODO"
    (pau (unchurch ^ "(" ^ add ^ church 20 ^ church 10 ^ ");;")) *)
 (* assert_equal "TODO"

@@ -15,11 +15,7 @@ let rec pp_atom fmt (v : atom) =
   match v with
   | IntAtom x -> ff fmt "%d" x
   | BoolAtom b -> ff fmt "%b" b
-  | FunAtom (f, _, _) -> (
-      match f with
-      | Function (Ident i, le, _) ->
-          ff fmt "@[<hv>function %s ->@;<1 4>%a@]" i Interpreter.Pp.pp_expr le
-      | _ -> raise Unreachable)
+  | FunAtom (f, _, _) -> Interpreter.Pp.pp_expr fmt f
   | ResAtom choices | LabelResAtom (choices, _) | ExprResAtom (choices, _) ->
       ff fmt "%a" pp_res choices
   | OpAtom op -> (
