@@ -5,18 +5,11 @@ open Grammar
 
 let ff = Format.fprintf
 
-(* let rec pp_path_cond fmt = function
-   | [] -> ()
-   | [ (e, b) ] -> ff fmt "%a = %b" Interpreter.Pp.pp_expr e b
-   | (e, b) :: cond ->
-       ff fmt "%a = %b /\\ %a" Interpreter.Pp.pp_expr e b pp_path_cond cond *)
-
-let rec pp_atom fmt (v : atom) =
-  match v with
+let rec pp_atom fmt = function
   | IntAtom x -> ff fmt "%d" x
   | BoolAtom b -> ff fmt "%b" b
   | FunAtom (f, _, _) -> Interpreter.Pp.pp_expr fmt f
-  | ResAtom choices | LabelResAtom (choices, _) | ExprResAtom (choices, _) ->
+  | LabelResAtom (choices, _) | ExprResAtom (choices, _) ->
       ff fmt "%a" pp_res choices
   | OpAtom op -> (
       match op with
@@ -28,6 +21,18 @@ let rec pp_atom fmt (v : atom) =
       | NotOp r1 -> ff fmt "(not %a)" pp_res r1)
   | LabelStubAtom _ | ExprStubAtom _ -> ff fmt "stub"
   | PathCondAtom ((r, b), a) -> ff fmt "(%a = %b ⊩ %a)" pp_res r b pp_atom a
+  | RecordAtom entries ->
+      ff fmt
+        (if List.length entries = 0 then "{%a}" else "{ %a }")
+        pp_record_atom entries
+  | ProjectionAtom (r, Ident s) -> ff fmt "%a.%s" pp_res r s
+  | InspectionAtom (Ident s, r) -> ff fmt "%s in %a" s pp_res r
+
+and pp_record_atom fmt = function
+  | [] -> ()
+  | [ (Ident x, v) ] -> Format.fprintf fmt "%s = %a" x pp_res v
+  | (Ident x, v) :: rest ->
+      Format.fprintf fmt "%s = %a; %a" x pp_res v pp_record_atom rest
 
 and pp_res fmt = function
   | [] -> ()

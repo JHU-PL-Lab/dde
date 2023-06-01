@@ -29,12 +29,14 @@ and atom =
   | BoolAtom of bool
   | FunAtom of expr * int * sigma
   | OpAtom of op
-  | ResAtom of res
   | LabelResAtom of res * State.lstate
   | ExprResAtom of res * State.estate
   | LabelStubAtom of State.lstate
   | ExprStubAtom of State.estate
   | PathCondAtom of path_cond * atom
+  | RecordAtom of (ident * res) list
+  | ProjectionAtom of res * ident
+  | InspectionAtom of ident * res
 
 and res = atom list
 and path_cond = res * bool [@@deriving compare, sexp]

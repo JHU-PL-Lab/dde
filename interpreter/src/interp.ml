@@ -3,22 +3,6 @@ open Ast
 exception TypeMismatch
 exception Unreachable
 
-let rec eval_result = function
-  | (IntResult _ | BoolResult _ | FunResult _) as r -> r
-  | OpResult op ->
-      OpResult
-        (match op with
-        | PlusOp (r1, r2) -> PlusOp (eval_result r1, eval_result r2)
-        | MinusOp (r1, r2) -> PlusOp (eval_result r1, eval_result r2)
-        | EqualOp (r1, r2) -> PlusOp (eval_result r1, eval_result r2)
-        | AndOp (r1, r2) -> PlusOp (eval_result r1, eval_result r2)
-        | OrOp (r1, r2) -> PlusOp (eval_result r1, eval_result r2)
-        | NotOp r -> NotOp (eval_result r))
-  | ProjectionResult (r, x) -> ProjectionResult (eval_result r, x)
-  | InspectionResult (x, r) -> InspectionResult (x, eval_result r)
-  | RecordResult entries ->
-      RecordResult (List.map (fun (x, r) -> (x, eval_result r)) entries)
-
 let rec eval_int = function
   | BoolResult _ | FunResult _ | RecordResult _ | InspectionResult _ ->
       raise TypeMismatch
