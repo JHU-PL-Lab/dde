@@ -34,9 +34,11 @@ module Ast : sig
   and result_value =
     | IntResult of int
     | BoolResult of bool
-    | FunResult of { f : Ast.expr; l : int; sigma : int list }
+    | FunResult of { f : expr; l : int; sigma : int list }
     | OpResult of op_result_value
     | RecordResult of (ident * result_value) list
+    | ProjectionResult of result_value * ident
+    | InspectionResult of ident * result_value
 
   type fbtype = Ast.fbtype = TArrow of fbtype * fbtype | TVar of string
 

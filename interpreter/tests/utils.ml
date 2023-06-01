@@ -67,7 +67,8 @@ let dde_eval_fbenv s =
   |> dde_to_fbenv
 
 let dde_parse s =
-  s ^ ";;" |> Lexing.from_string |> Parser.main Lexer.token |> strip_label_fb
+  s |> Core.Fn.flip ( ^ ) ";;" |> Lexing.from_string |> Parser.main Lexer.token
+  |> strip_label_fb
 
 let fb_eval s =
   Lexing.from_string s |> Fbparser.main Fblexer.token |> Fbinterp.eval
@@ -78,3 +79,8 @@ let fbenv_eval s =
 let dde_pp e = Format.printf "%a\n" Pp.pp_expr e
 let fb_pp e = Format.printf "%a\n" Fbpp.pp_expr e
 let assert_unequal e1 e2 = OUnit2.assert_equal ~cmp:(fun a b -> a <> b) e1 e2
+
+let peu ?(should_simplify = false) s =
+  s |> Core.Fn.flip ( ^ ) ";;" |> Lexing.from_string |> Parser.main Lexer.token
+  |> Interp.eval ~is_debug_mode:false ~should_simplify
+  |> Format.asprintf "%a" Pp.pp_result_value

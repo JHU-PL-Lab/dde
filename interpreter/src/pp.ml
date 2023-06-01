@@ -9,12 +9,10 @@ let paren_if cond pp fmt e =
 
 let is_compound_expr = function Var _ -> false | _ -> true
 
-let rec pp_expr fmt (e : expr) =
-  match e with
+let rec pp_expr fmt = function
   | Int i -> ff fmt "%d" i
   | Bool b -> ff fmt "%b" b
-  | Function (Ident i, x, l) ->
-      ff fmt "@[<hv>function %s ->@;<1 4>%a@]" i pp_expr x
+  | Function (Ident i, x, l) -> ff fmt "@[<hv>fun %s ->@;<1 4>%a@]" i pp_expr x
   | Var (Ident x, l) -> ff fmt "%s" x
   | Appl (e1, e2, l) ->
       let is_compound_exprL = function
@@ -51,15 +49,10 @@ and pp_record fmt = function
   | (Ident x, e) :: rest ->
       Format.fprintf fmt "%s = %a; %a" x pp_expr e pp_record rest
 
-let rec pp_result_value fmt (v : result_value) =
-  match v with
+let rec pp_result_value fmt = function
   | IntResult x -> ff fmt "%d" x
   | BoolResult b -> ff fmt "%b" b
-  | FunResult { f; l; sigma } -> (
-      match f with
-      | Function (Ident i, le, l) ->
-          ff fmt "@[<hv>function %s ->@;<1 4>%a@]" i pp_expr le
-      | _ -> raise Unreachable)
+  | FunResult { f; l; sigma } -> pp_expr fmt f
   | OpResult op -> (
       match op with
       | PlusOp (r1, r2) ->
@@ -76,6 +69,8 @@ let rec pp_result_value fmt (v : result_value) =
       ff fmt
         (if List.length entries = 0 then "{%a}" else "{ %a }")
         pp_record_result entries
+  | ProjectionResult (r, Ident s) -> ff fmt "%a.%s" pp_result_value r s
+  | InspectionResult (Ident s, r) -> ff fmt "%s in %a" s pp_result_value r
 
 and pp_record_result fmt = function
   | [] -> ()

@@ -19,7 +19,7 @@ let reset_label () = label := -1
 let ( |>> ) v f = Option.map f v
 let ( |>-> ) v f = Option.bind v f
 
-let au e =
-  e |> Lib.analyze ~debug:false |> Format.asprintf "%a" Debugutils.pp_res
-
-let pau s = Lexing.from_string s |> Parser.main Lexer.token |> au
+let pau s =
+  s |> Core.Fn.flip ( ^ ) ";;" |> Lexing.from_string |> Parser.main Lexer.token
+  |> Lib.analyze ~debug:false
+  |> Format.asprintf "%a" Debugutils.pp_res

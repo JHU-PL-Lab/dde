@@ -3,9 +3,9 @@ open Ast
 exception TypeMismatch
 exception Unreachable
 
-let rec eval_int (r : result_value) : int =
-  match r with
-  | BoolResult _ | FunResult _ | RecordResult _ -> raise TypeMismatch
+let rec eval_int = function
+  | BoolResult _ | FunResult _ | RecordResult _ | InspectionResult _ ->
+      raise TypeMismatch
   | IntResult i -> i
   | OpResult op -> (
       match op with
@@ -15,9 +15,13 @@ let rec eval_int (r : result_value) : int =
       | AndOp (r1, r2) -> raise TypeMismatch
       | OrOp (r1, r2) -> raise TypeMismatch
       | NotOp r -> raise TypeMismatch)
+  | ProjectionResult (r, x) -> (
+      match r with
+      | RecordResult entries ->
+          eval_int ((* get leftmost *) List.assoc x entries)
+      | _ -> raise TypeMismatch)
 
-let rec eval_bool (r : result_value) : bool =
-  match r with
+let rec eval_bool = function
   | IntResult _ | FunResult _ | RecordResult _ -> raise TypeMismatch
   | BoolResult b -> b
   | OpResult op_r -> (
@@ -28,14 +32,25 @@ let rec eval_bool (r : result_value) : bool =
       | AndOp (r1, r2) -> eval_bool r1 && eval_bool r2
       | OrOp (r1, r2) -> eval_bool r1 || eval_bool r2
       | NotOp r -> not (eval_bool r))
+  | ProjectionResult (r, x) -> (
+      match r with
+      | RecordResult entries ->
+          eval_bool ((* get leftmost *) List.assoc x entries)
+      | _ -> raise TypeMismatch)
+  | InspectionResult (x, r) -> (
+      match r with
+      | RecordResult entries -> List.exists (fun (x', _) -> x = x') entries
+      | _ -> raise TypeMismatch)
 
-let memo_cache = Hashtbl.create 1000
+let memo_cache = Hashtbl.create 10000
 
 (* can't do memoization like this in OCaml/Haskell; better laziness  *)
 (* laziness + memoization *)
 let rec eval_aux (e : expr) (sigma : int list) : result_value =
   match Hashtbl.find_opt memo_cache (e, sigma) with
-  | Some res -> res
+  | Some res ->
+      (* Format.printf "cache hit\n"; *)
+      res
   | None ->
       let eval_res =
         match e with
@@ -91,18 +106,8 @@ let rec eval_aux (e : expr) (sigma : int list) : result_value =
         | Record entries ->
             RecordResult
               (List.map (fun (x, e) -> (x, eval_aux e sigma)) entries)
-        | Projection (e, Ident x) -> (
-            match e with
-            | Record entries -> (
-                match List.find_opt (fun (Ident x', _) -> x = x') entries with
-                | Some (_, e) -> eval_aux e sigma
-                | None -> raise TypeMismatch)
-            | _ -> raise TypeMismatch)
-        | Inspection (Ident x, e) -> (
-            match e with
-            | Record entries ->
-                BoolResult (List.exists (fun (Ident x', _) -> x = x') entries)
-            | _ -> raise TypeMismatch)
+        | Projection (e, x) -> ProjectionResult (eval_aux e sigma, x)
+        | Inspection (x, e) -> InspectionResult (x, eval_aux e sigma)
         | Let (_, _, _, _) -> raise Unreachable [@coverage off]
       in
       let () = Hashtbl.replace memo_cache (e, sigma) eval_res in
@@ -134,6 +139,8 @@ let rec result_value_to_expr (r : result_value) : expr =
       | NotOp r -> Not (result_value_to_expr r))
   | RecordResult entries ->
       Record (List.map (fun (x, v) -> (x, result_value_to_expr v)) entries)
+  | ProjectionResult (r, x) -> Projection (result_value_to_expr r, x)
+  | InspectionResult (x, r) -> Inspection (x, result_value_to_expr r)
 
 let rec subst_free_vars (e : expr) (target_l : int) (sigma : int list)
     (seen : StringSet.t) =
@@ -226,6 +233,18 @@ and eval_result_value (r : result_value) : result_value =
           | _ -> raise TypeMismatch [@coverage off]))
   | RecordResult entries ->
       RecordResult (List.map (fun (x, r) -> (x, eval_result_value r)) entries)
+  | ProjectionResult (r, Ident x) -> (
+      match eval_result_value r with
+      | RecordResult entries -> (
+          match List.find_opt (fun (Ident x', _) -> x = x') entries with
+          | Some (_, r) -> eval_result_value r
+          | None -> raise TypeMismatch)
+      | _ -> raise TypeMismatch)
+  | InspectionResult (Ident x, r) -> (
+      match eval_result_value r with
+      | RecordResult entries ->
+          BoolResult (List.exists (fun (Ident x', _) -> x = x') entries)
+      | _ -> raise TypeMismatch)
 
 let eval e ~is_debug_mode ~should_simplify =
   let e = transform_let e in
