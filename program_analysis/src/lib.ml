@@ -53,7 +53,13 @@ let rec eval_int ~m ~cnt r =
             Set.union acc
               (eval_int ~m ~cnt:(cnt - 1)
                  (Map.find_exn m (State.Estate est, 0)))
-      | PathCondAtom (_, r) -> Set.union acc (eval_int ~m ~cnt [ r ])
+      | PathCondAtom ((r, b), a) ->
+          if
+            Set.exists (eval_bool ~m ~cnt r) ~f:(function
+              | Maybe_prim.DefBool b' -> Stdlib.(b = b')
+              | _ -> false)
+          then Set.union acc (eval_int ~m ~cnt [ a ])
+          else acc
       | ProjectionAtom (r, l) ->
           fold_res r
             ~init:(Set.empty (module Maybe_prim))
@@ -125,7 +131,13 @@ and eval_bool ?(m = Map.empty (module State)) ?(cnt = 99) r =
             Set.union acc
               (eval_bool ~m ~cnt:(cnt - 1)
                  (Map.find_exn m (State.Estate est, 0)))
-      | PathCondAtom (_, r) -> Set.union acc (eval_bool ~m ~cnt [ r ])
+      | PathCondAtom ((_, b), a) ->
+          if
+            Set.exists (eval_bool ~m ~cnt r) ~f:(function
+              | Maybe_prim.DefBool b' -> Stdlib.(b = b')
+              | _ -> false)
+          then Set.union acc (eval_bool ~m ~cnt [ a ])
+          else acc
       | ProjectionAtom (r, l) ->
           fold_res r
             ~init:(Set.empty (module Maybe_prim))
@@ -153,11 +165,11 @@ and eval_bool ?(m = Map.empty (module State)) ?(cnt = 99) r =
 let rec process_maybe_bools bs =
   let open Maybe_prim in
   Set.fold_until bs ~init:[]
-    ~f:(fun acc b ->
-      match b with
-      | Any -> Stop [ true; false ]
-      | DefBool b -> Continue (b :: acc)
-      | DefInt _ -> raise Bad_type)
+    ~f:
+      (fun acc -> function
+        | Any -> Stop [ true; false ]
+        | DefBool b -> Continue (b :: acc)
+        | DefInt _ -> raise Bad_type)
     ~finish:Fun.id
 
 let rec analyze_aux expr s pi v_set =
