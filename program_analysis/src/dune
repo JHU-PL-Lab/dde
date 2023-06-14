@@ -5,8 +5,8 @@
   (pps bisect_ppx ppx_let ppx_deriving.show ppx_jane))
  (instrumentation
   (backend bisect_ppx --bisect-file _build/bisect))
- (modules lib grammar utils debugutils)
- (libraries dde.interpreter hashset core))
+ (modules lib grammar solver utils debugutils)
+ (libraries dde.interpreter hashset core z3))
 
 (executable
  (name main)

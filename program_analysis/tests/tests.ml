@@ -99,6 +99,8 @@ let recursion =
   [
     (fun _ ->
       (* TODO: make more readable *)
+      (* TODO: dump these path conditions into CHC solver
+         - would need a way to resume (in web server style?) if these are in some middle state *)
       ( "((10 = 0) = false ⊩ (1 + (((10 - 1) = 0) = false ⊩ (1 + ((((10 - 1) - \
          1) = 0) = false ⊩ (1 + ((((10 - 1) - 1) | (((10 - 1) - 1) | (stub - \
          1) - 1) = 0) = false ⊩ (1 + stub)) | ((((10 - 1) - 1) | (((10 - 1) - \

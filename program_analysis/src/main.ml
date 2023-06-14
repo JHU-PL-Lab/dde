@@ -20,7 +20,7 @@ let toplevel_loop =
   let safe_analyze_and_print ast =
     try
       let result = Lib.analyze ast ~debug:false in
-      Format.printf "==> %a\n" Debugutils.pp_res result
+      Format.printf "==> %a\n" Utils.pp_res result
     with ex -> print_exception ex
   in
   while true do
