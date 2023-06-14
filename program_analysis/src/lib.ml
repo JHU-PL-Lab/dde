@@ -7,22 +7,22 @@ open Utils
 exception Unreachable
 exception Bad_type
 
-let rec eval_int r =
-  let open Maybe_prim in
+let rec eval_int ~m ~cnt r =
   List.fold r
-    ~init:(Core.Set.empty (module Maybe_prim))
+    ~init:(Set.empty (module Maybe_prim))
     ~f:(fun acc a ->
       match a with
-      | BoolAtom _ | FunAtom _ -> raise Bad_type
+      | BoolAtom _ | FunAtom _ | RecordAtom _ | InspectionAtom _ ->
+          raise Bad_type
       | IntAtom i -> Set.add acc (DefInt i)
       | OpAtom op -> (
           match op with
           | PlusOp (i1, i2) | MinusOp (i1, i2) ->
-              let i1s = eval_int i1 in
-              let i2s = eval_int i2 in
+              let i1s = eval_int ~m ~cnt i1 in
+              let i2s = eval_int ~m ~cnt i2 in
               List.fold (all_combs i1s i2s) ~init:acc ~f:(fun acc pair ->
                   match pair with
-                  | DefInt x, DefInt y ->
+                  | Maybe_prim.DefInt x, DefInt y ->
                       Set.add acc
                         (DefInt
                            (match op with
@@ -30,35 +30,71 @@ let rec eval_int r =
                            | MinusOp _ -> x - y
                            | _ -> raise Unreachable [@coverage off]))
                   | _ -> Set.add acc Any)
-          | _ -> raise Unreachable [@coverage off])
-      | ResAtom r | LabelResAtom (r, _) | ExprResAtom (r, _) ->
-          Set.union acc (eval_int r)
-      | LabelStubAtom _ | ExprStubAtom _ -> Set.add acc Any
-      | PathCondAtom (_, r) -> Set.union acc (eval_int [ r ]))
+          | _ -> raise Bad_type)
+      | LabelResAtom (r, lst) ->
+          Set.union acc
+            (eval_int
+               ~m:(Map.add_exn m ~key:(State.Lstate lst, 0) ~data:r)
+               ~cnt r)
+      | ExprResAtom (r, est) ->
+          Set.union acc
+            (eval_int
+               ~m:(Map.add_exn m ~key:(State.Estate est, 0) ~data:r)
+               ~cnt r)
+      | LabelStubAtom lst ->
+          if cnt <= 0 then Set.add acc Any
+          else
+            Set.union acc
+              (eval_int ~m ~cnt:(cnt - 1)
+                 (Map.find_exn m (State.Lstate lst, 0)))
+      | ExprStubAtom est ->
+          if cnt <= 0 then Set.add acc Any
+          else
+            Set.union acc
+              (eval_int ~m ~cnt:(cnt - 1)
+                 (Map.find_exn m (State.Estate est, 0)))
+      | PathCondAtom ((r, b), a) ->
+          if
+            Set.exists (eval_bool ~m ~cnt r) ~f:(function
+              | Maybe_prim.DefBool b' -> Stdlib.(b = b')
+              | _ -> false)
+          then Set.union acc (eval_int ~m ~cnt [ a ])
+          else acc
+      | ProjectionAtom (r, l) ->
+          fold_res r
+            ~init:(Set.empty (module Maybe_prim))
+            ~f:
+              (fun acc -> function
+                | RecordAtom entries -> (
+                    match
+                      List.find entries ~f:(fun (l', _) -> Stdlib.(l = l'))
+                    with
+                    | Some (_, r) -> Set.union acc (eval_int ~m ~cnt r)
+                    | None -> acc)
+                | _ -> raise Bad_type))
 
-and eval_bool r =
-  let open Maybe_prim in
+and eval_bool ?(m = Map.empty (module State)) ?(cnt = 99) r =
   List.fold r
-    ~init:(Core.Set.empty (module Maybe_prim))
+    ~init:(Set.empty (module Maybe_prim))
     ~f:(fun acc a ->
       match a with
-      | IntAtom _ | FunAtom _ -> raise Bad_type
+      | IntAtom _ | FunAtom _ | RecordAtom _ -> raise Bad_type
       | BoolAtom b -> Set.add acc (DefBool b)
       | OpAtom op -> (
           match op with
           | EqualOp (i1, i2) ->
-              let i1s = eval_int i1 in
-              let i2s = eval_int i2 in
+              let i1s = eval_int ~m ~cnt i1 in
+              let i2s = eval_int ~m ~cnt i2 in
               List.fold (all_combs i1s i2s) ~init:acc ~f:(fun acc pair ->
                   match pair with
                   | DefInt x, DefInt y -> Set.add acc (DefBool (Int.equal x y))
                   | _ -> Set.add acc Any)
           | AndOp (b1, b2) | OrOp (b1, b2) ->
-              let b1s = eval_bool b1 in
-              let b2s = eval_bool b2 in
+              let b1s = eval_bool ~m ~cnt b1 in
+              let b2s = eval_bool ~m ~cnt b2 in
               List.fold (all_combs b1s b2s) ~init:acc ~f:(fun acc pair ->
                   match pair with
-                  | DefBool x, DefBool y ->
+                  | Maybe_prim.DefBool x, Maybe_prim.DefBool y ->
                       Set.add acc
                         (DefBool
                            (match op with
@@ -67,25 +103,73 @@ and eval_bool r =
                            | _ -> raise Unreachable [@coverage off]))
                   | _ -> Set.add acc Any)
           | NotOp b ->
-              let bs = eval_bool b in
+              let bs = eval_bool ~m ~cnt b in
               Set.fold bs ~init:acc ~f:(fun acc b ->
                   match b with
                   | DefBool x -> Set.add acc (DefBool (not x))
                   | _ -> Set.add acc Any)
-          | _ -> raise Unreachable [@coverage off])
-      | ResAtom r | LabelResAtom (r, _) | ExprResAtom (r, _) ->
-          Set.union acc (eval_bool r)
-      | LabelStubAtom _ | ExprStubAtom _ -> Set.add acc Any
-      | PathCondAtom (_, r) -> Set.union acc (eval_bool [ r ]))
+          | _ -> raise Bad_type)
+      | LabelResAtom (r, lst) ->
+          Set.union acc
+            (eval_bool
+               ~m:(Map.add_exn m ~key:(State.Lstate lst, 0) ~data:r)
+               ~cnt r)
+      | ExprResAtom (r, est) ->
+          Set.union acc
+            (eval_bool
+               ~m:(Map.add_exn m ~key:(State.Estate est, 0) ~data:r)
+               ~cnt r)
+      | LabelStubAtom lst ->
+          if cnt <= 0 then Set.add acc Any
+          else
+            Set.union acc
+              (eval_bool ~m ~cnt:(cnt - 1)
+                 (Map.find_exn m (State.Lstate lst, 0)))
+      | ExprStubAtom est ->
+          if cnt <= 0 then Set.add acc Any
+          else
+            Set.union acc
+              (eval_bool ~m ~cnt:(cnt - 1)
+                 (Map.find_exn m (State.Estate est, 0)))
+      | PathCondAtom ((_, b), a) ->
+          if
+            Set.exists (eval_bool ~m ~cnt r) ~f:(function
+              | Maybe_prim.DefBool b' -> Stdlib.(b = b')
+              | _ -> false)
+          then Set.union acc (eval_bool ~m ~cnt [ a ])
+          else acc
+      | ProjectionAtom (r, l) ->
+          fold_res r
+            ~init:(Set.empty (module Maybe_prim))
+            ~f:
+              (fun acc -> function
+                | RecordAtom entries -> (
+                    match
+                      List.find entries ~f:(fun (l', _) -> Stdlib.(l = l'))
+                    with
+                    | Some (_, r) -> Set.union acc (eval_bool ~m ~cnt r)
+                    | None -> acc)
+                | _ -> raise Bad_type)
+      | InspectionAtom (l, r) ->
+          fold_res r
+            ~init:(Set.empty (module Maybe_prim))
+            ~f:
+              (fun acc -> function
+                | RecordAtom entries ->
+                    Set.add acc
+                      (DefBool
+                         (List.exists entries ~f:(fun (l', _) ->
+                              Stdlib.(l = l'))))
+                | _ -> raise Bad_type))
 
 let rec process_maybe_bools bs =
   let open Maybe_prim in
   Set.fold_until bs ~init:[]
-    ~f:(fun acc b ->
-      match b with
-      | Any -> Stop [ true; false ]
-      | DefBool b -> Continue (b :: acc)
-      | DefInt _ -> raise Bad_type)
+    ~f:
+      (fun acc -> function
+        | Any -> Stop [ true; false ]
+        | DefBool b -> Continue (b :: acc)
+        | DefInt _ -> raise Bad_type)
     ~finish:Fun.id
 
 let rec analyze_aux expr s pi v_set =
@@ -255,9 +339,22 @@ let rec analyze_aux expr s pi v_set =
   | Not e ->
       let%map r = analyze_aux e s pi v_set in
       [ OpAtom (NotOp r) ]
-  | Record _ -> failwith "unimplemented"
-  | Projection _ -> failwith "unimplemented"
-  | Inspection _ -> failwith "unimplemented"
+  | Record entries ->
+      Some
+        [
+          RecordAtom
+            (entries
+            |> List.map ~f:(fun (x, ei) -> (x, analyze_aux ei s pi v_set))
+            |> List.filter_map ~f:(function
+                 | _, None -> None
+                 | x, Some r -> Some (x, r)));
+        ]
+  | Projection (e, l) ->
+      let%map r0 = analyze_aux e s pi v_set in
+      [ ProjectionAtom (r0, l) ]
+  | Inspection (l, e) ->
+      let%map r0 = analyze_aux e s pi v_set in
+      [ InspectionAtom (l, r0) ]
   | Let _ -> raise Unreachable [@coverage off]
 
 let analyze ~debug e =
