@@ -22,4 +22,4 @@ let ( |>-> ) v f = Option.bind v f
 let pau s =
   s |> Core.Fn.flip ( ^ ) ";;" |> Lexing.from_string |> Parser.main Lexer.token
   |> Lib.analyze ~debug:false
-  |> Format.asprintf "%a" Debugutils.pp_res
+  |> Format.asprintf "%a" Utils.pp_res

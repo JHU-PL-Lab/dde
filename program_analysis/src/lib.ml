@@ -132,6 +132,7 @@ and eval_bool ?(m = Map.empty (module State)) ?(cnt = 99) r =
               (eval_bool ~m ~cnt:(cnt - 1)
                  (Map.find_exn m (State.Estate est, 0)))
       | PathCondAtom ((_, b), a) ->
+          (* can encode path conditions as results *)
           if
             Set.exists (eval_bool ~m ~cnt r) ~f:(function
               | Maybe_prim.DefBool b' -> Stdlib.(b = b')
@@ -172,6 +173,9 @@ let rec process_maybe_bools bs =
         | DefInt _ -> raise Bad_type)
     ~finish:Fun.id
 
+let empty_choice_set = Set.empty (module Choice)
+let check neg = Z3.Solver.check Solver.solver [ neg ]
+
 let rec analyze_aux expr s pi v_set =
   match expr with
   | Int i -> Some [ IntAtom i ]
@@ -193,12 +197,9 @@ let rec analyze_aux expr s pi v_set =
           (* Application *)
           let%map r = analyze_aux e s pi v_set in
           let r_set =
-            fold_res r
-              ~init:(Set.empty (module Choice))
-              ~f:(fun acc a ->
+            fold_res r ~init:empty_choice_set ~f:(fun acc a ->
                 match a with
                 | FunAtom (Function (_, e1, _), _, _)
-                (* TODO: should path conditions be propagated down the tree? *)
                 | PathCondAtom (_, FunAtom (Function (_, e1, _), _, _)) -> (
                     Hashset.add s_set (l :: s);
                     let new_state =
@@ -253,8 +254,7 @@ let rec analyze_aux expr s pi v_set =
                             | Some ri -> fold_res ri ~init:acc ~f:Set.add
                             | None -> acc
                           else acc)
-                        s_set
-                        (Set.empty (module Choice))
+                        s_set empty_choice_set
                     in
                     Some [ ExprResAtom (Set.elements r_set, (expr, s)) ]
                 | _ -> raise Unreachable [@coverage off])
@@ -264,16 +264,16 @@ let rec analyze_aux expr s pi v_set =
                Format.printf "Var Non-Local:\n%s, %d\nsigma: %s\nS:\n%s" x l
                  (show_sigma s) (print_set ()))
             [@coverage off];
-            let s_hd, s_tl = (List.hd_exn s, List.tl_exn s) in
-            let s_hd_expr = get_myexpr s_hd in
-            match s_hd_expr with
+            match get_myexpr (List.hd_exn s) with
             | Appl (e1, _, l2) ->
                 let r_set =
                   (* enumerate all matching stacks in the set *)
                   Hashset.fold
                     (fun si acc ->
                       let si_hd, si_tl = (List.hd_exn si, List.tl_exn si) in
-                      if Stdlib.(si_hd = l2) && starts_with si_tl s_tl then
+                      if
+                        Stdlib.(si_hd = l2) && starts_with si_tl (List.tl_exn s)
+                      then
                         match
                           (* stitch the stack to gain more precision *)
                           analyze_aux e1 si_tl pi v_set
@@ -295,33 +295,86 @@ let rec analyze_aux expr s pi v_set =
                                    | _ -> acc)
                         | _ -> raise Unreachable [@coverage off]
                       else acc)
-                    s_set
-                    (Set.empty (module Choice))
+                    s_set empty_choice_set
                 in
                 Some (Set.elements r_set)
             | _ -> raise Unreachable [@coverage off])
       | _ -> raise Unreachable [@coverage off])
-  | If (e, e_true, e_false, l) ->
-      let%map r_cond = analyze_aux e s pi v_set in
-      r_cond |> eval_bool |> process_maybe_bools
-      |> List.map ~f:(fun b ->
-             let path_cond = (r_cond, b) in
-             ( path_cond,
-               analyze_aux
-                 (if b then e_true else e_false)
-                 s (path_cond :: pi) v_set ))
-      |> List.filter_map ~f:(function
-           | _, None -> None
-           | path_cond, Some r -> Some (path_cond, r))
-      |> List.fold
-           ~init:(Set.empty (module PathChoice))
-           ~f:(fun acc (path_cond, r) ->
-             fold_res r ~init:(Set.empty (module Choice)) ~f:Set.add
-             |> Set.elements
-             |> List.map ~f:(fun a -> (path_cond, a))
-             |> List.fold ~init:acc ~f:Set.add)
-      |> Set.elements
-      |> List.map ~f:(fun (path_cond, a) -> PathCondAtom (path_cond, a))
+  | If (e, e_true, e_false, l) -> (
+      let%bind r_cond = analyze_aux e s pi v_set in
+      let chcs, negs = Solver.chcs_of_res r_cond in
+      let solver = Solver.solver in
+      Z3.Solver.add solver (Solver.CHCSet.to_list chcs);
+      match check (List.hd_exn negs) with
+      | SATISFIABLE -> (
+          Format.printf "*************sat*************\n\n";
+          Format.printf "%a\n" Utils.pp_res r_cond;
+          (* Format.printf "%s\n" (show_res r_cond); *)
+          List.iter negs ~f:(fun neg ->
+              Format.printf "%s" (Z3.Expr.to_string neg));
+          let model = solver |> Z3.Solver.get_model |> Option.value_exn in
+          model |> Z3.Model.to_string |> Format.printf "Model:\n%s\n\n";
+          solver |> Z3.Solver.to_string |> Format.printf "Solver:\n%s";
+          match check (List.last_exn negs) with
+          | SATISFIABLE -> (
+              match check (List.last_exn negs) with
+              | SATISFIABLE ->
+                  Solver.reset ();
+                  let%map r_true = analyze_aux e_true s pi v_set in
+                  r_true
+                  (* List.map r_true ~f:(fun a -> PathCondAtom ((r_cond, true), a)) *)
+              | UNSATISFIABLE ->
+                  Solver.reset ();
+                  let%bind r_true = analyze_aux e_true s pi v_set in
+                  (* let r_true =
+                       List.map r_true ~f:(fun a -> PathCondAtom ((r_cond, true), a))
+                     in *)
+                  Solver.reset ();
+                  let%map r_false = analyze_aux e_false s pi v_set in
+                  (* let r_false =
+                       List.map r_false ~f:(fun a -> PathCondAtom ((r_cond, true), a))
+                     in *)
+                  Set.elements
+                  @@ List.fold r_false
+                       ~init:
+                         (List.fold r_true ~init:empty_choice_set ~f:Set.add)
+                       ~f:Set.add
+              | UNKNOWN -> raise Unreachable)
+          | UNSATISFIABLE ->
+              Solver.reset ();
+              let%map r_false = analyze_aux e_false s pi v_set in
+              r_false
+              (* List.map r_false ~f:(fun a -> PathCondAtom ((r_cond, false), a)) *)
+          | UNKNOWN -> raise Unreachable)
+      | UNSATISFIABLE -> (
+          match check (List.last_exn negs) with
+          | SATISFIABLE ->
+              Solver.reset ();
+              let%map r_true = analyze_aux e_true s pi v_set in
+              r_true
+              (* List.map r_true ~f:(fun a -> PathCondAtom ((r_cond, true), a)) *)
+          | UNSATISFIABLE -> failwith "unsat"
+          | UNKNOWN -> failwith "unknown")
+      | UNKNOWN -> raise Unreachable
+      (* r_cond |> eval_bool |> process_maybe_bools
+         |> List.map ~f:(fun b ->
+                let path_cond = (r_cond, b) in
+                ( path_cond,
+                  analyze_aux
+                    (if b then e_true else e_false)
+                    s (path_cond :: pi) v_set ))
+         |> List.filter_map ~f:(function
+              | _, None -> None
+              | path_cond, Some r -> Some (path_cond, r))
+         |> List.fold
+              ~init:(Set.empty (module PathChoice))
+              ~f:(fun acc (path_cond, r) ->
+                fold_res r ~init:(empty_choice_set) ~f:Set.add
+                |> Set.elements
+                |> List.map ~f:(fun a -> (path_cond, a))
+                |> List.fold ~init:acc ~f:Set.add)
+         |> Set.elements
+         |> List.map ~f:(fun (path_cond, a) -> PathCondAtom (path_cond, a)) *))
   | Plus (e1, e2) | Minus (e1, e2) | Equal (e1, e2) | And (e1, e2) | Or (e1, e2)
     ->
       let%bind r1 = analyze_aux e1 s pi v_set in
@@ -374,5 +427,6 @@ let analyze ~debug e =
 
   clean_up ();
   Hashset.clear s_set;
+  Solver.reset ();
 
   Option.value_exn r

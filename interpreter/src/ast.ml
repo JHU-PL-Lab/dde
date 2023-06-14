@@ -10,7 +10,7 @@ type ident =
       [@quickcheck.generator
         Generator.string_non_empty_of Generator.char_lowercase])
 [@@coverage off]
-[@@deriving show { with_path = false }, quickcheck, compare, sexp]
+[@@deriving show { with_path = false }, quickcheck, compare, sexp, hash]
 
 type expr =
   | Int of int [@quickcheck.weight 0.05]
@@ -36,9 +36,10 @@ type expr =
   | Record of (ident * expr) list [@quickcheck.do_not_generate]
   | Projection of expr * ident [@quickcheck.do_not_generate]
   | Inspection of ident * expr [@quickcheck.do_not_generate]
-[@@deriving show { with_path = false }, quickcheck, compare, sexp]
+[@@deriving show { with_path = false }, quickcheck, compare, sexp, hash]
 
-type sigma = int list [@@deriving show { with_path = false }, compare, sexp]
+type sigma = int list
+[@@deriving show { with_path = false }, compare, sexp, hash]
 
 type op_result_value =
   | PlusOp of result_value * result_value
