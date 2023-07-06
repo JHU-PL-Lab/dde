@@ -3,13 +3,17 @@ open Interpreter.Ast
 
 module State = struct
   module T = struct
-    type lstate = int * sigma [@@deriving compare, sexp]
-    type estate = expr * sigma [@@deriving compare, sexp]
+    type lstate = int * sigma
+    [@@deriving compare, sexp, hash, show { with_path = false }]
+
+    type estate = expr * sigma
+    [@@deriving compare, sexp, hash, show { with_path = false }]
 
     type state = Lstate of lstate | Estate of estate
-    [@@deriving compare, sexp]
+    [@@deriving compare, sexp, hash, show { with_path = false }]
 
-    type t = state * int [@@deriving compare, sexp]
+    type t = state * int
+    [@@deriving compare, sexp, hash, show { with_path = false }]
   end
 
   include T
@@ -39,7 +43,9 @@ and atom =
   | InspectionAtom of ident * res
 
 and res = atom list
-and path_cond = res * bool [@@deriving compare, sexp]
+
+and path_cond = res * bool
+[@@deriving compare, sexp, hash, show { with_path = false }]
 
 (* used to accumulate disjuncts when stitching stacks at Var Non-Local *)
 module Choice = struct

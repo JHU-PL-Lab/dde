@@ -132,6 +132,7 @@ and eval_bool ?(m = Map.empty (module State)) ?(cnt = 99) r =
               (eval_bool ~m ~cnt:(cnt - 1)
                  (Map.find_exn m (State.Estate est, 0)))
       | PathCondAtom ((_, b), a) ->
+          (* can encode path conditions as results *)
           if
             Set.exists (eval_bool ~m ~cnt r) ~f:(function
               | Maybe_prim.DefBool b' -> Stdlib.(b = b')
@@ -172,6 +173,9 @@ let rec process_maybe_bools bs =
         | DefInt _ -> raise Bad_type)
     ~finish:Fun.id
 
+let empty_choice_set = Set.empty (module Choice)
+let check neg = Z3.Solver.check Solver.solver [ neg ]
+
 let rec analyze_aux expr s pi v_set =
   match expr with
   | Int i -> Some [ IntAtom i ]
@@ -193,12 +197,9 @@ let rec analyze_aux expr s pi v_set =
           (* Application *)
           let%map r = analyze_aux e s pi v_set in
           let r_set =
-            fold_res r
-              ~init:(Set.empty (module Choice))
-              ~f:(fun acc a ->
+            fold_res r ~init:empty_choice_set ~f:(fun acc a ->
                 match a with
                 | FunAtom (Function (_, e1, _), _, _)
-                (* TODO: should path conditions be propagated down the tree? *)
                 | PathCondAtom (_, FunAtom (Function (_, e1, _), _, _)) -> (
                     Hashset.add s_set (l :: s);
                     let new_state =
@@ -253,8 +254,7 @@ let rec analyze_aux expr s pi v_set =
                             | Some ri -> fold_res ri ~init:acc ~f:Set.add
                             | None -> acc
                           else acc)
-                        s_set
-                        (Set.empty (module Choice))
+                        s_set empty_choice_set
                     in
                     Some [ ExprResAtom (Set.elements r_set, (expr, s)) ]
                 | _ -> raise Unreachable [@coverage off])
@@ -264,16 +264,16 @@ let rec analyze_aux expr s pi v_set =
                Format.printf "Var Non-Local:\n%s, %d\nsigma: %s\nS:\n%s" x l
                  (show_sigma s) (print_set ()))
             [@coverage off];
-            let s_hd, s_tl = (List.hd_exn s, List.tl_exn s) in
-            let s_hd_expr = get_myexpr s_hd in
-            match s_hd_expr with
+            match get_myexpr (List.hd_exn s) with
             | Appl (e1, _, l2) ->
                 let r_set =
                   (* enumerate all matching stacks in the set *)
                   Hashset.fold
                     (fun si acc ->
                       let si_hd, si_tl = (List.hd_exn si, List.tl_exn si) in
-                      if Stdlib.(si_hd = l2) && starts_with si_tl s_tl then
+                      if
+                        Stdlib.(si_hd = l2) && starts_with si_tl (List.tl_exn s)
+                      then
                         match
                           (* stitch the stack to gain more precision *)
                           analyze_aux e1 si_tl pi v_set
@@ -295,8 +295,7 @@ let rec analyze_aux expr s pi v_set =
                                    | _ -> acc)
                         | _ -> raise Unreachable [@coverage off]
                       else acc)
-                    s_set
-                    (Set.empty (module Choice))
+                    s_set empty_choice_set
                 in
                 Some (Set.elements r_set)
             | _ -> raise Unreachable [@coverage off])
@@ -316,7 +315,7 @@ let rec analyze_aux expr s pi v_set =
       |> List.fold
            ~init:(Set.empty (module PathChoice))
            ~f:(fun acc (path_cond, r) ->
-             fold_res r ~init:(Set.empty (module Choice)) ~f:Set.add
+             fold_res r ~init:empty_choice_set ~f:Set.add
              |> Set.elements
              |> List.map ~f:(fun a -> (path_cond, a))
              |> List.fold ~init:acc ~f:Set.add)
@@ -374,5 +373,6 @@ let analyze ~debug e =
 
   clean_up ();
   Hashset.clear s_set;
+  Solver.reset ();
 
   Option.value_exn r
