@@ -37,8 +37,8 @@ let rec pp_atom fmt = function
   | IntAtom x -> ff fmt "%d" x
   | BoolAtom b -> ff fmt "%b" b
   | FunAtom (f, _, _) -> Interpreter.Pp.pp_expr fmt f
-  | LabelResAtom (choices, (l, _)) -> ff fmt "%a" pp_res choices
-  | ExprResAtom (choices, (e, s)) -> ff fmt "%a" pp_res choices
+  | LabelResAtom (choices, _) | ExprResAtom (choices, _) ->
+      ff fmt "%a" pp_res choices
   (* ff fmt "(%a, %a, %a)" pp_res choices Interpreter.Pp.pp_expr e pp_sigma s *)
   | OpAtom op -> (
       match op with

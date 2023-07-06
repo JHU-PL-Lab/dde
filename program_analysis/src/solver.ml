@@ -21,7 +21,7 @@ module E = struct
 
     let compare = Expr.compare
     let sexp_of_t e = e |> Expr.ast_of_expr |> AST.to_sexpr |> Sexp.of_string
-    let t_of_sexp s = failwith "yo"
+    let t_of_sexp s = failwith "unimplemented"
     let hash e = e |> Expr.ast_of_expr |> AST.hash
   end
 
@@ -78,12 +78,15 @@ let cond pis =
       List.foldi pis
         ~f:
           (fun i conjs -> function
-            | r, b ->
+            | r, b -> (
                 let rid = Format.sprintf "r%d" i in
-                let pid = id r in
                 let const = zconst rid bsort in
-                let p = zdecl pid [ bsort ] bsort in
-                p <-- [ const ] === zbool b &&& conjs)
+                let pid = id r in
+                match Hashtbl.find id_to_decl pid with
+                | Some p ->
+                    (* let p = zdecl pid [ bsort ] bsort in *)
+                    p <-- [ const ] === zbool b &&& conjs
+                | None -> failwith "TODO: ISSUE HERE"))
         ~init:ztrue
     in
     List.mapi pis ~f:(fun i _ -> zconst (Format.sprintf "r%d" i) bsort)
@@ -91,7 +94,7 @@ let cond pis =
 
 let is_int_arith = function PlusOp _ | MinusOp _ -> true | _ -> false
 
-let rec chcs_of_res r pis =
+let rec chcs_of_res r real_r pis =
   (* TODO: still need to make an atom constructor for unlabeled res
      to realize toCHC spec *)
   List.fold r ~init:CHCSet.empty ~f:(fun assns -> function
@@ -118,7 +121,7 @@ let rec chcs_of_res r pis =
         | EqualOp (r1, r2)
         | AndOp (r1, r2)
         | OrOp (r1, r2) ->
-            let _id, id1, id2 = (id r, id r1, id r2) in
+            let pid, id1, id2 = (id r, id r1, id r2) in
             let is_int_arith = is_int_arith op in
             let zop =
               match op with
@@ -130,41 +133,50 @@ let rec chcs_of_res r pis =
               | _ -> raise Unreachable
             in
             let p =
-              zdecl _id [ (if is_int_arith then isort else bsort) ] bsort
+              zdecl pid [ (if is_int_arith then isort else bsort) ] bsort
             in
-            let sort =
+            let param_sort =
               match op with
               | PlusOp _ | MinusOp _ | EqualOp _ -> isort
               | _ -> bsort
             in
-            let p1, p2 = (zdecl id1 [ sort ] bsort, zdecl id2 [ sort ] bsort) in
-            let const1, const2 = (zconst "r1" sort, zconst "r2" sort) in
+            let p1, p2 =
+              (zdecl id1 [ param_sort ] bsort, zdecl id2 [ param_sort ] bsort)
+            in
+            let const1, const2 =
+              (zconst "r1" param_sort, zconst "r2" param_sort)
+            in
             ignore
-              ( Hashtbl.add id_to_decl ~key:_id ~data:p,
+              ( Hashtbl.add id_to_decl ~key:pid ~data:p,
                 Hashtbl.add id_to_decl ~key:id1 ~data:p1,
                 Hashtbl.add id_to_decl ~key:id2 ~data:p2 );
             CHCSet.add
               (CHCSet.union_list
-                 [ assns; chcs_of_res r1 pis; chcs_of_res r2 pis ])
+                 [ assns; chcs_of_res r1 r1 pis; chcs_of_res r2 r2 pis ])
               ([ const1; const2 ]
-              ==> (p1 <-- [ const1 ] &&& (p2 <-- [ const2 ]))
+              ==> (p1 <-- [ const1 ] &&& (p2 <-- [ const2 ]) &&& cond pis)
                   --> (p <-- [ zop const1 const2 ]))
         | NotOp _ -> failwith "not implemented")
     | LabelResAtom (r', _) | ExprResAtom (r', _) ->
-        List.fold r' ~init:assns ~f:(fun assns a ->
-            let chcs = chcs_of_res [ a ] pis in
-            let _id, ida = (id r, id [ a ]) in
-            match Hashtbl.find id_to_decl _id with
-            | Some p ->
-                let p_domain = FuncDecl.get_domain p in
-                let pa = zdecl ida p_domain bsort in
-                ignore @@ Hashtbl.add id_to_decl ~key:ida ~data:pa;
-                let a_const = zconst "r" (List.hd_exn p_domain) in
-                CHCSet.add (CHCSet.union assns chcs)
-                  ([ a_const ] ==> (pa <-- [ a_const ]) --> (p <-- [ a_const ]))
-            | None -> failwith "resatom")
+        let conjs =
+          List.fold r' ~init:CHCSet.empty ~f:(fun assns a ->
+              let chcs = chcs_of_res [ a ] r' pis in
+              let pid, aid = (id r', id [ a ]) in
+              match Hashtbl.find id_to_decl pid with
+              | Some p ->
+                  let pdom = FuncDecl.get_domain p in
+                  let pa = zdecl aid pdom bsort in
+                  ignore @@ Hashtbl.add id_to_decl ~key:aid ~data:pa;
+                  let consta = zconst "r" (List.hd_exn pdom) in
+                  CHCSet.add (CHCSet.union assns chcs)
+                    (([ consta ] ==> (pa <-- [ consta ]) &&& cond pis)
+                    --> (p <-- [ consta ]))
+              | None -> failwith "resatom")
+        in
+        List.fold r' ~init:conjs ~f:(fun assns a ->
+            CHCSet.union assns (chcs_of_res [ a ] r' pis))
     | FunAtom _ | LabelStubAtom _ | ExprStubAtom _ -> assns
-    | PathCondAtom (pi, a) -> chcs_of_res a (pi :: pis)
+    | PathCondAtom (pi, a) -> chcs_of_res a a (pi :: pis)
     | RecordAtom _ -> failwith "unimplemented"
     | ProjectionAtom _ -> failwith "unimplemented"
     | InspectionAtom _ -> failwith "unimplemented")

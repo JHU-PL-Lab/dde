@@ -174,7 +174,6 @@ let rec process_maybe_bools bs =
     ~finish:Fun.id
 
 let empty_choice_set = Set.empty (module Choice)
-let check neg = Z3.Solver.check Solver.solver [ neg ]
 
 let rec analyze_aux expr s pi v_set =
   match expr with
@@ -365,10 +364,21 @@ let analyze ~debug e =
   let r = analyze_aux e [] None (Set.empty (module State)) in
   let r = Option.value_exn r in
 
-  let chcs = Solver.chcs_of_res r [] in
-  Solver.CHCSet.iter
-    ~f:(fun chc -> Format.printf "%s\n" (Z3.Expr.to_string chc))
-    chcs;
+  let chcs = Solver.CHCSet.to_list (Solver.chcs_of_res r r []) in
+
+  List.iter ~f:(fun chc -> Format.printf "%s\n" (Z3.Expr.to_string chc)) chcs;
+
+  let solver = Solver.solver in
+  Z3.Solver.add solver chcs;
+  (match Z3.Solver.check solver [] with
+  | SATISFIABLE ->
+      Format.printf "sat\n\n";
+      let model = solver |> Z3.Solver.get_model |> Option.value_exn in
+      model |> Z3.Model.to_string |> Format.printf "Model:\n%s\n\n";
+      solver |> Z3.Solver.to_string |> Format.printf "Solver:\n%s"
+  | UNSATISFIABLE -> Format.printf "unsat"
+  | UNKNOWN -> Format.printf "unknown");
+
   Solver.reset ();
 
   (if !is_debug_mode then (
