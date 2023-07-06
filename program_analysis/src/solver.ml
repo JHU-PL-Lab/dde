@@ -48,13 +48,13 @@ let zint i = Arithmetic.Integer.mk_numeral_i ctx i
 let zbool b = Boolean.mk_val ctx b
 let ztrue = zbool true
 let zfalse = zbool false
-let znot e = Boolean.mk_not ctx e
 let zconst s sort = Expr.mk_const_s ctx s sort
 let zdecl s dom ran = FuncDecl.mk_func_decl_s ctx s dom ran
 let ( --> ) hyp concl = Boolean.mk_implies ctx hyp concl
 let ( <-- ) f args = Expr.mk_app ctx f args
 let ( === ) e1 e2 = Boolean.mk_eq ctx e1 e2
 let ( &&& ) e1 e2 = Boolean.mk_and ctx [ e1; e2 ]
+let znot e = Boolean.mk_not ctx e
 let ( ||| ) e1 e2 = Boolean.mk_or ctx [ e1; e2 ]
 let ( +++ ) e1 e2 = Arithmetic.mk_add ctx [ e1; e2 ]
 let ( --- ) e1 e2 = Arithmetic.mk_sub ctx [ e1; e2 ]
@@ -78,15 +78,11 @@ let cond pis =
       List.foldi pis
         ~f:
           (fun i conjs -> function
-            | r, b -> (
+            | r, b ->
                 let rid = Format.sprintf "r%d" i in
                 let const = zconst rid bsort in
-                let pid = id r in
-                match Hashtbl.find id_to_decl pid with
-                | Some p ->
-                    (* let p = zdecl pid [ bsort ] bsort in *)
-                    p <-- [ const ] === zbool b &&& conjs
-                | None -> failwith "TODO: ISSUE HERE"))
+                let p = zdecl (id r) [ bsort ] bsort in
+                p <-- [ const ] === zbool b &&& conjs)
         ~init:ztrue
     in
     List.mapi pis ~f:(fun i _ -> zconst (Format.sprintf "r%d" i) bsort)
@@ -99,7 +95,7 @@ let rec chcs_of_res r real_r pis =
      to realize toCHC spec *)
   List.fold r ~init:CHCSet.empty ~f:(fun assns -> function
     | IntAtom i -> (
-        let pid = id r in
+        let pid = id real_r in
         match Hashtbl.find id_to_decl pid with
         | Some p -> CHCSet.add assns (cond pis --> (p <-- [ zint i ]))
         | None ->
@@ -107,7 +103,7 @@ let rec chcs_of_res r real_r pis =
             Hashtbl.add_exn id_to_decl ~key:pid ~data:p;
             CHCSet.add assns (cond pis --> (p <-- [ zint i ])))
     | BoolAtom b -> (
-        let pid = id r in
+        let pid = id real_r in
         match Hashtbl.find id_to_decl pid with
         | Some p -> CHCSet.add assns (cond pis --> (p <-- [ zbool b ]))
         | None ->
@@ -121,7 +117,7 @@ let rec chcs_of_res r real_r pis =
         | EqualOp (r1, r2)
         | AndOp (r1, r2)
         | OrOp (r1, r2) ->
-            let pid, id1, id2 = (id r, id r1, id r2) in
+            let pid, id1, id2 = (id real_r, id r1, id r2) in
             let is_int_arith = is_int_arith op in
             let zop =
               match op with
@@ -156,7 +152,18 @@ let rec chcs_of_res r real_r pis =
               ([ const1; const2 ]
               ==> (p1 <-- [ const1 ] &&& (p2 <-- [ const2 ]) &&& cond pis)
                   --> (p <-- [ zop const1 const2 ]))
-        | NotOp _ -> failwith "not implemented")
+        | NotOp r' ->
+            let pid, rid = (id real_r, id r') in
+            let p = zdecl pid [ bsort ] bsort in
+            let p' = zdecl rid [ bsort ] bsort in
+            let const = zconst "r" bsort in
+            ignore
+              ( Hashtbl.add id_to_decl ~key:pid ~data:p,
+                Hashtbl.add id_to_decl ~key:rid ~data:p' );
+            CHCSet.add
+              (CHCSet.union assns (chcs_of_res r' r' pis))
+              (([ const ] ==> (p' <-- [ const ]) &&& cond pis)
+              --> (p <-- [ znot const ])))
     | LabelResAtom (r', _) | ExprResAtom (r', _) ->
         let conjs =
           List.fold r' ~init:CHCSet.empty ~f:(fun assns a ->
