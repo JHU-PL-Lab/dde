@@ -15,22 +15,6 @@ module R = struct
   include Comparable.Make (T)
 end
 
-(* module Test = struct
-     module T = struct
-       type t = int list [@@deriving compare, sexp, hash]
-     end
-
-     include T
-     include Comparable.Make (T)
-   end
-
-   let test_tbl = Hashtbl.create (module Test)
-
-   let ttt _ =
-     Hashtbl.add_exn test_tbl ~key:[ 1; 2; 3 ] ~data:"hello";
-     Format.printf "%s"
-       (Hashtbl.find_or_add test_tbl [ 1; 2; 3 ] ~default:(fun () -> "yo")) *)
-
 module E = struct
   module T = struct
     type t = Expr.expr
@@ -58,8 +42,8 @@ module CHCSet = Core.Set.Make (E)
 
 let id_to_decl = Hashtbl.create (module String)
 let ctx = mk_context []
-let int_sort = Arithmetic.Integer.mk_sort ctx
-let bool_sort = Boolean.mk_sort ctx
+let isort = Arithmetic.Integer.mk_sort ctx
+let bsort = Boolean.mk_sort ctx
 let zint i = Arithmetic.Integer.mk_numeral_i ctx i
 let zbool b = Boolean.mk_val ctx b
 let ztrue = zbool true
@@ -87,43 +71,46 @@ let reset () =
   Solver.reset solver;
   fresh_id := -1
 
+let cond pis =
+  if List.is_empty pis then ztrue
+  else
+    let conjs =
+      List.foldi pis
+        ~f:
+          (fun i conjs -> function
+            | r, b ->
+                let rid = Format.sprintf "r%d" i in
+                let pid = id r in
+                let const = zconst rid bsort in
+                let p = zdecl pid [ bsort ] bsort in
+                p <-- [ const ] === zbool b &&& conjs)
+        ~init:ztrue
+    in
+    List.mapi pis ~f:(fun i _ -> zconst (Format.sprintf "r%d" i) bsort)
+    ==> conjs
+
 let is_int_arith = function PlusOp _ | MinusOp _ -> true | _ -> false
 
-let rec has_stub r =
-  List.exists r ~f:(function
-    | LabelStubAtom _ | ExprStubAtom _ -> true
-    | OpAtom op -> (
-        match op with
-        | PlusOp (r1, r2)
-        | MinusOp (r1, r2)
-        | EqualOp (r1, r2)
-        | AndOp (r1, r2)
-        | OrOp (r1, r2) ->
-            has_stub r1 || has_stub r2
-        | NotOp r -> has_stub r)
-    | LabelResAtom (r, _) | ExprResAtom (r, _) -> has_stub r
-    | _ -> false)
-
-let rec chcs_of_res r =
-  (* TODO: should probably add a constructor to atom for untagged Res *)
-  List.fold r ~init:(CHCSet.empty, []) ~f:(fun (assns, negs) -> function
+let rec chcs_of_res r pis =
+  (* TODO: still need to make an atom constructor for unlabeled res
+     to realize toCHC spec *)
+  List.fold r ~init:CHCSet.empty ~f:(fun assns -> function
     | IntAtom i -> (
-        let _id = id r in
-        match Hashtbl.find id_to_decl _id with
-        | Some p -> (CHCSet.add assns (p <-- [ zint i ]), [])
+        let pid = id r in
+        match Hashtbl.find id_to_decl pid with
+        | Some p -> CHCSet.add assns (cond pis --> (p <-- [ zint i ]))
         | None ->
-            let p = zdecl _id [ int_sort ] bool_sort in
-            Hashtbl.add_exn id_to_decl ~key:_id ~data:p;
-            (CHCSet.add assns (p <-- [ zint i ]), []))
+            let p = zdecl pid [ isort ] bsort in
+            Hashtbl.add_exn id_to_decl ~key:pid ~data:p;
+            CHCSet.add assns (cond pis --> (p <-- [ zint i ])))
     | BoolAtom b -> (
-        let _id = id r in
-        match Hashtbl.find id_to_decl _id with
-        | Some p -> (CHCSet.add assns (p <-- [ zbool b ]), [])
+        let pid = id r in
+        match Hashtbl.find id_to_decl pid with
+        | Some p -> CHCSet.add assns (cond pis --> (p <-- [ zbool b ]))
         | None ->
-            let p = zdecl _id [ bool_sort ] bool_sort in
-            Hashtbl.add_exn id_to_decl ~key:_id ~data:p;
-            ( CHCSet.add assns (p <-- [ zbool b ]),
-              [ (p <-- [ ztrue ]) --> zfalse; (p <-- [ zfalse ]) --> zfalse ] ))
+            let p = zdecl pid [ bsort ] bsort in
+            Hashtbl.add_exn id_to_decl ~key:pid ~data:p;
+            CHCSet.add assns (cond pis --> (p <-- [ zbool b ])))
     | OpAtom op -> (
         match op with
         | PlusOp (r1, r2)
@@ -142,160 +129,42 @@ let rec chcs_of_res r =
               | OrOp _ -> ( ||| )
               | _ -> raise Unreachable
             in
-            if has_stub r then (
-              (* encoding scheme for cyclic programs *)
-              let idn = _id ^ "n" in
-              let gen_p id =
-                zdecl id
-                  (match op with
-                  | PlusOp _ | MinusOp _ -> [ int_sort; int_sort; int_sort ]
-                  | EqualOp _ -> [ int_sort; int_sort; bool_sort ]
-                  | _ -> [ bool_sort; bool_sort; bool_sort ])
-                  bool_sort
-              in
-              let p =
-                if is_int_arith then zdecl _id [ int_sort ] bool_sort
-                else gen_p _id
-              in
-              let pn = gen_p idn in
-              let sort =
-                if is_int_arith then int_sort
-                else List.hd_exn (FuncDecl.get_domain p)
-              in
-              let p1, p2 =
-                (zdecl id1 [ sort ] bool_sort, zdecl id2 [ sort ] bool_sort)
-              in
-              let const1, const2 = (zconst "r1" sort, zconst "r2" sort) in
-              ignore
-                ( Hashtbl.add id_to_decl ~key:_id ~data:p,
-                  Hashtbl.add id_to_decl ~key:idn ~data:pn,
-                  Hashtbl.add id_to_decl ~key:id1 ~data:p1,
-                  Hashtbl.add id_to_decl ~key:id2 ~data:p2 );
-              let zope = zop const1 const2 in
-              let gen_p_assn is_pn =
-                [ const1; const2 ]
-                ==> (p1 <-- [ const1 ] &&& (p2 <-- [ const2 ]))
-                    --> ((if is_pn then pn else p)
-                        <-- [
-                              const1;
-                              const2;
-                              (if is_pn then znot zope else zope);
-                            ])
-              in
-              let main_assns =
-                CHCSet.union_list
-                  [
-                    assns;
-                    fst @@ chcs_of_res r1;
-                    fst @@ chcs_of_res r2;
-                    CHCSet.of_list
-                      (if is_int_arith then
-                         [
-                           [ const1; const2 ]
-                           ==> (p1 <-- [ const1 ] &&& (p2 <-- [ const2 ]))
-                               --> (p <-- [ zope ]);
-                         ]
-                       else [ gen_p_assn false; gen_p_assn true ]);
-                  ]
-              in
-              ( main_assns,
-                if is_int_arith then
-                  [
-                    (p <-- [ ztrue ]) --> zfalse; (p <-- [ zfalse ]) --> zfalse;
-                  ]
-                else
-                  [
-                    [ const1; const2 ]
-                    ==> (p <-- [ const1; const2; znot zope ]) --> zfalse;
-                    [ const1; const2 ]
-                    ==> (pn <-- [ const1; const2; zope ]) --> zfalse;
-                  ] ))
-            else
-              (* encoding scheme for non-cyclic programs *)
-              let p =
-                zdecl _id
-                  [ (if is_int_arith then int_sort else bool_sort) ]
-                  bool_sort
-              in
-              let sort =
-                match op with
-                | PlusOp _ | MinusOp _ | EqualOp _ -> int_sort
-                | _ -> bool_sort
-              in
-              let p1, p2 =
-                (zdecl id1 [ sort ] bool_sort, zdecl id2 [ sort ] bool_sort)
-              in
-              let const1, const2 = (zconst "r1" sort, zconst "r2" sort) in
-              ignore
-                ( Hashtbl.add id_to_decl ~key:_id ~data:p,
-                  Hashtbl.add id_to_decl ~key:id1 ~data:p1,
-                  Hashtbl.add id_to_decl ~key:id2 ~data:p2 );
-              ( CHCSet.add
-                  (CHCSet.union_list
-                     [ assns; fst @@ chcs_of_res r1; fst @@ chcs_of_res r2 ])
-                  ([ const1; const2 ]
-                  ==> (p1 <-- [ const1 ] &&& (p2 <-- [ const2 ]))
-                      --> (p <-- [ zop const1 const2 ])),
-                [ (p <-- [ ztrue ]) --> zfalse; (p <-- [ zfalse ]) --> zfalse ]
-              )
+            let p =
+              zdecl _id [ (if is_int_arith then isort else bsort) ] bsort
+            in
+            let sort =
+              match op with
+              | PlusOp _ | MinusOp _ | EqualOp _ -> isort
+              | _ -> bsort
+            in
+            let p1, p2 = (zdecl id1 [ sort ] bsort, zdecl id2 [ sort ] bsort) in
+            let const1, const2 = (zconst "r1" sort, zconst "r2" sort) in
+            ignore
+              ( Hashtbl.add id_to_decl ~key:_id ~data:p,
+                Hashtbl.add id_to_decl ~key:id1 ~data:p1,
+                Hashtbl.add id_to_decl ~key:id2 ~data:p2 );
+            CHCSet.add
+              (CHCSet.union_list
+                 [ assns; chcs_of_res r1 pis; chcs_of_res r2 pis ])
+              ([ const1; const2 ]
+              ==> (p1 <-- [ const1 ] &&& (p2 <-- [ const2 ]))
+                  --> (p <-- [ zop const1 const2 ]))
         | NotOp _ -> failwith "not implemented")
-    | FunAtom _ -> (assns, negs)
     | LabelResAtom (r', _) | ExprResAtom (r', _) ->
-        List.fold r' ~init:(assns, negs) ~f:(fun (assns, negs) a ->
-            let chcs, _ = chcs_of_res [ a ] in
+        List.fold r' ~init:assns ~f:(fun assns a ->
+            let chcs = chcs_of_res [ a ] pis in
             let _id, ida = (id r, id [ a ]) in
             match Hashtbl.find id_to_decl _id with
             | Some p ->
                 let p_domain = FuncDecl.get_domain p in
-                let pa = zdecl ida p_domain bool_sort in
+                let pa = zdecl ida p_domain bsort in
                 ignore @@ Hashtbl.add id_to_decl ~key:ida ~data:pa;
                 let a_const = zconst "r" (List.hd_exn p_domain) in
-                ( CHCSet.add (CHCSet.union assns chcs)
-                    ([ a_const ]
-                    ==> (pa <-- [ a_const ]) --> (p <-- [ a_const ])),
-                  negs )
+                CHCSet.add (CHCSet.union assns chcs)
+                  ([ a_const ] ==> (pa <-- [ a_const ]) --> (p <-- [ a_const ]))
             | None -> failwith "resatom")
-    | LabelStubAtom _ -> (assns, negs)
-    | ExprStubAtom _ -> (assns, negs)
-    | PathCondAtom _ -> failwith "pathcondatom"
-    | RecordAtom _ -> failwith "recordatom"
-    | ProjectionAtom _ -> failwith "projectionatom"
-    | InspectionAtom _ -> failwith "inspectionatom")
-
-let test1 _ = chcs_of_res [ IntAtom 100 ]
-let test2 _ = chcs_of_res [ BoolAtom false ]
-let test3 _ = chcs_of_res [ OpAtom (PlusOp ([ IntAtom 1 ], [ IntAtom 2 ])) ]
-
-let test4 _ =
-  chcs_of_res
-    [
-      OpAtom
-        (PlusOp
-           ([ OpAtom (PlusOp ([ IntAtom 1 ], [ IntAtom 2 ])) ], [ IntAtom 3 ]));
-    ]
-
-let test5 _ = chcs_of_res [ OpAtom (EqualOp ([ IntAtom 1 ], [ IntAtom 2 ])) ]
-
-let test6 _ =
-  chcs_of_res [ OpAtom (EqualOp ([ LabelStubAtom (1, []) ], [ IntAtom 2 ])) ]
-
-let test7 _ =
-  chcs_of_res
-    [
-      OpAtom
-        (EqualOp
-           ( [
-               LabelResAtom
-                 ( [
-                     IntAtom 10;
-                     OpAtom
-                       (MinusOp ([ LabelStubAtom (-1, []) ], [ IntAtom 1 ]));
-                   ],
-                   (-1, []) );
-             ],
-             [ IntAtom 0 ] ));
-    ]
-
-(* TODOs:
-   - write our own solver with crude heuristics
-   - compare against forward analysis *)
+    | FunAtom _ | LabelStubAtom _ | ExprStubAtom _ -> assns
+    | PathCondAtom (pi, a) -> chcs_of_res a (pi :: pis)
+    | RecordAtom _ -> failwith "unimplemented"
+    | ProjectionAtom _ -> failwith "unimplemented"
+    | InspectionAtom _ -> failwith "unimplemented")

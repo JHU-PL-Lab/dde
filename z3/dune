@@ -1,7 +1,0 @@
-(executable
- (name test)
- (modes byte)
- (preprocess
-  (pps ppx_jane))
- (modules test convert)
- (libraries z3 dde.program_analysis))
