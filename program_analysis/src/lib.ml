@@ -300,81 +300,27 @@ let rec analyze_aux expr s pi v_set =
                 Some (Set.elements r_set)
             | _ -> raise Unreachable [@coverage off])
       | _ -> raise Unreachable [@coverage off])
-  | If (e, e_true, e_false, l) -> (
-      let%bind r_cond = analyze_aux e s pi v_set in
-      let chcs, negs = Solver.chcs_of_res r_cond in
-      let solver = Solver.solver in
-      Z3.Solver.add solver (Solver.CHCSet.to_list chcs);
-      match check (List.hd_exn negs) with
-      | SATISFIABLE -> (
-          Format.printf "*************sat*************\n\n";
-          Format.printf "%a\n" Utils.pp_res r_cond;
-          (* Format.printf "%s\n" (show_res r_cond); *)
-          List.iter negs ~f:(fun neg ->
-              Format.printf "%s" (Z3.Expr.to_string neg));
-          let model = solver |> Z3.Solver.get_model |> Option.value_exn in
-          model |> Z3.Model.to_string |> Format.printf "Model:\n%s\n\n";
-          solver |> Z3.Solver.to_string |> Format.printf "Solver:\n%s";
-          match check (List.last_exn negs) with
-          | SATISFIABLE -> (
-              match check (List.last_exn negs) with
-              | SATISFIABLE ->
-                  Solver.reset ();
-                  let%map r_true = analyze_aux e_true s pi v_set in
-                  r_true
-                  (* List.map r_true ~f:(fun a -> PathCondAtom ((r_cond, true), a)) *)
-              | UNSATISFIABLE ->
-                  Solver.reset ();
-                  let%bind r_true = analyze_aux e_true s pi v_set in
-                  (* let r_true =
-                       List.map r_true ~f:(fun a -> PathCondAtom ((r_cond, true), a))
-                     in *)
-                  Solver.reset ();
-                  let%map r_false = analyze_aux e_false s pi v_set in
-                  (* let r_false =
-                       List.map r_false ~f:(fun a -> PathCondAtom ((r_cond, true), a))
-                     in *)
-                  Set.elements
-                  @@ List.fold r_false
-                       ~init:
-                         (List.fold r_true ~init:empty_choice_set ~f:Set.add)
-                       ~f:Set.add
-              | UNKNOWN -> raise Unreachable)
-          | UNSATISFIABLE ->
-              Solver.reset ();
-              let%map r_false = analyze_aux e_false s pi v_set in
-              r_false
-              (* List.map r_false ~f:(fun a -> PathCondAtom ((r_cond, false), a)) *)
-          | UNKNOWN -> raise Unreachable)
-      | UNSATISFIABLE -> (
-          match check (List.last_exn negs) with
-          | SATISFIABLE ->
-              Solver.reset ();
-              let%map r_true = analyze_aux e_true s pi v_set in
-              r_true
-              (* List.map r_true ~f:(fun a -> PathCondAtom ((r_cond, true), a)) *)
-          | UNSATISFIABLE -> failwith "unsat"
-          | UNKNOWN -> failwith "unknown")
-      | UNKNOWN -> raise Unreachable
-      (* r_cond |> eval_bool |> process_maybe_bools
-         |> List.map ~f:(fun b ->
-                let path_cond = (r_cond, b) in
-                ( path_cond,
-                  analyze_aux
-                    (if b then e_true else e_false)
-                    s (path_cond :: pi) v_set ))
-         |> List.filter_map ~f:(function
-              | _, None -> None
-              | path_cond, Some r -> Some (path_cond, r))
-         |> List.fold
-              ~init:(Set.empty (module PathChoice))
-              ~f:(fun acc (path_cond, r) ->
-                fold_res r ~init:(empty_choice_set) ~f:Set.add
-                |> Set.elements
-                |> List.map ~f:(fun a -> (path_cond, a))
-                |> List.fold ~init:acc ~f:Set.add)
-         |> Set.elements
-         |> List.map ~f:(fun (path_cond, a) -> PathCondAtom (path_cond, a)) *))
+  | If (e, e_true, e_false, l) ->
+      let%map r_cond = analyze_aux e s pi v_set in
+      r_cond |> eval_bool |> process_maybe_bools
+      |> List.map ~f:(fun b ->
+             let path_cond = (r_cond, b) in
+             ( path_cond,
+               analyze_aux
+                 (if b then e_true else e_false)
+                 s (path_cond :: pi) v_set ))
+      |> List.filter_map ~f:(function
+           | _, None -> None
+           | path_cond, Some r -> Some (path_cond, r))
+      |> List.fold
+           ~init:(Set.empty (module PathChoice))
+           ~f:(fun acc (path_cond, r) ->
+             fold_res r ~init:empty_choice_set ~f:Set.add
+             |> Set.elements
+             |> List.map ~f:(fun a -> (path_cond, a))
+             |> List.fold ~init:acc ~f:Set.add)
+      |> Set.elements
+      |> List.map ~f:(fun (path_cond, a) -> PathCondAtom (path_cond, a))
   | Plus (e1, e2) | Minus (e1, e2) | Equal (e1, e2) | And (e1, e2) | Or (e1, e2)
     ->
       let%bind r1 = analyze_aux e1 s pi v_set in

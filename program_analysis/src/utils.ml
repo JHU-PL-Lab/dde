@@ -43,7 +43,7 @@ let rec pp_atom fmt = function
   | OpAtom op -> (
       match op with
       | PlusOp (r1, r2) -> ff fmt "(%a + %a)" pp_res r1 pp_res r2
-      | MinusOp (r1, r2) -> ff fmt "((%a) - %a)" pp_res r1 pp_res r2
+      | MinusOp (r1, r2) -> ff fmt "(%a - %a)" pp_res r1 pp_res r2
       | EqualOp (r1, r2) -> ff fmt "(%a = %a)" pp_res r1 pp_res r2
       | AndOp (r1, r2) -> ff fmt "(%a and %a)" pp_res r1 pp_res r2
       | OrOp (r1, r2) -> ff fmt "(%a or %a)" pp_res r1 pp_res r2

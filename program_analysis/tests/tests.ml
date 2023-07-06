@@ -47,7 +47,7 @@ let local_stitching =
 (* stack stitching is also needed at Var Local *)
 let test_local_stitching _ = gen_test local_stitching
 
-let conidtional =
+let conditional =
   [
     (fun _ ->
       ( "((10 = 0) = false ⊩ (1 + (10 - 1)))",
@@ -57,7 +57,7 @@ let conidtional =
       ("1", pau "(fun x -> (if true then (fun y -> y) else (fun z -> z)) x) 1"));
   ]
 
-let test_conditional _ = gen_test conidtional
+let test_conditional _ = gen_test conditional
 
 let currying =
   [
@@ -99,8 +99,6 @@ let recursion =
   [
     (fun _ ->
       (* TODO: make more readable *)
-      (* TODO: dump these path conditions into CHC solver
-         - would need a way to resume (in web server style?) if these are in some middle state *)
       ( "((10 = 0) = false ⊩ (1 + (((10 - 1) = 0) = false ⊩ (1 + ((((10 - 1) - \
          1) = 0) = false ⊩ (1 + ((((10 - 1) - 1) | (((10 - 1) - 1) | (stub - \
          1) - 1) = 0) = false ⊩ (1 + stub)) | ((((10 - 1) - 1) | (((10 - 1) - \
@@ -113,7 +111,7 @@ let recursion =
 let test_recursion _ = gen_test recursion
 
 let all_tests =
-  basic @ nonlocal_lookup @ local_stitching @ conidtional @ currying @ recursion
+  basic @ nonlocal_lookup @ local_stitching @ conditional @ currying @ recursion
 
 let test_pa =
   [
