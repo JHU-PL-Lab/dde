@@ -147,6 +147,15 @@ let rec transform_let e =
       appl
   | _ -> e
 
+(* let rec subst e x v =
+   match e with
+   | Let (id, e1, e2, _) ->
+       let e1 = subst e1 x v in
+       let e2 = if Stdlib.( = ) id x then e2 else subst e2 id e1 in
+       e2
+   | Function (id, e, _) ->
+   | _ -> e *)
+
 let build_int i = Int i
 let build_bool b = Bool b
 

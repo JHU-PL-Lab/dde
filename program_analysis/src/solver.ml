@@ -61,13 +61,17 @@ let ( ==> ) vars body =
   Quantifier.expr_of_quantifier
     (Quantifier.mk_forall_const ctx vars body None [] [] None None)
 
-let ( -=> ) vars body =
-  Quantifier.expr_of_quantifier
-    (Quantifier.mk_exists_const ctx vars body None [] [] None None)
-
 let solver = Solver.mk_solver_s ctx "HORN"
 let is_int_arith = function PlusOp _ | MinusOp _ -> true | _ -> false
 let chcs = Hash_set.create (module E)
+
+let find_or_add pid sort =
+  match Hashtbl.find id_to_decl pid with
+  | Some p -> p
+  | None ->
+      let p = zdecl pid [ sort ] bsort in
+      Hashtbl.add_exn id_to_decl ~key:pid ~data:p;
+      p
 
 let reset () =
   Hashtbl.clear res_to_id;
@@ -77,39 +81,34 @@ let reset () =
   fresh_id := -1
 
 let rec cond pis =
-  if List.is_empty pis then ztrue
+  if List.is_empty pis then ([], ztrue)
   else (
     List.iter pis ~f:(fun (r, _) -> chcs_of_res r r ~pis:[]);
     let conjs =
       List.foldi pis
-        ~f:(fun i conjs (r, _) ->
-          let rid = Format.sprintf "r%d" i in
+        ~f:(fun i conjs (r, b) ->
+          let rid = Format.sprintf "c%d" i in
           let const = zconst rid bsort in
           let p = zdecl (id r) [ bsort ] bsort in
-          p <-- [ const ] === ztrue &&& conjs)
+          p <-- [ const ] &&& (const === zbool b) &&& conjs)
         ~init:ztrue
     in
-    List.mapi pis ~f:(fun i _ -> zconst (Format.sprintf "r%d" i) bsort)
-    -=> conjs)
+    (List.mapi pis ~f:(fun i _ -> zconst (Format.sprintf "c%d" i) bsort), conjs))
 
-and chcs_of_atom (a : atom) r pis =
+and chcs_of_atom a r pis =
   match a with
-  | IntAtom i -> (
-      let pid = id r in
-      match Hashtbl.find id_to_decl pid with
-      | Some p -> Hash_set.add chcs (cond pis --> (p <-- [ zint i ]))
-      | None ->
-          let p = zdecl pid [ isort ] bsort in
-          Hashtbl.add_exn id_to_decl ~key:pid ~data:p;
-          Hash_set.add chcs (cond pis --> (p <-- [ zint i ])))
-  | BoolAtom b -> (
-      let pid = id r in
-      match Hashtbl.find id_to_decl pid with
-      | Some p -> Hash_set.add chcs (cond pis --> (p <-- [ zbool b ]))
-      | None ->
-          let p = zdecl pid [ bsort ] bsort in
-          Hashtbl.add_exn id_to_decl ~key:pid ~data:p;
-          Hash_set.add chcs (cond pis --> (p <-- [ zbool b ])))
+  | IntAtom i ->
+      let cond_quants, cond_body = cond pis in
+      let p = find_or_add (id r) isort in
+      let body = p <-- [ zint i ] in
+      Hash_set.add chcs
+        (if List.is_empty pis then body else cond_quants ==> cond_body --> body)
+  | BoolAtom b ->
+      let cond_quants, cond_body = cond pis in
+      let p = find_or_add (id r) bsort in
+      let body = p <-- [ zbool b ] in
+      Hash_set.add chcs
+        (if List.is_empty pis then body else cond_quants ==> cond_body --> body)
   | OpAtom op -> (
       match op with
       | PlusOp (r1, r2)
@@ -144,11 +143,13 @@ and chcs_of_atom (a : atom) r pis =
             ( Hashtbl.add id_to_decl ~key:pid ~data:p,
               Hashtbl.add id_to_decl ~key:id1 ~data:p1,
               Hashtbl.add id_to_decl ~key:id2 ~data:p2 );
+          let cond_quants, cond_body = cond pis in
           chcs_of_res r1 r1 ~pis;
           chcs_of_res r2 r2 ~pis;
+          (* TODO: consider eliding cond_body if it's just `true` *)
           Hash_set.add chcs
-            ([ const1; const2 ]
-            ==> (p1 <-- [ const1 ] &&& (p2 <-- [ const2 ]) &&& cond pis)
+            (const1 :: const2 :: cond_quants
+            ==> (p1 <-- [ const1 ] &&& (p2 <-- [ const2 ]) &&& cond_body)
                 --> (p <-- [ zop const1 const2 ]))
       | NotOp r' ->
           let pid, rid = (id r, id r') in
@@ -158,9 +159,10 @@ and chcs_of_atom (a : atom) r pis =
           ignore
             ( Hashtbl.add id_to_decl ~key:pid ~data:p,
               Hashtbl.add id_to_decl ~key:rid ~data:p' );
+          let cond_quants, cond_body = cond pis in
           chcs_of_res r' r' ~pis;
           Hash_set.add chcs
-            (([ const ] ==> (p' <-- [ const ]) &&& cond pis)
+            ((const :: cond_quants ==> (p' <-- [ const ]) &&& cond_body)
             --> (p <-- [ znot const ])))
   | LabelResAtom (r', _) | ExprResAtom (r', _) ->
       (* chcs_of_res r' ~pis *)
@@ -174,8 +176,9 @@ and chcs_of_atom (a : atom) r pis =
               let pa = zdecl aid pdom bsort in
               ignore @@ Hashtbl.add id_to_decl ~key:aid ~data:pa;
               let consta = zconst "r" (List.hd_exn pdom) in
+              let cond_quants, cond_body = cond pis in
               Hash_set.add chcs
-                (([ consta ] ==> (pa <-- [ consta ]) &&& cond pis)
+                ((consta :: cond_quants ==> (pa <-- [ consta ]) &&& cond_body)
                 --> (p <-- [ consta ]))
           | None ->
               Format.printf "%a\n" Utils.pp_res r';
