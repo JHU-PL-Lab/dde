@@ -364,7 +364,10 @@ let analyze ~debug e =
   let r = analyze_aux e [] None (Set.empty (module State)) in
   let r = Option.value_exn r in
 
-  let chcs = Solver.CHCSet.to_list (Solver.chcs_of_res r r []) in
+  (* Format.printf "result:\n%a" Grammar.pp_res r;
+     Format.printf "\n"; *)
+  Solver.chcs_of_res r;
+  let chcs = Hash_set.to_list Solver.chcs in
 
   List.iter ~f:(fun chc -> Format.printf "%s\n" (Z3.Expr.to_string chc)) chcs;
 
