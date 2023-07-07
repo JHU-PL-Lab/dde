@@ -79,7 +79,7 @@ let reset () =
 let rec cond pis =
   if List.is_empty pis then ztrue
   else (
-    List.iter pis ~f:(fun (r, _) -> chcs_of_res r ~pis:[]);
+    List.iter pis ~f:(fun (r, _) -> chcs_of_res r r ~pis:[]);
     let conjs =
       List.foldi pis
         ~f:(fun i conjs (r, _) ->
@@ -144,7 +144,8 @@ and chcs_of_atom (a : atom) r pis =
             ( Hashtbl.add id_to_decl ~key:pid ~data:p,
               Hashtbl.add id_to_decl ~key:id1 ~data:p1,
               Hashtbl.add id_to_decl ~key:id2 ~data:p2 );
-          chcs_of_res r1 ~pis;
+          chcs_of_res r1 r1 ~pis;
+          chcs_of_res r2 r2 ~pis;
           Hash_set.add chcs
             ([ const1; const2 ]
             ==> (p1 <-- [ const1 ] &&& (p2 <-- [ const2 ]) &&& cond pis)
@@ -157,7 +158,7 @@ and chcs_of_atom (a : atom) r pis =
           ignore
             ( Hashtbl.add id_to_decl ~key:pid ~data:p,
               Hashtbl.add id_to_decl ~key:rid ~data:p' );
-          chcs_of_res r' ~pis;
+          chcs_of_res r' r' ~pis;
           Hash_set.add chcs
             (([ const ] ==> (p' <-- [ const ]) &&& cond pis)
             --> (p <-- [ znot const ])))
@@ -166,7 +167,7 @@ and chcs_of_atom (a : atom) r pis =
       List.iter r' ~f:(fun a ->
           chcs_of_atom a r' pis;
           let pid, aid = (id r', id [ a ]) in
-          Format.printf "looking up: %s\n" pid;
+          (* Format.printf "looking up: %s\n" pid; *)
           match Hashtbl.find id_to_decl pid with
           | Some p ->
               let pdom = FuncDecl.get_domain p in
@@ -176,14 +177,20 @@ and chcs_of_atom (a : atom) r pis =
               Hash_set.add chcs
                 (([ consta ] ==> (pa <-- [ consta ]) &&& cond pis)
                 --> (p <-- [ consta ]))
-          | None -> failwith "resatom")
+          | None ->
+              Format.printf "%a\n" Utils.pp_res r';
+              Format.printf "%a\n" Utils.pp_atom a;
+              failwith "resatom")
+  | PathCondAtom (pi, r') -> chcs_of_res r' r ~pis:(pi :: pis)
   | FunAtom _ | LabelStubAtom _ | ExprStubAtom _ -> ()
-  | PathCondAtom (pi, a) -> chcs_of_res a ~pis:(pi :: pis)
   | RecordAtom _ -> failwith "unimplemented"
   | ProjectionAtom _ -> failwith "unimplemented"
   | InspectionAtom _ -> failwith "unimplemented"
 
-and chcs_of_res ?(pis = []) r =
+and chcs_of_res ?(pis = []) r p =
   (* TODO: still need to make an atom constructor for unlabeled res
      to realize toCHC spec *)
-  List.iter r ~f:(fun a -> chcs_of_atom a r pis)
+  List.iter r ~f:(fun a -> chcs_of_atom a p pis)
+
+(* entry point *)
+let chcs_of_res r = chcs_of_res r r
