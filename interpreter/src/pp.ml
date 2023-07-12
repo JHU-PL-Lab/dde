@@ -25,7 +25,7 @@ let rec pp_expr fmt = function
         (paren_if is_compound_expr pp_expr)
         e2
   | Plus (e1, e2) -> ff fmt "(%a + %a)" pp_expr e1 pp_expr e2
-  | Minus (e1, e2) -> ff fmt "(%a + %a)" pp_expr e1 pp_expr e2
+  | Minus (e1, e2) -> ff fmt "(%a - %a)" pp_expr e1 pp_expr e2
   | Equal (e1, e2) -> ff fmt "(%a = %a)" pp_expr e1 pp_expr e2
   | And (e1, e2) -> ff fmt "(%a and %a)" pp_expr e1 pp_expr e2
   | Or (e1, e2) -> ff fmt "(%a or %a)" pp_expr e1 pp_expr e2
@@ -34,7 +34,7 @@ let rec pp_expr fmt = function
       ff fmt "@[<hv>if %a then@;<1 4>%a@;<1 0>else@;<1 4>%a@]" pp_expr e1
         pp_expr e2 pp_expr e3
   | Let (Ident i, e1, e2, l) ->
-      ff fmt "@[<hv>let %s =@;<1 4>%a@;<1 0>In@;<1 4>%a@]" i pp_expr e1 pp_expr
+      ff fmt "@[<hv>let %s =@;<1 4>%a@;<1 0>in@;<1 4>%a@]" i pp_expr e1 pp_expr
         e2
   | Record entries ->
       ff fmt

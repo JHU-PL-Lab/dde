@@ -147,13 +147,23 @@ let rec transform_let e =
       appl
   | _ -> e
 
-(* let rec subst e x v =
+(* let rec subst e x e' =
    match e with
    | Let (id, e1, e2, _) ->
-       let e1 = subst e1 x v in
+       let e1 = subst e1 x e' in
        let e2 = if Stdlib.( = ) id x then e2 else subst e2 id e1 in
        e2
-   | Function (id, e, _) ->
+   | Var (id, l) -> if Stdlib.( = ) id x then e' else Var (id, l)
+   | Function (id, e, l) ->
+       Function (id, (if Stdlib.( = ) x id then e else subst e x e'), l)
+   | Appl (e1, e2, l) -> Appl (subst e1 x e', subst e2 x e', l)
+   | If (e1, e2, e3, l) -> If (subst e1 x e', subst e2 x e', subst e3 x e', l)
+   | Plus (e1, e2) -> Plus (subst e1 x e', subst e2 x e')
+   | Minus (e1, e2) -> Minus (subst e1 x e', subst e2 x e')
+   | Equal (e1, e2) -> Equal (subst e1 x e', subst e2 x e')
+   | And (e1, e2) -> And (subst e1 x e', subst e2 x e')
+   | Or (e1, e2) -> Or (subst e1 x e', subst e2 x e')
+   | Not e -> Not (subst e x e')
    | _ -> e *)
 
 let build_int i = Int i
