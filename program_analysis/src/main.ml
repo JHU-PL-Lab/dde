@@ -19,8 +19,8 @@ let toplevel_loop =
   in
   let safe_analyze_and_print ast =
     try
-      let result = Lib.analyze ast ~debug:false in
-      Format.printf "==> %a\n" Utils.pp_res result
+      let r, _ = Lib.analyze ast ~debug:false in
+      Format.printf "==> %a\n" Utils.pp_res r
     with ex -> print_exception ex
   in
   while true do

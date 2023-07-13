@@ -364,24 +364,25 @@ let analyze ~debug e =
   let r = analyze_aux e [] None (Set.empty (module State)) in
   let r = Option.value_exn r in
 
-  (* Format.printf "result:\n%a" Grammar.pp_res r;
-     Format.printf "\n"; *)
+  (* Format.printf "\nresult:\n%a\n" Grammar.pp_res r; *)
+  (* Format.printf "result:\n%a\n" Utils.pp_res r; *)
+  (* Format.printf "\n"; *)
   Solver.chcs_of_res r;
   let chcs = Hash_set.to_list Solver.chcs in
 
-  List.iter ~f:(fun chc -> Format.printf "%s\n" (Z3.Expr.to_string chc)) chcs;
+  (* Format.printf "CHCs:\n";
+     List.iter ~f:(fun chc -> Format.printf "%s\n" (Z3.Expr.to_string chc)) chcs; *)
 
-  let solver = Solver.solver in
-  Z3.Solver.add solver chcs;
-  (match Z3.Solver.check solver [] with
-  | SATISFIABLE ->
-      Format.printf "sat\n\n";
-      let model = solver |> Z3.Solver.get_model |> Option.value_exn in
-      model |> Z3.Model.to_string |> Format.printf "Model:\n%s\n\n";
-      solver |> Z3.Solver.to_string |> Format.printf "Solver:\n%s"
-  | UNSATISFIABLE -> Format.printf "unsat"
-  | UNKNOWN -> Format.printf "unknown");
-
+  (* let solver = Solver.solver in
+     Z3.Solver.add solver chcs;
+     (match Z3.Solver.check solver [] with
+     | SATISFIABLE ->
+         Format.printf "sat\n\n";
+         let model = solver |> Z3.Solver.get_model |> Option.value_exn in
+         model |> Z3.Model.to_string |> Format.printf "Model:\n%s\n\n";
+         solver |> Z3.Solver.to_string |> Format.printf "Solver:\n%s"
+     | UNSATISFIABLE -> Format.printf "unsat"
+     | UNKNOWN -> Format.printf "unknown"); *)
   Solver.reset ();
 
   (if !is_debug_mode then (
@@ -395,4 +396,4 @@ let analyze ~debug e =
   clean_up ();
   Hashset.clear s_set;
 
-  r
+  (r, chcs)

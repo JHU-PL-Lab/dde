@@ -1,6 +1,8 @@
 open Interpreter
 open Program_analysis
 
+let pf = Format.printf
+
 module IdentSet = Set.Make (struct
   type t = Ast.ident
 
@@ -20,6 +22,24 @@ let ( |>> ) v f = Option.map f v
 let ( |>-> ) v f = Option.bind v f
 
 let pau s =
-  s |> Core.Fn.flip ( ^ ) ";;" |> Lexing.from_string |> Parser.main Lexer.token
-  |> Lib.analyze ~debug:false
-  |> Format.asprintf "%a" Utils.pp_res
+  s |> Debugutils.parse_analyze |> fun (r, _) ->
+  Format.asprintf "%a" Utils.pp_res r
+
+let pau' s = s |> Debugutils.parse_analyze |> snd
+
+let verify_result chcs assns =
+  let solver = Solver.solver in
+  Z3.Solver.add solver chcs;
+  match Z3.Solver.check solver assns with
+  | SATISFIABLE ->
+      pf "\nsat\n\n";
+      let model = solver |> Z3.Solver.get_model |> Core.Option.value_exn in
+      model |> Z3.Model.to_string |> pf "Model:\n%s\n\n";
+      (* solver |> Z3.Solver.to_string |> pf "Solver:\n%s"; *)
+      true
+  | UNSATISFIABLE ->
+      pf "unsat";
+      false
+  | UNKNOWN ->
+      pf "unknown";
+      false

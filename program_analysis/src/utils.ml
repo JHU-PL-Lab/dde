@@ -38,7 +38,7 @@ let rec pp_atom fmt = function
   | BoolAtom b -> ff fmt "%b" b
   | FunAtom (f, _, _) -> Interpreter.Pp.pp_expr fmt f
   | LabelResAtom (choices, _) | ExprResAtom (choices, _) ->
-      ff fmt "[%a]" pp_res choices
+      ff fmt "%a" pp_res choices
   (* ff fmt "(%a, %a, %a)" pp_res choices Interpreter.Pp.pp_expr e pp_sigma s *)
   | OpAtom op -> (
       match op with
@@ -49,8 +49,8 @@ let rec pp_atom fmt = function
       | OrOp (r1, r2) -> ff fmt "(%a or %a)" pp_res r1 pp_res r2
       | NotOp r1 -> ff fmt "(not %a)" pp_res r1)
   | LabelStubAtom _ | ExprStubAtom _ -> ff fmt "stub"
-  (* | PathCondAtom ((r, b), a) -> ff fmt "(%a = %b ⊩ %a)" pp_res r b pp_res a *)
-  | PathCondAtom (_, a) -> ff fmt "%a" pp_res a
+  | PathCondAtom ((r, b), a) -> ff fmt "(%a = %b ⊩ %a)" pp_res r b pp_res a
+  (* | PathCondAtom (_, a) -> ff fmt "%a" pp_res a *)
   | RecordAtom entries ->
       ff fmt
         (if List.length entries = 0 then "{%a}" else "{ %a }")
