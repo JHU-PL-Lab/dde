@@ -53,12 +53,12 @@ let rec eval_int ~m ~cnt r =
             Set.union acc
               (eval_int ~m ~cnt:(cnt - 1)
                  (Map.find_exn m (State.Estate est, 0)))
-      | PathCondAtom ((r, b), a) ->
+      | PathCondAtom ((r, b), r') ->
           if
             Set.exists (eval_bool ~m ~cnt r) ~f:(function
               | Maybe_prim.DefBool b' -> Stdlib.(b = b')
               | _ -> false)
-          then Set.union acc (eval_int ~m ~cnt [ a ])
+          then Set.union acc (eval_int ~m ~cnt r')
           else acc
       | ProjectionAtom (r, l) ->
           fold_res r
@@ -131,13 +131,13 @@ and eval_bool ?(m = Map.empty (module State)) ?(cnt = 99) r =
             Set.union acc
               (eval_bool ~m ~cnt:(cnt - 1)
                  (Map.find_exn m (State.Estate est, 0)))
-      | PathCondAtom ((_, b), a) ->
+      | PathCondAtom ((_, b), r') ->
           (* can encode path conditions as results *)
           if
             Set.exists (eval_bool ~m ~cnt r) ~f:(function
               | Maybe_prim.DefBool b' -> Stdlib.(b = b')
               | _ -> false)
-          then Set.union acc (eval_bool ~m ~cnt [ a ])
+          then Set.union acc (eval_bool ~m ~cnt r')
           else acc
       | ProjectionAtom (r, l) ->
           fold_res r
@@ -174,7 +174,6 @@ let rec process_maybe_bools bs =
     ~finish:Fun.id
 
 let empty_choice_set = Set.empty (module Choice)
-let check neg = Z3.Solver.check Solver.solver [ neg ]
 
 let rec analyze_aux expr s pi v_set =
   match expr with
@@ -200,7 +199,7 @@ let rec analyze_aux expr s pi v_set =
             fold_res r ~init:empty_choice_set ~f:(fun acc a ->
                 match a with
                 | FunAtom (Function (_, e1, _), _, _)
-                | PathCondAtom (_, FunAtom (Function (_, e1, _), _, _)) -> (
+                | PathCondAtom (_, [ FunAtom (Function (_, e1, _), _, _) ]) -> (
                     Hashset.add s_set (l :: s);
                     let new_state =
                       (state, if Set.mem v_set (state, 0) then 1 else 0)
@@ -308,7 +307,7 @@ let rec analyze_aux expr s pi v_set =
              ( path_cond,
                analyze_aux
                  (if b then e_true else e_false)
-                 s (path_cond :: pi) v_set ))
+                 s (Some path_cond) v_set ))
       |> List.filter_map ~f:(function
            | _, None -> None
            | path_cond, Some r -> Some (path_cond, r))
@@ -320,7 +319,8 @@ let rec analyze_aux expr s pi v_set =
              |> List.map ~f:(fun a -> (path_cond, a))
              |> List.fold ~init:acc ~f:Set.add)
       |> Set.elements
-      |> List.map ~f:(fun (path_cond, a) -> PathCondAtom (path_cond, a))
+      (* artificially make `a` not an atom (per spec) *)
+      |> List.map ~f:(fun (path_cond, a) -> PathCondAtom (path_cond, [ a ]))
   | Plus (e1, e2) | Minus (e1, e2) | Equal (e1, e2) | And (e1, e2) | Or (e1, e2)
     ->
       let%bind r1 = analyze_aux e1 s pi v_set in
@@ -361,7 +361,18 @@ let analyze ~debug e =
 
   let e = transform_let e in
   build_myfun e None;
-  let r = analyze_aux e [] [] (Set.empty (module State)) in
+  let r = analyze_aux e [] None (Set.empty (module State)) in
+  let r = Option.value_exn r in
+
+  (* Format.printf "\nresult:\n%a\n" Grammar.pp_res r; *)
+  (* Format.printf "result:\n%a\n" Utils.pp_res r; *)
+  (* Format.printf "\n"; *)
+  Solver.chcs_of_res r;
+  let chcs = Hash_set.to_list Solver.chcs in
+
+  (* Format.printf "CHCs:\n";
+     List.iter ~f:(fun chc -> Format.printf "%s\n" (Z3.Expr.to_string chc)) chcs; *)
+  Solver.reset ();
 
   (if !is_debug_mode then (
      Format.printf "\n%s\n\n" @@ show_expr e;
@@ -373,6 +384,5 @@ let analyze ~debug e =
 
   clean_up ();
   Hashset.clear s_set;
-  Solver.reset ();
 
-  Option.value_exn r
+  (r, chcs)

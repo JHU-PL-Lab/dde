@@ -37,7 +37,7 @@ and atom =
   | ExprResAtom of res * State.estate
   | LabelStubAtom of State.lstate
   | ExprStubAtom of State.estate
-  | PathCondAtom of path_cond * atom
+  | PathCondAtom of path_cond * res
   | RecordAtom of (ident * res) list
   | ProjectionAtom of res * ident
   | InspectionAtom of ident * res
