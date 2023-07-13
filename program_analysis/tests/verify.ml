@@ -24,8 +24,8 @@ let verify_recursion _ =
 
 let verify_pa =
   [
-    (* "Verify basic" >:: verify_basic;
-       "Verify conditional" >:: verify_conditional; *)
+    "Verify basic" >:: verify_basic;
+    "Verify conditional" >:: verify_conditional;
     "Verify recursion" >:: verify_recursion;
   ]
 

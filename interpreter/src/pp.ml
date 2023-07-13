@@ -86,12 +86,3 @@ let rec pp_fbtype fmt = function
 
 let show_expr (le : expr) = Format.asprintf "%a" pp_expr le
 let show_fbtype t = Format.asprintf "%a" pp_fbtype t
-
-let yo =
-  if Array.length Sys.argv <> 0 then
-    if Sys.argv.(0) = "_build/default/program_analysis/.utop/utop.exe" then (
-      print_endline "open Program_analysis;;";
-      print_endline "open Debugutils;;")
-    else if Sys.argv.(0) = "_build/default/interpreter/.utop/utop.exe" then (
-      print_endline "open Interpreter;;";
-      print_endline "open Debugutils;;")

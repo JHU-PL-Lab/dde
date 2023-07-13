@@ -91,5 +91,5 @@ let _ =
   let bench = ref false in
   Arg.parse [ ("--bench", Arg.Set bench, "run benchmarks") ] (fun _ -> ()) "";
   if !bench then Bench.run tests_thunked;
-  run_test_tt_main Verify.verification
-(* run_test_tt_main tests *)
+  run_test_tt_main Verify.verification;
+  run_test_tt_main tests

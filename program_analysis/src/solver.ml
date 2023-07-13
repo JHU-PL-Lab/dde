@@ -231,7 +231,7 @@ and chcs_of_res ?(pis = []) r =
           let p = zdecl pid adom bsort in
           ignore @@ Hashtbl.add id_to_decl ~key:pid ~data:p;
           let consta = zconst "r" (List.hd_exn adom) in
-          (* TODO: should bother with path conditions here? *)
+          (* TODO: should we bother with path conditions here? *)
           (* shouldn't matter - just superficial duplication *)
           (* let cond_quants, cond_body = cond pis in *)
           Hash_set.add chcs

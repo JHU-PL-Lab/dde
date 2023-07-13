@@ -372,17 +372,6 @@ let analyze ~debug e =
 
   (* Format.printf "CHCs:\n";
      List.iter ~f:(fun chc -> Format.printf "%s\n" (Z3.Expr.to_string chc)) chcs; *)
-
-  (* let solver = Solver.solver in
-     Z3.Solver.add solver chcs;
-     (match Z3.Solver.check solver [] with
-     | SATISFIABLE ->
-         Format.printf "sat\n\n";
-         let model = solver |> Z3.Solver.get_model |> Option.value_exn in
-         model |> Z3.Model.to_string |> Format.printf "Model:\n%s\n\n";
-         solver |> Z3.Solver.to_string |> Format.printf "Solver:\n%s"
-     | UNSATISFIABLE -> Format.printf "unsat"
-     | UNKNOWN -> Format.printf "unknown"); *)
   Solver.reset ();
 
   (if !is_debug_mode then (
