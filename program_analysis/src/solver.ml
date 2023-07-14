@@ -45,13 +45,22 @@ let fresh_id = ref (-1)
 let idr r =
   Format.sprintf "P%d"
     (Hashtbl.find_or_add res_to_id r ~default:(fun () ->
+         let atom_ids = Hashtbl.data atom_to_id in
          incr fresh_id;
+         (* make sure result ID is not alreayd used for atoms *)
+         while List.mem ~equal:Int.equal atom_ids !fresh_id do
+           incr fresh_id
+         done;
          !fresh_id))
 
 let ida a =
   Format.sprintf "P%d"
     (Hashtbl.find_or_add atom_to_id a ~default:(fun () ->
+         let res_ids = Hashtbl.data res_to_id in
          incr fresh_id;
+         while List.mem ~equal:Int.equal res_ids !fresh_id do
+           incr fresh_id
+         done;
          !fresh_id))
 
 let id_to_decl = Hashtbl.create (module String)
@@ -72,14 +81,18 @@ let ( &&& ) e1 e2 = Boolean.mk_and ctx [ e1; e2 ]
 let ( ||| ) e1 e2 = Boolean.mk_or ctx [ e1; e2 ]
 let ( +++ ) e1 e2 = Arithmetic.mk_add ctx [ e1; e2 ]
 let ( --- ) e1 e2 = Arithmetic.mk_sub ctx [ e1; e2 ]
+let ( >== ) e1 e2 = Arithmetic.mk_ge ctx e1 e2
+let ( <== ) e1 e2 = Arithmetic.mk_le ctx e1 e2
 
-let ( ==> ) vars body =
+let ( |. ) vars body =
   Quantifier.expr_of_quantifier
     (Quantifier.mk_forall_const ctx vars body None [] [] None None)
 
 let solver = Solver.mk_solver_s ctx "HORN"
 let is_int_arith = function PlusOp _ | MinusOp _ -> true | _ -> false
 let chcs = Hash_set.create (module E)
+let list_of_chcs () = Hash_set.to_list chcs
+let entry_decl = ref None
 
 let find_or_add pid sort =
   match Hashtbl.find id_to_decl pid with
@@ -93,40 +106,40 @@ let reset () =
   Hashtbl.clear res_to_id;
   Hashtbl.clear id_to_decl;
   Hash_set.clear chcs;
+  entry_decl := None;
   Solver.reset solver;
   fresh_id := -1
 
 let rec cond pis =
   if List.is_empty pis then ([], ztrue)
   else (
+    (* TODO: use prefix of pis *)
     List.iter pis ~f:(fun (r, _) -> chcs_of_res r ~pis:[]);
     let conjs =
       List.foldi pis
         ~f:(fun i conjs (r, b) ->
           let rid = Format.sprintf "c%d" i in
           let const = zconst rid bsort in
-          (* TODO: temp solution, won't work for recursive programs *)
-          (* let _id = match r with [ a ] -> ida a | _ -> idr r in *)
           let p = zdecl (idr r) [ bsort ] bsort in
           p <-- [ const ] &&& (const === zbool b) &&& conjs)
         ~init:ztrue
     in
     (List.mapi pis ~f:(fun i _ -> zconst (Format.sprintf "c%d" i) bsort), conjs))
 
-and chcs_of_atom ?(pis = []) a =
+and chcs_of_atom ?(pis = []) ?(entry = "P0") a =
   match a with
   | IntAtom i ->
       let cond_quants, cond_body = cond pis in
       let p = find_or_add (ida a) isort in
       let body = p <-- [ zint i ] in
       Hash_set.add chcs
-        (if List.is_empty pis then body else cond_quants ==> cond_body --> body)
+        (if List.is_empty pis then body else cond_quants |. cond_body --> body)
   | BoolAtom b ->
       let cond_quants, cond_body = cond pis in
       let p = find_or_add (ida a) bsort in
       let body = p <-- [ zbool b ] in
       Hash_set.add chcs
-        (if List.is_empty pis then body else cond_quants ==> cond_body --> body)
+        (if List.is_empty pis then body else cond_quants |. cond_body --> body)
   | OpAtom op -> (
       match op with
       | PlusOp (r1, r2)
@@ -135,7 +148,6 @@ and chcs_of_atom ?(pis = []) a =
       | AndOp (r1, r2)
       | OrOp (r1, r2) ->
           let pid, id1, id2 = (ida a, idr r1, idr r2) in
-          if String.(pid = "P38") then Format.printf "hit!";
           let is_int_arith = is_int_arith op in
           let zop =
             match op with
@@ -164,12 +176,12 @@ and chcs_of_atom ?(pis = []) a =
               Hashtbl.add id_to_decl ~key:id1 ~data:p1,
               Hashtbl.add id_to_decl ~key:id2 ~data:p2 );
           let cond_quants, cond_body = cond pis in
-          chcs_of_res r1 ~pis;
-          chcs_of_res r2 ~pis;
+          chcs_of_res r1 ~pis ~entry;
+          chcs_of_res r2 ~pis ~entry;
           Hash_set.add chcs
             (const1 :: const2 :: cond_quants
-            ==> (p1 <-- [ const1 ] &&& (p2 <-- [ const2 ]) &&& cond_body)
-                --> (p <-- [ zop const1 const2 ]))
+            |. (p1 <-- [ const1 ] &&& (p2 <-- [ const2 ]) &&& cond_body)
+               --> (p <-- [ zop const1 const2 ]))
       | NotOp r' ->
           let pid, rid = (ida a, idr r') in
           let p = zdecl pid [ bsort ] bsort in
@@ -179,15 +191,15 @@ and chcs_of_atom ?(pis = []) a =
             ( Hashtbl.add id_to_decl ~key:pid ~data:p,
               Hashtbl.add id_to_decl ~key:rid ~data:p' );
           let cond_quants, cond_body = cond pis in
-          chcs_of_res r' ~pis;
+          chcs_of_res r' ~pis ~entry;
           Hash_set.add chcs
-            ((const :: cond_quants ==> (p' <-- [ const ]) &&& cond_body)
+            ((const :: cond_quants |. (p' <-- [ const ]) &&& cond_body)
             --> (p <-- [ znot const ])))
   | LabelResAtom (r', _) | ExprResAtom (r', _) ->
       let self_id = ida a in
       let pid = idr r' in
       List.iter r' ~f:(fun a ->
-          chcs_of_atom a ~pis;
+          chcs_of_atom a ~pis ~entry;
           let aid = ida a in
           match Hashtbl.find id_to_decl aid with
           | Some pa ->
@@ -195,13 +207,13 @@ and chcs_of_atom ?(pis = []) a =
               let p = zdecl pid adom bsort in
               ignore
                 ( Hashtbl.add id_to_decl ~key:pid ~data:p,
-                  (* point self at the same decl *)
+                  (* * point self at the same decl *)
                   Hashtbl.add id_to_decl ~key:self_id ~data:p );
               let consta = zconst "r" (List.hd_exn adom) in
               let cond_quants, cond_body = cond pis in
               Hash_set.add chcs
                 (consta :: cond_quants
-                ==> (pa <-- [ consta ] &&& cond_body) --> (p <-- [ consta ]))
+                |. (pa <-- [ consta ] &&& cond_body) --> (p <-- [ consta ]))
           | None ->
               (* Format.printf "resatom:\n%a\n" Utils.pp_res r';
                  Format.printf "%a\n" Utils.pp_atom a; *)
@@ -210,8 +222,8 @@ and chcs_of_atom ?(pis = []) a =
               (* Format.printf "%s\n" aid; *)
               failwith "resatom")
   | PathCondAtom (pi, r') ->
-      (* TODO: need more advanced id generation to connect these nested structures *)
-      chcs_of_res r' ~pis:(pi :: pis);
+      chcs_of_res r' ~pis:(pi :: pis) ~entry;
+      (* * point self at the same decl *)
       Hashtbl.add_exn id_to_decl ~key:(ida a)
         ~data:(Hashtbl.find_exn id_to_decl (idr r'))
   | FunAtom _ | LabelStubAtom _ | ExprStubAtom _ -> ()
@@ -219,23 +231,25 @@ and chcs_of_atom ?(pis = []) a =
   | ProjectionAtom _ -> failwith "unimplemented"
   | InspectionAtom _ -> failwith "unimplemented"
 
-and chcs_of_res ?(pis = []) r =
+and chcs_of_res ?(pis = []) ?(entry = "P0") r =
   let pid = idr r in
-  (* Format.printf "of_res: %s\n" pid; *)
   List.iter r ~f:(fun a ->
-      chcs_of_atom a ~pis;
+      chcs_of_atom a ~pis ~entry;
       let aid = ida a in
       match Hashtbl.find id_to_decl aid with
       | Some pa ->
           let adom = FuncDecl.get_domain pa in
           let p = zdecl pid adom bsort in
+          (* TODO: debug here *)
+          if String.(pid = entry) then entry_decl := Some p;
           ignore @@ Hashtbl.add id_to_decl ~key:pid ~data:p;
           let consta = zconst "r" (List.hd_exn adom) in
           (* TODO: should we bother with path conditions here? *)
           (* shouldn't matter - just superficial duplication *)
+          (* TODO: add flag to leave all path conditions out *)
           (* let cond_quants, cond_body = cond pis in *)
           Hash_set.add chcs
-            ([ consta ] ==> (pa <-- [ consta ]) --> (p <-- [ consta ]))
+            ([ consta ] |. (pa <-- [ consta ]) --> (p <-- [ consta ]))
       | None -> (
           (* Format.printf "resatom:\n%a\n" Utils.pp_res r;
              Format.printf "%a\n" Utils.pp_atom a; *)
