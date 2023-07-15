@@ -64,9 +64,9 @@ let recursion_thunked =
     (fun _ ->
       (* TODO: make more readable *)
       ( "((10 = 0) = false ⊩ (1 + (((10 - 1) = 0) = false ⊩ (1 + ((((10 - 1) - \
-         1) = 0) = false ⊩ (1 + ((((10 - 1) - 1) | (((10 - 1) - 1) | (stub - \
-         1) - 1) = 0) = false ⊩ (1 + stub)) | ((((10 - 1) - 1) | (((10 - 1) - \
-         1) | (stub - 1) - 1) = 0) = true ⊩ 0)))))))",
+         1) = 0) = false ⊩ (1 + ((((((10 - 1) - 1) | ((((10 - 1) - 1) | (stub \
+         - 1)) - 1)) = 0) = false ⊩ (1 + stub)) | (((((10 - 1) - 1) | ((((10 - \
+         1) - 1) | (stub - 1)) - 1)) = 0) = true ⊩ 0))))))))",
         pau recursion.(0).prog ));
   ]
 
@@ -87,6 +87,7 @@ let test_pa =
     "Church numerals" >::: test_church;
   ]
 
+(* let tests = "Program analysis tests" >::: Verify.verify_pa *)
 let tests = "Program analysis tests" >::: test_pa @ Verify.verify_pa
 
 let _ =

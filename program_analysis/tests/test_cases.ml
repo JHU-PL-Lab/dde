@@ -116,6 +116,49 @@ let recursion =
       prog =
         "let id = fun self -> fun n -> if n = 0 then 0 else 1 + self self (n - \
          1) in id id 10";
-      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri >== zint 0));
+      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri >== zint 3));
+    };
+  |]
+
+(** Church numerals *)
+
+let zero = "(fun f -> fun x -> x)"
+let one = "(fun f -> f)"
+let succ = "(fun c -> fun f -> fun x -> f (c f x))"
+let add = "(fun m -> fun n -> fun f -> fun x -> m f (n f x))"
+let mul = "(fun m -> fun n -> fun f -> fun x -> m (n f) x)"
+let unchurch = "(fun f -> f (function x -> x + 1) 0)"
+
+let church n =
+  let rec aux n =
+    match n with 0 -> zero | n -> succ ^ "(" ^ aux (n - 1) ^ ")"
+  in
+  "(" ^ aux n ^ ")"
+
+let church_basic =
+  [|
+    {
+      prog = unchurch ^ church 1;
+      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri === zint 1));
+    };
+    {
+      prog = unchurch ^ church 2;
+      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri === zint 2));
+    };
+    {
+      prog = unchurch ^ church 3;
+      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri === zint 3));
+    };
+    {
+      prog = unchurch ^ church 4;
+      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri === zint 4));
+    };
+  |]
+
+let church_binop =
+  [|
+    {
+      prog = unchurch ^ "(" ^ add ^ zero ^ one ^ ")";
+      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri === zint 1));
     };
   |]

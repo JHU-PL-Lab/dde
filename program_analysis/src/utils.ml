@@ -67,4 +67,4 @@ and pp_record_atom fmt = function
 and pp_res fmt = function
   | [] -> ()
   | [ a ] -> ff fmt "%a" pp_atom a
-  | a :: _as -> ff fmt "%a | %a" pp_atom a pp_res _as
+  | a :: _as -> ff fmt "(%a | %a)" pp_atom a pp_res _as
