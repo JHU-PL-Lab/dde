@@ -49,7 +49,7 @@ let rec pp_atom fmt = function
       | OrOp (r1, r2) -> ff fmt "(%a or %a)" pp_res r1 pp_res r2
       | NotOp r1 -> ff fmt "(not %a)" pp_res r1)
   | LabelStubAtom _ | ExprStubAtom _ -> ff fmt "stub"
-  | PathCondAtom ((r, b), a) -> ff fmt "(%a = %b ⊩ %a)" pp_res r b pp_res a
+  | PathCondAtom ((r, b), r') -> ff fmt "(%a = %b ⊩ %a)" pp_res r b pp_res r'
   (* | PathCondAtom (_, a) -> ff fmt "%a" pp_res a *)
   | RecordAtom entries ->
       ff fmt

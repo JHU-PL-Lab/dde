@@ -1,5 +1,3 @@
-[@@@warning "-26"]
-
 open Core
 open Z3
 open Grammar
@@ -72,14 +70,17 @@ let ( &&& ) e1 e2 = Boolean.mk_and ctx [ e1; e2 ]
 let ( ||| ) e1 e2 = Boolean.mk_or ctx [ e1; e2 ]
 let ( +++ ) e1 e2 = Arithmetic.mk_add ctx [ e1; e2 ]
 let ( --- ) e1 e2 = Arithmetic.mk_sub ctx [ e1; e2 ]
+let ( >== ) e1 e2 = Arithmetic.mk_ge ctx e1 e2
+let ( <== ) e1 e2 = Arithmetic.mk_le ctx e1 e2
 
-let ( ==> ) vars body =
+let ( |. ) vars body =
   Quantifier.expr_of_quantifier
     (Quantifier.mk_forall_const ctx vars body None [] [] None None)
 
 let solver = Solver.mk_solver_s ctx "HORN"
-let is_int_arith = function PlusOp _ | MinusOp _ -> true | _ -> false
 let chcs = Hash_set.create (module E)
+let list_of_chcs () = Hash_set.to_list chcs
+let entry_decl = ref None
 
 let find_or_add pid sort =
   match Hashtbl.find id_to_decl pid with
@@ -91,27 +92,25 @@ let find_or_add pid sort =
 
 let reset () =
   Hashtbl.clear res_to_id;
+  Hashtbl.clear atom_to_id;
   Hashtbl.clear id_to_decl;
   Hash_set.clear chcs;
   Solver.reset solver;
+  entry_decl := None;
   fresh_id := -1
 
 let rec cond pis =
   if List.is_empty pis then ([], ztrue)
-  else (
-    List.iter pis ~f:(fun (r, _) -> chcs_of_res r ~pis:[]);
+  else
     let conjs =
       List.foldi pis
         ~f:(fun i conjs (r, b) ->
-          let rid = Format.sprintf "c%d" i in
-          let const = zconst rid bsort in
-          (* TODO: temp solution, won't work for recursive programs *)
-          (* let _id = match r with [ a ] -> ida a | _ -> idr r in *)
+          let c = zconst (Format.sprintf "c%d" i) bsort in
           let p = zdecl (idr r) [ bsort ] bsort in
-          p <-- [ const ] &&& (const === zbool b) &&& conjs)
+          p <-- [ c ] &&& (c === zbool b) &&& conjs)
         ~init:ztrue
     in
-    (List.mapi pis ~f:(fun i _ -> zconst (Format.sprintf "c%d" i) bsort), conjs))
+    (List.mapi pis ~f:(fun i _ -> zconst (Format.sprintf "c%d" i) bsort), conjs)
 
 and chcs_of_atom ?(pis = []) a =
   match a with
@@ -120,13 +119,13 @@ and chcs_of_atom ?(pis = []) a =
       let p = find_or_add (ida a) isort in
       let body = p <-- [ zint i ] in
       Hash_set.add chcs
-        (if List.is_empty pis then body else cond_quants ==> cond_body --> body)
+        (if List.is_empty pis then body else cond_quants |. cond_body --> body)
   | BoolAtom b ->
       let cond_quants, cond_body = cond pis in
       let p = find_or_add (ida a) bsort in
       let body = p <-- [ zbool b ] in
       Hash_set.add chcs
-        (if List.is_empty pis then body else cond_quants ==> cond_body --> body)
+        (if List.is_empty pis then body else cond_quants |. cond_body --> body)
   | OpAtom op -> (
       match op with
       | PlusOp (r1, r2)
@@ -135,8 +134,9 @@ and chcs_of_atom ?(pis = []) a =
       | AndOp (r1, r2)
       | OrOp (r1, r2) ->
           let pid, id1, id2 = (ida a, idr r1, idr r2) in
-          if String.(pid = "P38") then Format.printf "hit!";
-          let is_int_arith = is_int_arith op in
+          let is_int_arith =
+            match op with PlusOp _ | MinusOp _ -> true | _ -> false
+          in
           let zop =
             match op with
             | PlusOp _ -> ( +++ )
@@ -168,8 +168,8 @@ and chcs_of_atom ?(pis = []) a =
           chcs_of_res r2 ~pis;
           Hash_set.add chcs
             (const1 :: const2 :: cond_quants
-            ==> (p1 <-- [ const1 ] &&& (p2 <-- [ const2 ]) &&& cond_body)
-                --> (p <-- [ zop const1 const2 ]))
+            |. (p1 <-- [ const1 ] &&& (p2 <-- [ const2 ]) &&& cond_body)
+               --> (p <-- [ zop const1 const2 ]))
       | NotOp r' ->
           let pid, rid = (ida a, idr r') in
           let p = zdecl pid [ bsort ] bsort in
@@ -181,7 +181,7 @@ and chcs_of_atom ?(pis = []) a =
           let cond_quants, cond_body = cond pis in
           chcs_of_res r' ~pis;
           Hash_set.add chcs
-            ((const :: cond_quants ==> (p' <-- [ const ]) &&& cond_body)
+            ((const :: cond_quants |. (p' <-- [ const ]) &&& cond_body)
             --> (p <-- [ znot const ])))
   | LabelResAtom (r', _) | ExprResAtom (r', _) ->
       let self_id = ida a in
@@ -195,25 +195,20 @@ and chcs_of_atom ?(pis = []) a =
               let p = zdecl pid adom bsort in
               ignore
                 ( Hashtbl.add id_to_decl ~key:pid ~data:p,
-                  (* point self at the same decl *)
+                  (* *point self at the same decl *)
                   Hashtbl.add id_to_decl ~key:self_id ~data:p );
               let consta = zconst "r" (List.hd_exn adom) in
               let cond_quants, cond_body = cond pis in
               Hash_set.add chcs
                 (consta :: cond_quants
-                ==> (pa <-- [ consta ] &&& cond_body) --> (p <-- [ consta ]))
-          | None ->
-              (* Format.printf "resatom:\n%a\n" Utils.pp_res r';
-                 Format.printf "%a\n" Utils.pp_atom a; *)
-              (* Format.printf "resatom:\n%a\n" Grammar.pp_res r';
-                 Format.printf "%a\n" Grammar.pp_atom a; *)
-              (* Format.printf "%s\n" aid; *)
-              failwith "resatom")
-  | PathCondAtom (pi, r') ->
-      (* TODO: need more advanced id generation to connect these nested structures *)
-      chcs_of_res r' ~pis:(pi :: pis);
+                |. (pa <-- [ consta ] &&& cond_body) --> (p <-- [ consta ]))
+          | None -> failwith "resatom")
+  | PathCondAtom (((r, b) as pi), r0) ->
+      chcs_of_res r ~pis:[];
+      chcs_of_res r0 ~pis:(pi :: pis);
+      (* *point self at the same decl *)
       Hashtbl.add_exn id_to_decl ~key:(ida a)
-        ~data:(Hashtbl.find_exn id_to_decl (idr r'))
+        ~data:(Hashtbl.find_exn id_to_decl (idr r0))
   | FunAtom _ | LabelStubAtom _ | ExprStubAtom _ -> ()
   | RecordAtom _ -> failwith "unimplemented"
   | ProjectionAtom _ -> failwith "unimplemented"
@@ -221,7 +216,6 @@ and chcs_of_atom ?(pis = []) a =
 
 and chcs_of_res ?(pis = []) r =
   let pid = idr r in
-  (* Format.printf "of_res: %s\n" pid; *)
   List.iter r ~f:(fun a ->
       chcs_of_atom a ~pis;
       let aid = ida a in
@@ -229,19 +223,16 @@ and chcs_of_res ?(pis = []) r =
       | Some pa ->
           let adom = FuncDecl.get_domain pa in
           let p = zdecl pid adom bsort in
+          (* the root assertion is always P0 *)
+          if String.(pid = "P0") then entry_decl := Some p;
           ignore @@ Hashtbl.add id_to_decl ~key:pid ~data:p;
           let consta = zconst "r" (List.hd_exn adom) in
-          (* TODO: should we bother with path conditions here? *)
-          (* shouldn't matter - just superficial duplication *)
-          (* let cond_quants, cond_body = cond pis in *)
+          (* TODO: add flag to leave all path conditions out *)
+          let cond_quants, cond_body = cond pis in
           Hash_set.add chcs
-            ([ consta ] ==> (pa <-- [ consta ]) --> (p <-- [ consta ]))
+            (consta :: cond_quants
+            |. (pa <-- [ consta ] &&& cond_body) --> (p <-- [ consta ]))
       | None -> (
-          (* Format.printf "resatom:\n%a\n" Utils.pp_res r;
-             Format.printf "%a\n" Utils.pp_atom a; *)
-          (* Format.printf "resatom:\n%a\n" Grammar.pp_res r;
-             Format.printf "%a\n" Grammar.pp_atom a; *)
-          (* Format.printf "%s\n" aid; *)
           match a with
           | ExprStubAtom _ | LabelStubAtom _ -> ()
           | _ -> failwith "resatom non-labeled"))

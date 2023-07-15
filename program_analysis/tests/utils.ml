@@ -1,5 +1,9 @@
 open Interpreter
 open Program_analysis
+open Solver
+open Test_cases
+
+exception Unreachable
 
 let pf = Format.printf
 
@@ -21,25 +25,43 @@ let reset_label () = label := -1
 let ( |>> ) v f = Option.map f v
 let ( |>-> ) v f = Option.bind v f
 
+(* TODO: can't use Debugutils.parse_analyze *)
 let pau s =
-  s |> Debugutils.parse_analyze |> fun (r, _) ->
-  Format.asprintf "%a" Utils.pp_res r
+  s |> Core.Fn.flip ( ^ ) ";;" |> Lexing.from_string |> Parser.main Lexer.token
+  |> Lib.analyze ~debug:false
+  |> Format.asprintf "%a" Utils.pp_res
 
-let pau' s = s |> Debugutils.parse_analyze |> snd
+let pau' ?(entry = "P0") s =
+  s |> Core.Fn.flip ( ^ ) ";;" |> Lexing.from_string |> Parser.main Lexer.token
+  |> Lib.analyze ~debug:false
+  |> fun r ->
+  (* pf "result: %a\n" Grammar.pp_res r; *)
+  Solver.chcs_of_res r;
+  let chcs = Solver.list_of_chcs () in
 
-let verify_result chcs assns =
+  let entry = Option.get !Solver.entry_decl in
+
+  (* Format.printf "CHCs:\n";
+     List.iter ~f:(fun chc -> Format.printf "%s\n" (Z3.Expr.to_string chc)) chcs; *)
+  Solver.reset ();
+  (chcs, entry)
+
+let verify_result { prog; verif } =
+  (* pf "\nTest: %s\n" prog; *)
   let solver = Solver.solver in
-  Z3.Solver.add solver chcs;
-  match Z3.Solver.check solver assns with
+  let chcs, p = pau' prog in
+  Z3.Solver.add solver (verif p :: chcs);
+
+  match Z3.Solver.check solver [] with
   | SATISFIABLE ->
-      pf "\nsat\n\n";
-      let model = solver |> Z3.Solver.get_model |> Core.Option.value_exn in
-      model |> Z3.Model.to_string |> pf "Model:\n%s\n\n";
-      (* solver |> Z3.Solver.to_string |> pf "Solver:\n%s"; *)
+      (* pf "\nsat\n\n";
+         let model = solver |> Z3.Solver.get_model |> Core.Option.value_exn in
+         model |> Z3.Model.to_string |> pf "Model:\n%s\n\n";
+         solver |> Z3.Solver.to_string |> pf "Solver:\n%s"; *)
       true
   | UNSATISFIABLE ->
-      pf "unsat";
+      pf "unsat\n";
       false
   | UNKNOWN ->
-      pf "unknown";
+      pf "unknown\n";
       false

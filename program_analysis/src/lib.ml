@@ -362,17 +362,6 @@ let analyze ~debug e =
   let e = transform_let e in
   build_myfun e None;
   let r = analyze_aux e [] None (Set.empty (module State)) in
-  let r = Option.value_exn r in
-
-  (* Format.printf "\nresult:\n%a\n" Grammar.pp_res r; *)
-  (* Format.printf "result:\n%a\n" Utils.pp_res r; *)
-  (* Format.printf "\n"; *)
-  Solver.chcs_of_res r;
-  let chcs = Hash_set.to_list Solver.chcs in
-
-  (* Format.printf "CHCs:\n";
-     List.iter ~f:(fun chc -> Format.printf "%s\n" (Z3.Expr.to_string chc)) chcs; *)
-  Solver.reset ();
 
   (if !is_debug_mode then (
      Format.printf "\n%s\n\n" @@ show_expr e;
@@ -385,4 +374,4 @@ let analyze ~debug e =
   clean_up ();
   Hashset.clear s_set;
 
-  (r, chcs)
+  Option.value_exn r
