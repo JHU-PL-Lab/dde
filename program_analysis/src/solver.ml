@@ -43,22 +43,13 @@ let fresh_id = ref (-1)
 let idr r =
   Format.sprintf "P%d"
     (Hashtbl.find_or_add res_to_id r ~default:(fun () ->
-         let atom_ids = Hashtbl.data atom_to_id in
          incr fresh_id;
-         (* make sure result ID is not alreayd used for atoms *)
-         while List.mem ~equal:Int.equal atom_ids !fresh_id do
-           incr fresh_id
-         done;
          !fresh_id))
 
 let ida a =
   Format.sprintf "P%d"
     (Hashtbl.find_or_add atom_to_id a ~default:(fun () ->
-         let res_ids = Hashtbl.data res_to_id in
          incr fresh_id;
-         while List.mem ~equal:Int.equal res_ids !fresh_id do
-           incr fresh_id
-         done;
          !fresh_id))
 
 let id_to_decl = Hashtbl.create (module String)
@@ -87,7 +78,6 @@ let ( |. ) vars body =
     (Quantifier.mk_forall_const ctx vars body None [] [] None None)
 
 let solver = Solver.mk_solver_s ctx "HORN"
-let is_int_arith = function PlusOp _ | MinusOp _ -> true | _ -> false
 let chcs = Hash_set.create (module E)
 let list_of_chcs () = Hash_set.to_list chcs
 let entry_decl = ref None
@@ -102,10 +92,11 @@ let find_or_add pid sort =
 
 let reset () =
   Hashtbl.clear res_to_id;
+  Hashtbl.clear atom_to_id;
   Hashtbl.clear id_to_decl;
   Hash_set.clear chcs;
-  entry_decl := None;
   Solver.reset solver;
+  entry_decl := None;
   fresh_id := -1
 
 let rec cond pis =
@@ -143,7 +134,9 @@ and chcs_of_atom ?(pis = []) a =
       | AndOp (r1, r2)
       | OrOp (r1, r2) ->
           let pid, id1, id2 = (ida a, idr r1, idr r2) in
-          let is_int_arith = is_int_arith op in
+          let is_int_arith =
+            match op with PlusOp _ | MinusOp _ -> true | _ -> false
+          in
           let zop =
             match op with
             | PlusOp _ -> ( +++ )

@@ -1,6 +1,7 @@
 open Interpreter
 open Program_analysis
 open Solver
+open Test_cases
 
 exception Unreachable
 
@@ -45,52 +46,11 @@ let pau' ?(entry = "P0") s =
   Solver.reset ();
   (chcs, entry)
 
-let verif_db = Core.Hashtbl.create (module Core.String);;
-
-Core.Array.iteri Test_cases.basic ~f:(fun i t ->
-    Core.Hashtbl.add_exn verif_db ~key:t
-      ~data:
-        (match i with
-        | 0 ->
-            let r = zconst "r" isort in
-            fun p -> [ r ] |. (p <-- [ r ]) --> (r === zint 1)
-        | 1 ->
-            let r = zconst "r" isort in
-            fun p -> [ r ] |. (p <-- [ r ]) --> (r === zint 3)
-        | _ -> raise Unreachable))
-;;
-
-Core.Array.iteri Test_cases.conditional ~f:(fun i t ->
-    Core.Hashtbl.add_exn verif_db ~key:t
-      ~data:
-        (match i with
-        | 0 ->
-            let r = zconst "r" isort in
-            fun p -> [ r ] |. (p <-- [ r ]) --> (r === zint 10)
-        | 1 ->
-            let r = zconst "r" isort in
-            fun p -> [ r ] |. (p <-- [ r ]) --> (r === zint 1)
-        | 2 ->
-            let r = zconst "r" isort in
-            fun p -> [ r ] |. (p <-- [ r ]) --> (r === zint 1)
-        | _ -> raise Unreachable))
-;;
-
-Core.Array.iteri Test_cases.recursion ~f:(fun i t ->
-    Core.Hashtbl.add_exn verif_db ~key:t
-      ~data:
-        (match i with
-        | 0 ->
-            let r = zconst "r" isort in
-            fun p -> [ r ] |. (p <-- [ r ]) --> (r >== zint 0)
-        | _ -> raise Unreachable))
-
-let verify_result test =
-  pf "\nTest: %s\n" test;
-
+let verify_result { prog; verif } =
+  (* pf "\nTest: %s\n" prog; *)
   let solver = Solver.solver in
-  let chcs, p = pau' test in
-  Z3.Solver.add solver (Core.Hashtbl.find_exn verif_db test p :: chcs);
+  let chcs, p = pau' prog in
+  Z3.Solver.add solver (verif p :: chcs);
 
   match Z3.Solver.check solver [] with
   | SATISFIABLE ->
@@ -100,8 +60,8 @@ let verify_result test =
          solver |> Z3.Solver.to_string |> pf "Solver:\n%s"; *)
       true
   | UNSATISFIABLE ->
-      pf "unsat";
+      pf "unsat\n";
       false
   | UNKNOWN ->
-      pf "unknown";
+      pf "unknown\n";
       false
