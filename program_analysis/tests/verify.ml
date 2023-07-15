@@ -30,6 +30,14 @@ let verify_currying _ =
 
 let verify_recursion _ = verify_result Test_cases.recursion.(0)
 
+let verify_church_basic _ =
+  verify_result Test_cases.church_basic.(0);
+  verify_result Test_cases.church_basic.(1);
+  verify_result Test_cases.church_basic.(2);
+  verify_result Test_cases.church_basic.(3)
+
+let verify_church_binop _ = verify_result Test_cases.church_binop.(0)
+
 let verify_pa =
   [
     "Verify basic" >:: verify_basic;
@@ -38,4 +46,6 @@ let verify_pa =
     "Verify conditional" >:: verify_conditional;
     "Verify currying" >:: verify_currying;
     "Verify recursion" >:: verify_recursion;
+    "Verify Church numeral basic" >:: verify_church_basic;
+    "Verify Church numeral binop" >:: verify_church_binop;
   ]
