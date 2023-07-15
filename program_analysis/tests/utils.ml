@@ -54,10 +54,10 @@ let verify_result { prog; verif } =
 
   match Z3.Solver.check solver [] with
   | SATISFIABLE ->
-      (* pf "\nsat\n\n";
-         let model = solver |> Z3.Solver.get_model |> Core.Option.value_exn in
-         model |> Z3.Model.to_string |> pf "Model:\n%s\n\n";
-         solver |> Z3.Solver.to_string |> pf "Solver:\n%s"; *)
+      (* pf "\nsat\n\n"; *)
+      (* let model = solver |> Z3.Solver.get_model |> Core.Option.value_exn in
+         model |> Z3.Model.to_string |> pf "Model:\n%s\n\n"; *)
+      (* solver |> Z3.Solver.to_string |> pf "Solver:\n%s"; *)
       true
   | UNSATISFIABLE ->
       pf "unsat\n";

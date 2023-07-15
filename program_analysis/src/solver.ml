@@ -204,7 +204,9 @@ and chcs_of_atom ?(pis = []) a =
                 |. (pa <-- [ consta ] &&& cond_body) --> (p <-- [ consta ]))
           | None -> failwith "resatom")
   | PathCondAtom (((r, b) as pi), r0) ->
-      chcs_of_res r ~pis:[];
+      (* generate CHCs for current path condition using
+         the previous path conditions *)
+      chcs_of_res r ~pis;
       chcs_of_res r0 ~pis:(pi :: pis);
       (* *point self at the same decl *)
       Hashtbl.add_exn id_to_decl ~key:(ida a)
