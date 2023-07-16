@@ -127,11 +127,11 @@ let entry_decl = ref None
 
 let find_or_add aid sort =
   match Hashtbl.find id_to_decl aid with
-  | Some p -> p
+  | Some pa -> pa
   | None ->
-      let p = zdecl aid [ sort ] bsort in
-      Hashtbl.add_exn id_to_decl ~key:aid ~data:p;
-      p
+      let pa = zdecl aid [ sort ] bsort in
+      Hashtbl.add_exn id_to_decl ~key:aid ~data:pa;
+      pa
 
 let reset () =
   Hashtbl.clear res_to_id;
@@ -149,8 +149,8 @@ let rec cond pis =
       List.foldi pis
         ~f:(fun i conjs (r, b) ->
           let c = zconst (Format.sprintf "c%d" i) bsort in
-          let p = zdecl (idr r) [ bsort ] bsort in
-          p <-- [ c ] &&& (c === zbool b) &&& conjs)
+          let pr = zdecl (idr r) [ bsort ] bsort in
+          pr <-- [ c ] &&& (c === zbool b) &&& conjs)
         ~init:ztrue
     in
     (List.mapi pis ~f:(fun i _ -> zconst (Format.sprintf "c%d" i) bsort), conjs)
@@ -178,7 +178,7 @@ and chcs_of_atom ?(sort = isort) ?(pis = []) a =
       | EqualOp (r1, r2)
       | AndOp (r1, r2)
       | OrOp (r1, r2) ->
-          let pid, id1, id2 = (ida a, idr r1, idr r2) in
+          let aid, rid1, rid2 = (ida a, idr r1, idr r2) in
           let is_int_arith =
             match op with PlusOp _ | MinusOp _ -> true | _ -> false
           in
@@ -191,64 +191,60 @@ and chcs_of_atom ?(sort = isort) ?(pis = []) a =
             | OrOp _ -> ( ||| )
             | _ -> raise Unreachable
           in
-          let p = zdecl pid [ (if is_int_arith then isort else bsort) ] bsort in
+          let pa =
+            zdecl aid [ (if is_int_arith then isort else bsort) ] bsort
+          in
           let param_sort =
             match op with
             | PlusOp _ | MinusOp _ | EqualOp _ -> isort
             | _ -> bsort
           in
-          let p1, p2 =
-            (zdecl id1 [ param_sort ] bsort, zdecl id2 [ param_sort ] bsort)
+          let pr1, pr2 =
+            (zdecl rid1 [ param_sort ] bsort, zdecl rid2 [ param_sort ] bsort)
           in
-          let const1, const2 =
-            (zconst "r1" param_sort, zconst "r2" param_sort)
-          in
+          let r1_, r2_ = (zconst "r1" param_sort, zconst "r2" param_sort) in
           (* don't use `add_exn` as we allow duplicates *)
           ignore
-            ( Hashtbl.add id_to_decl ~key:pid ~data:p,
-              Hashtbl.add id_to_decl ~key:id1 ~data:p1,
-              Hashtbl.add id_to_decl ~key:id2 ~data:p2 );
+            ( Hashtbl.add id_to_decl ~key:aid ~data:pa,
+              Hashtbl.add id_to_decl ~key:rid1 ~data:pr1,
+              Hashtbl.add id_to_decl ~key:rid2 ~data:pr2 );
           let cond_quants, cond_body = cond pis in
-          chcs_of_res ~sort:param_sort r1 ~pis;
-          chcs_of_res ~sort:param_sort r2 ~pis;
+          chcs_of_res r1 ~sort:param_sort ~pis;
+          chcs_of_res r2 ~sort:param_sort ~pis;
           Hash_set.add chcs
-            (const1 :: const2 :: cond_quants
-            |. (p1 <-- [ const1 ] &&& (p2 <-- [ const2 ]) &&& cond_body)
-               --> (p <-- [ zop const1 const2 ]))
+            (r1_ :: r2_ :: cond_quants
+            |. (pr1 <-- [ r1_ ] &&& (pr2 <-- [ r2_ ]) &&& cond_body)
+               --> (pa <-- [ zop r1_ r2_ ]))
       | NotOp r' ->
-          let pid, rid = (ida a, idr r') in
-          let p = zdecl pid [ bsort ] bsort in
-          let p' = zdecl rid [ bsort ] bsort in
-          let const = zconst "r" bsort in
+          let aid, rid = (ida a, idr r') in
+          let pa = zdecl aid [ bsort ] bsort in
+          let pr = zdecl rid [ bsort ] bsort in
+          let r = zconst "r" bsort in
           ignore
-            ( Hashtbl.add id_to_decl ~key:pid ~data:p,
-              Hashtbl.add id_to_decl ~key:rid ~data:p' );
+            ( Hashtbl.add id_to_decl ~key:aid ~data:pa,
+              Hashtbl.add id_to_decl ~key:rid ~data:pr );
           let cond_quants, cond_body = cond pis in
-          chcs_of_res ~sort:bsort r' ~pis;
+          chcs_of_res r' ~sort:bsort ~pis;
           Hash_set.add chcs
-            ((const :: cond_quants |. (p' <-- [ const ]) &&& cond_body)
-            --> (p <-- [ znot const ])))
+            ((r :: cond_quants |. (pr <-- [ r ]) &&& cond_body)
+            --> (pa <-- [ znot r ])))
   | LabelResAtom (r', _) | ExprResAtom (r', _) ->
-      chcs_of_res ~sort r' ~pis;
-
+      chcs_of_res r' ~sort ~pis;
       let aid = ida a in
       let rid = idr r' in
       let pr = Hashtbl.find_exn id_to_decl rid in
+      (* TODO: can perhaps use ~sort instead *)
       let rdom = FuncDecl.get_domain pr in
       let pa = zdecl aid rdom bsort in
       ignore (Hashtbl.add id_to_decl ~key:aid ~data:pa);
       let r = zconst "r" (List.hd_exn rdom) in
       Hash_set.add chcs ([ r ] |. (pr <-- [ r ]) --> (pa <-- [ r ]))
-      (* *point self at the same decl *)
-      (* ignore
-         @@ Hashtbl.add id_to_decl ~key:(ida a)
-              ~data:(Hashtbl.find_exn id_to_decl (idr r')) *)
   | PathCondAtom (((r, b) as pi), r0) ->
       (* generate CHCs for current path condition using
          the previous path conditions *)
-      chcs_of_res ~sort r ~pis;
-      chcs_of_res ~sort r0 ~pis:(pi :: pis);
-      (* *point self at the same decl *)
+      chcs_of_res r ~sort ~pis;
+      chcs_of_res r0 ~sort ~pis:(pi :: pis);
+      (* point self at the same decl *)
       Hashtbl.add_exn id_to_decl ~key:(ida a)
         ~data:(Hashtbl.find_exn id_to_decl (idr r0))
   | FunAtom _ | LabelStubAtom _ | ExprStubAtom _ -> ()
@@ -264,16 +260,15 @@ and chcs_of_res ?(sort = isort) ?(pis = []) r =
       match Hashtbl.find id_to_decl aid with
       | Some pa ->
           let adom = FuncDecl.get_domain pa in
-          let p = zdecl rid adom bsort in
+          let pr = zdecl rid adom bsort in
           (* the root assertion is always P0 *)
-          if String.(rid = "P0") then entry_decl := Some p;
-          ignore (Hashtbl.add id_to_decl ~key:rid ~data:p);
-          let consta = zconst "r" (List.hd_exn adom) in
+          if String.(rid = "P0") then entry_decl := Some pr;
+          ignore (Hashtbl.add id_to_decl ~key:rid ~data:pr);
+          let r = zconst "r" (List.hd_exn adom) in
           (* TODO: add flag to leave all path conditions out *)
           let cond_quants, cond_body = cond pis in
           Hash_set.add chcs
-            (consta :: cond_quants
-            |. (pa <-- [ consta ] &&& cond_body) --> (p <-- [ consta ]))
+            (r :: cond_quants |. (pa <-- [ r ] &&& cond_body) --> (pr <-- [ r ]))
       | None -> (
           match a with
           | ExprStubAtom _ | LabelStubAtom _ ->

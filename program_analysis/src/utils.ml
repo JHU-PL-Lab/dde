@@ -1,6 +1,7 @@
 open Core
 open Interpreter.Ast
 open Grammar
+open Solver
 
 let prune_sigma ?(k = 2) s = List.filteri s ~f:(fun i _ -> i < k)
 
@@ -68,3 +69,19 @@ and pp_res fmt = function
   | [] -> ()
   | [ a ] -> ff fmt "%a" pp_atom a
   | a :: _as -> ff fmt "(%a | %a)" pp_atom a pp_res _as
+
+let solve_cond r b =
+  let solver = Solver.solver in
+  Solver.chcs_of_res r;
+  let p = Option.value_exn !Solver.entry_decl in
+  let chcs = Hash_set.to_list Solver.chcs in
+  let rb = zconst "r" bsort in
+  Z3.Solver.add solver (([ rb ] |. (p <-- [ rb ]) --> (rb === zbool b)) :: chcs);
+  let sat =
+    match Z3.Solver.check solver [] with
+    | SATISFIABLE -> true
+    | UNSATISFIABLE -> false
+    | UNKNOWN -> failwith "unknown"
+  in
+  Solver.reset ();
+  sat

@@ -33,8 +33,8 @@ and atom =
   | BoolAtom of bool
   | FunAtom of expr * int * sigma
   | OpAtom of op
-  | LabelResAtom of (res[@hash.ignore]) * State.lstate
-  | ExprResAtom of (res[@hash.ignore]) * State.estate
+  | LabelResAtom of res * State.lstate
+  | ExprResAtom of res * State.estate
   | LabelStubAtom of State.lstate
   | ExprStubAtom of State.estate
   | PathCondAtom of path_cond * res
