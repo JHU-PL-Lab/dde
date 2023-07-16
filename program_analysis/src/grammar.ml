@@ -33,8 +33,8 @@ and atom =
   | BoolAtom of bool
   | FunAtom of expr * int * sigma
   | OpAtom of op
-  | LabelResAtom of res * State.lstate
-  | ExprResAtom of res * State.estate
+  | LabelResAtom of (res[@hash.ignore]) * State.lstate
+  | ExprResAtom of (res[@hash.ignore]) * State.estate
   | LabelStubAtom of State.lstate
   | ExprStubAtom of State.estate
   | PathCondAtom of path_cond * res
@@ -45,7 +45,7 @@ and atom =
 and res = atom list
 
 and path_cond = res * bool
-[@@deriving compare, sexp, hash, show { with_path = false }]
+[@@deriving hash, sexp, compare, show { with_path = false }]
 
 (* used to accumulate disjuncts when stitching stacks at Var Non-Local *)
 module Choice = struct

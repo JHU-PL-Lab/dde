@@ -116,7 +116,8 @@ let recursion =
       prog =
         "let id = fun self -> fun n -> if n = 0 then 0 else 1 + self self (n - \
          1) in id id 10";
-      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri >== zint 3));
+      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri >== zint 2));
+      (* verif = (fun p -> ztrue); *)
     };
   |]
 

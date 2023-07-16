@@ -3,6 +3,7 @@ open Core.Option.Let_syntax
 open Interpreter.Ast
 open Grammar
 open Utils
+open Solver
 
 exception Unreachable
 exception Bad_type
@@ -173,6 +174,8 @@ let rec process_maybe_bools bs =
         | DefInt _ -> raise Bad_type)
     ~finish:Fun.id
 
+let rb = zconst "r" bsort
+let verif p b = [ rb ] |. (p <-- [ rb ]) --> (rb === zbool b)
 let empty_choice_set = Set.empty (module Choice)
 
 let rec analyze_aux expr s pi v_set =
@@ -300,27 +303,79 @@ let rec analyze_aux expr s pi v_set =
             | _ -> raise Unreachable [@coverage off])
       | _ -> raise Unreachable [@coverage off])
   | If (e, e_true, e_false, l) ->
-      let%map r_cond = analyze_aux e s pi v_set in
-      r_cond |> eval_bool |> process_maybe_bools
-      |> List.map ~f:(fun b ->
-             let path_cond = (r_cond, b) in
-             ( path_cond,
-               analyze_aux
-                 (if b then e_true else e_false)
-                 s (Some path_cond) v_set ))
-      |> List.filter_map ~f:(function
-           | _, None -> None
-           | path_cond, Some r -> Some (path_cond, r))
-      |> List.fold
-           ~init:(Set.empty (module PathChoice))
-           ~f:(fun acc (path_cond, r) ->
-             fold_res r ~init:empty_choice_set ~f:Set.add
-             |> Set.elements
-             |> List.map ~f:(fun a -> (path_cond, a))
-             |> List.fold ~init:acc ~f:Set.add)
-      |> Set.elements
-      (* artificially make `a` not an atom (per spec) *)
-      |> List.map ~f:(fun (path_cond, a) -> PathCondAtom (path_cond, [ a ]))
+      let%bind r_cond = analyze_aux e s pi v_set in
+      (* let prog = Format.asprintf "%a" pp_res r_cond in *)
+      (* Format.printf "if condition: %s\n" prog; *)
+      (* Format.printf "if condition: %a\n" Grammar.pp_res r_cond; *)
+      let solver = Solver.solver in
+      Solver.chcs_of_res r_cond;
+      let p = Option.value_exn !Solver.entry_decl in
+      let chcs = Hash_set.to_list Solver.chcs in
+      Z3.Solver.add solver (verif p true :: chcs);
+      let btrue =
+        match Z3.Solver.check solver [] with
+        | SATISFIABLE ->
+            (* Format.printf "\nsat\n\n"; *)
+            (* let model =
+                 solver |> Z3.Solver.get_model |> Core.Option.value_exn
+               in
+               model |> Z3.Model.to_string |> Format.printf "Model:\n%s\n\n";
+               solver |> Z3.Solver.to_string |> Format.printf "Solver:\n%s"; *)
+            true
+        | UNSATISFIABLE ->
+            (* Format.printf "unsat\n"; *)
+            false
+        | UNKNOWN ->
+            (* Format.printf "unknown\n"; *)
+            failwith "unknown"
+      in
+      Solver.reset ();
+      Z3.Solver.add solver (verif p false :: chcs);
+      let bfalse =
+        match Z3.Solver.check solver [] with
+        | SATISFIABLE ->
+            (* Format.printf "\nsat\n\n"; *)
+            (* if
+                 String.(
+                   prog
+                   = "((((10 - 1) - 1) | ((((10 - 1) - 1) | (stub - 1)) - 1)) = 0)")
+               then (
+                 let model =
+                   solver |> Z3.Solver.get_model |> Core.Option.value_exn
+                 in
+                 model |> Z3.Model.to_string |> Format.printf "Model:\n%s\n\n";
+                 solver |> Z3.Solver.to_string |> Format.printf "Solver:\n%s"); *)
+            true
+        | UNSATISFIABLE ->
+            (* Format.printf "unsat\n"; *)
+            false
+        | UNKNOWN ->
+            (* Format.printf "unknown\n"; *)
+            failwith "unknown"
+      in
+      Solver.reset ();
+      if btrue && not bfalse then
+        let%map r_true = analyze_aux e_true s pi v_set in
+        List.map r_true ~f:(fun a -> PathCondAtom ((r_cond, true), [ a ]))
+      else if bfalse && not btrue then
+        let%map r_false = analyze_aux e_false s pi v_set in
+        List.map r_false ~f:(fun a -> PathCondAtom ((r_cond, false), [ a ]))
+      else if (not btrue) && not bfalse then (
+        let%bind r_true = analyze_aux e_true s pi v_set in
+        let r_true =
+          List.map r_true ~f:(fun a -> PathCondAtom ((r_cond, true), [ a ]))
+        in
+        Solver.reset ();
+        let%map r_false = analyze_aux e_false s pi v_set in
+        let r_false =
+          List.map r_false ~f:(fun a -> PathCondAtom ((r_cond, false), [ a ]))
+        in
+        Set.elements
+        @@ List.fold r_false
+             ~init:(List.fold r_true ~init:empty_choice_set ~f:Set.add)
+             ~f:Set.add)
+      else None
+      (* TODO: group atoms under the same path condition together *)
   | Plus (e1, e2) | Minus (e1, e2) | Equal (e1, e2) | And (e1, e2) | Or (e1, e2)
     ->
       let%bind r1 = analyze_aux e1 s pi v_set in

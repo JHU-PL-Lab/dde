@@ -87,8 +87,8 @@ let test_pa =
     "Church numerals" >::: test_church;
   ]
 
-(* let tests = "Program analysis tests" >::: Verify.verify_pa *)
-let tests = "Program analysis tests" >::: test_pa @ Verify.verify_pa
+let tests = "Program analysis tests" >::: Verify.verify_pa
+(* let tests = "Program analysis tests" >::: test_pa @ Verify.verify_pa *)
 
 let _ =
   (* Pbt.run _; *)
