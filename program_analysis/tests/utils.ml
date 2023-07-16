@@ -31,10 +31,11 @@ let pau s =
   |> Lib.analyze ~debug:false
   |> Format.asprintf "%a" Utils.pp_res
 
-let pau' ?(entry = "P0") s =
+let pau' s =
   s |> Core.Fn.flip ( ^ ) ";;" |> Lexing.from_string |> Parser.main Lexer.token
   |> Lib.analyze ~debug:false
   |> fun r ->
+  (* pf "result: %a\n" Utils.pp_res r; *)
   (* pf "result: %a\n" Grammar.pp_res r; *)
   Solver.chcs_of_res r;
   let chcs = Solver.list_of_chcs () in

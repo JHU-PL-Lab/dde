@@ -3,175 +3,9 @@ open Core.Option.Let_syntax
 open Interpreter.Ast
 open Grammar
 open Utils
+open Solver
 
 exception Unreachable
-exception Bad_type
-
-let rec eval_int ~m ~cnt r =
-  List.fold r
-    ~init:(Set.empty (module Maybe_prim))
-    ~f:(fun acc a ->
-      match a with
-      | BoolAtom _ | FunAtom _ | RecordAtom _ | InspectionAtom _ ->
-          raise Bad_type
-      | IntAtom i -> Set.add acc (DefInt i)
-      | OpAtom op -> (
-          match op with
-          | PlusOp (i1, i2) | MinusOp (i1, i2) ->
-              let i1s = eval_int ~m ~cnt i1 in
-              let i2s = eval_int ~m ~cnt i2 in
-              List.fold (all_combs i1s i2s) ~init:acc ~f:(fun acc pair ->
-                  match pair with
-                  | Maybe_prim.DefInt x, DefInt y ->
-                      Set.add acc
-                        (DefInt
-                           (match op with
-                           | PlusOp _ -> x + y
-                           | MinusOp _ -> x - y
-                           | _ -> raise Unreachable [@coverage off]))
-                  | _ -> Set.add acc Any)
-          | _ -> raise Bad_type)
-      | LabelResAtom (r, lst) ->
-          Set.union acc
-            (eval_int
-               ~m:(Map.add_exn m ~key:(State.Lstate lst, 0) ~data:r)
-               ~cnt r)
-      | ExprResAtom (r, est) ->
-          Set.union acc
-            (eval_int
-               ~m:(Map.add_exn m ~key:(State.Estate est, 0) ~data:r)
-               ~cnt r)
-      | LabelStubAtom lst ->
-          if cnt <= 0 then Set.add acc Any
-          else
-            Set.union acc
-              (eval_int ~m ~cnt:(cnt - 1)
-                 (Map.find_exn m (State.Lstate lst, 0)))
-      | ExprStubAtom est ->
-          if cnt <= 0 then Set.add acc Any
-          else
-            Set.union acc
-              (eval_int ~m ~cnt:(cnt - 1)
-                 (Map.find_exn m (State.Estate est, 0)))
-      | PathCondAtom ((r, b), r') ->
-          if
-            Set.exists (eval_bool ~m ~cnt r) ~f:(function
-              | Maybe_prim.DefBool b' -> Stdlib.(b = b')
-              | _ -> false)
-          then Set.union acc (eval_int ~m ~cnt r')
-          else acc
-      | ProjectionAtom (r, l) ->
-          fold_res r
-            ~init:(Set.empty (module Maybe_prim))
-            ~f:
-              (fun acc -> function
-                | RecordAtom entries -> (
-                    match
-                      List.find entries ~f:(fun (l', _) -> Stdlib.(l = l'))
-                    with
-                    | Some (_, r) -> Set.union acc (eval_int ~m ~cnt r)
-                    | None -> acc)
-                | _ -> raise Bad_type))
-
-and eval_bool ?(m = Map.empty (module State)) ?(cnt = 99) r =
-  List.fold r
-    ~init:(Set.empty (module Maybe_prim))
-    ~f:(fun acc a ->
-      match a with
-      | IntAtom _ | FunAtom _ | RecordAtom _ -> raise Bad_type
-      | BoolAtom b -> Set.add acc (DefBool b)
-      | OpAtom op -> (
-          match op with
-          | EqualOp (i1, i2) ->
-              let i1s = eval_int ~m ~cnt i1 in
-              let i2s = eval_int ~m ~cnt i2 in
-              List.fold (all_combs i1s i2s) ~init:acc ~f:(fun acc pair ->
-                  match pair with
-                  | DefInt x, DefInt y -> Set.add acc (DefBool (Int.equal x y))
-                  | _ -> Set.add acc Any)
-          | AndOp (b1, b2) | OrOp (b1, b2) ->
-              let b1s = eval_bool ~m ~cnt b1 in
-              let b2s = eval_bool ~m ~cnt b2 in
-              List.fold (all_combs b1s b2s) ~init:acc ~f:(fun acc pair ->
-                  match pair with
-                  | Maybe_prim.DefBool x, Maybe_prim.DefBool y ->
-                      Set.add acc
-                        (DefBool
-                           (match op with
-                           | AndOp _ -> x && y
-                           | OrOp _ -> x || y
-                           | _ -> raise Unreachable [@coverage off]))
-                  | _ -> Set.add acc Any)
-          | NotOp b ->
-              let bs = eval_bool ~m ~cnt b in
-              Set.fold bs ~init:acc ~f:(fun acc b ->
-                  match b with
-                  | DefBool x -> Set.add acc (DefBool (not x))
-                  | _ -> Set.add acc Any)
-          | _ -> raise Bad_type)
-      | LabelResAtom (r, lst) ->
-          Set.union acc
-            (eval_bool
-               ~m:(Map.add_exn m ~key:(State.Lstate lst, 0) ~data:r)
-               ~cnt r)
-      | ExprResAtom (r, est) ->
-          Set.union acc
-            (eval_bool
-               ~m:(Map.add_exn m ~key:(State.Estate est, 0) ~data:r)
-               ~cnt r)
-      | LabelStubAtom lst ->
-          if cnt <= 0 then Set.add acc Any
-          else
-            Set.union acc
-              (eval_bool ~m ~cnt:(cnt - 1)
-                 (Map.find_exn m (State.Lstate lst, 0)))
-      | ExprStubAtom est ->
-          if cnt <= 0 then Set.add acc Any
-          else
-            Set.union acc
-              (eval_bool ~m ~cnt:(cnt - 1)
-                 (Map.find_exn m (State.Estate est, 0)))
-      | PathCondAtom ((_, b), r') ->
-          (* can encode path conditions as results *)
-          if
-            Set.exists (eval_bool ~m ~cnt r) ~f:(function
-              | Maybe_prim.DefBool b' -> Stdlib.(b = b')
-              | _ -> false)
-          then Set.union acc (eval_bool ~m ~cnt r')
-          else acc
-      | ProjectionAtom (r, l) ->
-          fold_res r
-            ~init:(Set.empty (module Maybe_prim))
-            ~f:
-              (fun acc -> function
-                | RecordAtom entries -> (
-                    match
-                      List.find entries ~f:(fun (l', _) -> Stdlib.(l = l'))
-                    with
-                    | Some (_, r) -> Set.union acc (eval_bool ~m ~cnt r)
-                    | None -> acc)
-                | _ -> raise Bad_type)
-      | InspectionAtom (l, r) ->
-          fold_res r
-            ~init:(Set.empty (module Maybe_prim))
-            ~f:
-              (fun acc -> function
-                | RecordAtom entries ->
-                    Set.add acc
-                      (DefBool
-                         (List.exists entries ~f:(fun (l', _) ->
-                              Stdlib.(l = l'))))
-                | _ -> raise Bad_type))
-
-let rec process_maybe_bools bs =
-  let open Maybe_prim in
-  Set.fold_until bs ~init:[]
-    ~f:
-      (fun acc -> function
-        | Any -> Stop [ true; false ]
-        | DefBool b -> Continue (b :: acc)
-        | DefInt _ -> raise Bad_type)
-    ~finish:Fun.id
 
 let empty_choice_set = Set.empty (module Choice)
 
@@ -299,28 +133,36 @@ let rec analyze_aux expr s pi v_set =
                 Some (Set.elements r_set)
             | _ -> raise Unreachable [@coverage off])
       | _ -> raise Unreachable [@coverage off])
-  | If (e, e_true, e_false, l) ->
-      let%map r_cond = analyze_aux e s pi v_set in
-      r_cond |> eval_bool |> process_maybe_bools
-      |> List.map ~f:(fun b ->
-             let path_cond = (r_cond, b) in
-             ( path_cond,
-               analyze_aux
-                 (if b then e_true else e_false)
-                 s (Some path_cond) v_set ))
-      |> List.filter_map ~f:(function
-           | _, None -> None
-           | path_cond, Some r -> Some (path_cond, r))
-      |> List.fold
-           ~init:(Set.empty (module PathChoice))
-           ~f:(fun acc (path_cond, r) ->
-             fold_res r ~init:empty_choice_set ~f:Set.add
-             |> Set.elements
-             |> List.map ~f:(fun a -> (path_cond, a))
-             |> List.fold ~init:acc ~f:Set.add)
-      |> Set.elements
-      (* artificially make `a` not an atom (per spec) *)
-      |> List.map ~f:(fun (path_cond, a) -> PathCondAtom (path_cond, [ a ]))
+  | If (e, e_true, e_false, l) -> (
+      let%bind r_cond = analyze_aux e s pi v_set in
+      (* let prog = Format.asprintf "%a" pp_res r_cond in *)
+      (* Format.printf "if condition: %s\n" prog; *)
+      (* Format.printf "if condition: %a\n" Grammar.pp_res r_cond; *)
+      let true_sat = solve_cond r_cond true in
+      let false_sat = solve_cond r_cond false in
+      match (true_sat, false_sat) with
+      | true, false ->
+          let%map r_true = analyze_aux e_true s pi v_set in
+          List.map r_true ~f:(fun a -> PathCondAtom ((r_cond, true), [ a ]))
+      | false, true ->
+          let%map r_false = analyze_aux e_false s pi v_set in
+          List.map r_false ~f:(fun a -> PathCondAtom ((r_cond, false), [ a ]))
+      | false, false ->
+          let%bind r_true = analyze_aux e_true s pi v_set in
+          let r_true =
+            List.map r_true ~f:(fun a -> PathCondAtom ((r_cond, true), [ a ]))
+          in
+          Solver.reset ();
+          let%map r_false = analyze_aux e_false s pi v_set in
+          let r_false =
+            List.map r_false ~f:(fun a -> PathCondAtom ((r_cond, false), [ a ]))
+          in
+          Set.elements
+            (List.fold r_false
+               ~init:(List.fold r_true ~init:empty_choice_set ~f:Set.add)
+               ~f:Set.add)
+      | _ -> raise Unreachable
+      (* TODO: group atoms under the same path condition together *))
   | Plus (e1, e2) | Minus (e1, e2) | Equal (e1, e2) | And (e1, e2) | Or (e1, e2)
     ->
       let%bind r1 = analyze_aux e1 s pi v_set in
