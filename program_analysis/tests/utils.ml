@@ -7,6 +7,8 @@ exception Unreachable
 
 let pf = Format.printf
 
+(** PBT *)
+
 module IdentSet = Set.Make (struct
   type t = Ast.ident
 
@@ -24,6 +26,8 @@ let fresh_label () =
 let reset_label () = label := -1
 let ( |>> ) v f = Option.map f v
 let ( |>-> ) v f = Option.bind v f
+
+(** General *)
 
 (* TODO: can't use Debugutils.parse_analyze *)
 let pau s =

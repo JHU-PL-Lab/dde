@@ -117,7 +117,7 @@ let next_label = ref 0
 
 let get_next_label () =
   let l = !next_label in
-  next_label := l + 1;
+  incr next_label;
   l
 
 let reset_label () = next_label := 0

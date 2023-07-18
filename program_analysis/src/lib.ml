@@ -142,27 +142,21 @@ let rec analyze_aux expr s pi v_set =
       let false_sat = solve_cond r_cond false in
       match (true_sat, false_sat) with
       | true, false ->
+          (* Format.printf "\ntake true branch\n"; *)
           let%map r_true = analyze_aux e_true s pi v_set in
-          List.map r_true ~f:(fun a -> PathCondAtom ((r_cond, true), [ a ]))
+          [ PathCondAtom ((r_cond, true), r_true) ]
       | false, true ->
+          (* Format.printf "\ntake false branch\n"; *)
           let%map r_false = analyze_aux e_false s pi v_set in
-          List.map r_false ~f:(fun a -> PathCondAtom ((r_cond, false), [ a ]))
+          [ PathCondAtom ((r_cond, false), r_false) ]
       | false, false ->
+          (* Format.printf "\ntake both branch\n"; *)
           let%bind r_true = analyze_aux e_true s pi v_set in
-          let r_true =
-            List.map r_true ~f:(fun a -> PathCondAtom ((r_cond, true), [ a ]))
-          in
-          Solver.reset ();
+          let pc_true = PathCondAtom ((r_cond, true), r_true) in
           let%map r_false = analyze_aux e_false s pi v_set in
-          let r_false =
-            List.map r_false ~f:(fun a -> PathCondAtom ((r_cond, false), [ a ]))
-          in
-          Set.elements
-            (List.fold r_false
-               ~init:(List.fold r_true ~init:empty_choice_set ~f:Set.add)
-               ~f:Set.add)
-      | _ -> raise Unreachable
-      (* TODO: group atoms under the same path condition together *))
+          let pc_false = PathCondAtom ((r_cond, false), r_false) in
+          [ pc_true; pc_false ]
+      | _ -> raise Unreachable)
   | Plus (e1, e2) | Minus (e1, e2) | Equal (e1, e2) | And (e1, e2) | Or (e1, e2)
     ->
       let%bind r1 = analyze_aux e1 s pi v_set in

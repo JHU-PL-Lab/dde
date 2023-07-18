@@ -71,6 +71,16 @@ let conditional =
       prog = "(fun x -> (if true then (fun y -> y) else (fun z -> z)) x) 1";
       verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri === zint 1));
     };
+    {
+      prog = "if true then (if true then (if true then 1 else 2) else 3) else 4";
+      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri === zint 1));
+    };
+    {
+      prog =
+        "if (if (if true and false then false else true) then false else true) \
+         then true else false";
+      verif = (fun p -> [ rb ] |. (p <-- [ rb ]) --> (rb === zfalse));
+    };
   |]
 
 let currying =
@@ -113,10 +123,35 @@ let currying =
 let recursion =
   [|
     {
+      (* (1 + (1 + (1 + ((1 + stub) | 0)))) *)
+      (* ((((10 - 1) - 1) | ((((10 - 1) - 1) | (stub - 1)) - 1)) = 0) *)
       prog =
         "let id = fun self -> fun n -> if n = 0 then 0 else 1 + self self (n - \
          1) in id id 10";
       verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri >== zint 2));
+    };
+    {
+      (* (1 + (1 + (1 + ((1 + stub) | 0)))) *)
+      prog =
+        "let id = fun self -> fun n -> if n = 10 then true else false or self \
+         self (n + 1) in id id 0";
+      verif = (fun p -> [ rb ] |. (p <-- [ rb ]) --> (rb === ztrue));
+    };
+    (* kinda like False -> anything? *)
+    (* TODO: check divergence before CHCs *)
+    {
+      (* (1 + (1 + (1 + (1 + stub)))) *)
+      (* ((((-1 - 1) - 1) | ((((-1 - 1) - 1) | (stub - 1)) - 1)) = 0) *)
+      prog =
+        "let id = fun self -> fun n -> if n = 0 then 0 else 1 + self self (n - \
+         1) in id id (-1)";
+      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> zfalse);
+    };
+    {
+      prog =
+        "(fun self -> fun n -> self self n) (fun self -> fun n -> self self n) \
+         0";
+      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> zfalse);
     };
   |]
 

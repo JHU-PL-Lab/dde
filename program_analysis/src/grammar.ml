@@ -47,7 +47,7 @@ and res = atom list
 and path_cond = res * bool
 [@@deriving hash, sexp, compare, show { with_path = false }]
 
-(* used to accumulate disjuncts when stitching stacks at Var Non-Local *)
+(* used to accumulate disjuncts when stitching stacks *)
 module Choice = struct
   module T = struct
     type t = atom [@@deriving compare, sexp]
