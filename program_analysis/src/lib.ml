@@ -211,7 +211,3 @@ let analyze ~debug e =
   Hashset.clear s_set;
 
   Option.value_exn r
-
-(* ((((-1 - 1) - 1) | ((((-1 - 1) - 1) | (stub - 1)) - 1)) = 0)
-
-   ((((10 - 1) - 1) | ((((10 - 1) - 1) | (stub - 1)) - 1)) = 0) *)

@@ -124,6 +124,7 @@ let recursion =
   [|
     {
       (* (1 + (1 + (1 + ((1 + stub) | 0)))) *)
+      (* ((((10 - 1) - 1) | ((((10 - 1) - 1) | (stub - 1)) - 1)) = 0) *)
       prog =
         "let id = fun self -> fun n -> if n = 0 then 0 else 1 + self self (n - \
          1) in id id 10";
@@ -140,6 +141,7 @@ let recursion =
     (* TODO: check divergence before CHCs *)
     {
       (* (1 + (1 + (1 + (1 + stub)))) *)
+      (* ((((-1 - 1) - 1) | ((((-1 - 1) - 1) | (stub - 1)) - 1)) = 0) *)
       prog =
         "let id = fun self -> fun n -> if n = 0 then 0 else 1 + self self (n - \
          1) in id id (-1)";
