@@ -32,8 +32,7 @@ let verify_currying _ =
 
 let verify_recursion _ =
   verify_result Test_cases.recursion.(0);
-  verify_result Test_cases.recursion.(1);
-  verify_result Test_cases.recursion.(2)
+  verify_result Test_cases.recursion.(1)
 
 let verify_church_basic _ =
   verify_result Test_cases.church_basic.(0);

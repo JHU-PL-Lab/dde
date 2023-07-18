@@ -68,6 +68,13 @@ let recursion_thunked =
          - 1)) - 1)) = 0) = false ⊩ (1 + stub)) | (((((10 - 1) - 1) | ((((10 - \
          1) - 1) | (stub - 1)) - 1)) = 0) = true ⊩ 0))))))))",
         pau recursion.(0).prog ));
+    (fun _ ->
+      ( "((0 = 10) = false ⊩ (false or (((0 + 1) = 10) = false ⊩ (false or \
+         ((((0 + 1) + 1) = 10) = false ⊩ (false or ((((((0 + 1) + 1) | ((((0 + \
+         1) + 1) | (stub + 1)) + 1)) = 10) = false ⊩ (false or stub)) | (((((0 \
+         + 1) + 1) | ((((0 + 1) + 1) | (stub + 1)) + 1)) = 10) = true ⊩ \
+         true))))))))",
+        pau recursion.(1).prog ));
   ]
 
 let test_recursion _ = gen_test recursion_thunked

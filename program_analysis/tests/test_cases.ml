@@ -129,6 +129,13 @@ let recursion =
          1) in id id 10";
       verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri >== zint 2));
     };
+    {
+      (* (1 + (1 + (1 + ((1 + stub) | 0)))) *)
+      prog =
+        "let id = fun self -> fun n -> if n = 10 then true else false or self \
+         self (n + 1) in id id 0";
+      verif = (fun p -> [ rb ] |. (p <-- [ rb ]) --> (rb === ztrue));
+    };
     (* kinda like False -> anything? *)
     (* TODO: check divergence before CHCs *)
     {

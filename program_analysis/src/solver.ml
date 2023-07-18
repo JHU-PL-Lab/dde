@@ -139,7 +139,7 @@ let rec cond pis =
     in
     (List.mapi pis ~f:(fun i _ -> zconst (Format.sprintf "c%d" i) bsort), conjs)
 
-and chcs_of_atom ?(sort = isort) ?(pis = []) a =
+and chcs_of_atom ?(pis = []) a =
   match a with
   | IntAtom i ->
       let cond_quants, cond_body = cond pis in
@@ -193,79 +193,88 @@ and chcs_of_atom ?(sort = isort) ?(pis = []) a =
               Hashtbl.add id_to_decl ~key:rid1 ~data:pr1,
               Hashtbl.add id_to_decl ~key:rid2 ~data:pr2 );
           let cond_quants, cond_body = cond pis in
-          chcs_of_res r1 ~sort:param_sort ~pis;
-          chcs_of_res r2 ~sort:param_sort ~pis;
+          chcs_of_res r1 ~pis;
+          chcs_of_res r2 ~pis;
           Hash_set.add chcs
             (r1_ :: r2_ :: cond_quants
             |. (pr1 <-- [ r1_ ] &&& (pr2 <-- [ r2_ ]) &&& cond_body)
                --> (pa <-- [ zop r1_ r2_ ]))
-      | NotOp r' ->
-          let aid, rid = (ida a, idr r') in
+      | NotOp r ->
+          let aid, rid = (ida a, idr r) in
           let pa = zdecl aid [ bsort ] bsort in
           let pr = zdecl rid [ bsort ] bsort in
-          let r = zconst "r" bsort in
+          let r_ = zconst "r" bsort in
           ignore
             ( Hashtbl.add id_to_decl ~key:aid ~data:pa,
               Hashtbl.add id_to_decl ~key:rid ~data:pr );
           let cond_quants, cond_body = cond pis in
-          chcs_of_res r' ~sort:bsort ~pis;
+          chcs_of_res r ~pis;
           Hash_set.add chcs
-            ((r :: cond_quants |. (pr <-- [ r ]) &&& cond_body)
-            --> (pa <-- [ znot r ])))
-  | LabelResAtom (r', _) | ExprResAtom (r', _) ->
-      (* TODO: prelabel in a pass *)
-      chcs_of_res r' ~sort ~pis;
+            ((r_ :: cond_quants |. (pr <-- [ r_ ]) &&& cond_body)
+            --> (pa <-- [ znot r_ ])))
+  | LabelResAtom (r, _) | ExprResAtom (r, _) ->
+      (* derive Z3 sort for labeled result/stub pair from the sort of
+         the concrete disjuncts, which is sound on any proper,
+         terminating programs. *)
+      let sort =
+        List.fold r ~init:None ~f:(fun t a ->
+            (* this may assign an ID for stub to be later inherited by
+               its enclosing res atom but will trigger a lookup failure
+               (caught) at stub's (non-existent) Z3 decl *)
+            chcs_of_atom a ~pis;
+            match Hashtbl.find id_to_decl (ida a) with
+            | Some pa ->
+                (* TODO: assert that all disjuncts are of the same type *)
+                Some (pa |> FuncDecl.get_domain |> List.hd_exn)
+            | None -> raise Unreachable)
+        |> function
+        | Some t -> t
+        | None -> raise Unreachable
+      in
       let aid = ida a in
-      let rid = idr r' in
-      let pr = Hashtbl.find_exn id_to_decl rid in
-      let rdom = FuncDecl.get_domain pr in
-      let pa = zdecl aid rdom bsort in
+      let pa = zdecl aid [ sort ] bsort in
       ignore (Hashtbl.add id_to_decl ~key:aid ~data:pa);
-      let r = zconst "r" (List.hd_exn rdom) in
-      Hash_set.add chcs ([ r ] |. (pr <-- [ r ]) --> (pa <-- [ r ]))
+      let rid = idr r in
+      let pr = zdecl rid [ sort ] bsort in
+      ignore (Hashtbl.add id_to_decl ~key:rid ~data:pr);
+      (* most of this is repetitive work, but necessary *)
+      chcs_of_res r ~pis;
+      let r_ = zconst "r" sort in
+      Hash_set.add chcs ([ r_ ] |. (pr <-- [ r_ ]) --> (pa <-- [ r_ ]))
   | PathCondAtom (((r, b) as pi), r0) ->
       (* generate CHCs for current path condition using
          the previous path conditions *)
-      chcs_of_res r ~sort ~pis;
-      chcs_of_res r0 ~sort ~pis:(pi :: pis);
+      chcs_of_res r ~pis;
+      chcs_of_res r0 ~pis:(pi :: pis);
       (* point self at the same decl *)
-      Hashtbl.add_exn id_to_decl ~key:(ida a)
-        ~data:(Hashtbl.find_exn id_to_decl (idr r0))
+      ignore
+        (Hashtbl.add id_to_decl ~key:(ida a)
+           ~data:(Hashtbl.find_exn id_to_decl (idr r0)))
   | FunAtom _ | LabelStubAtom _ | ExprStubAtom _ -> ()
   | RecordAtom _ -> failwith "unimplemented"
   | ProjectionAtom _ -> failwith "unimplemented"
   | InspectionAtom _ -> failwith "unimplemented"
 
-and chcs_of_res ?(sort = isort) ?(pis = []) r =
+and chcs_of_res ?(pis = []) r =
   let rid = idr r in
   List.iter r ~f:(fun a ->
-      chcs_of_atom a ~sort ~pis;
+      chcs_of_atom a ~pis;
       let aid = ida a in
+      let cond_quants, cond_body = cond pis in
       match Hashtbl.find id_to_decl aid with
       | Some pa ->
-          let adom = FuncDecl.get_domain pa in
-          let pr = zdecl rid adom bsort in
+          let dom = FuncDecl.get_domain pa in
+          let pr = zdecl rid dom bsort in
           (* the root assertion is always P0 *)
           if String.(rid = "P0") then entry_decl := Some pr;
           ignore (Hashtbl.add id_to_decl ~key:rid ~data:pr);
-          let r = zconst "r" (List.hd_exn adom) in
+          let r = zconst "r" (List.hd_exn dom) in
           (* TODO: add flag to leave all path conditions out *)
-          let cond_quants, cond_body = cond pis in
           Hash_set.add chcs
             (r :: cond_quants |. (pa <-- [ r ] &&& cond_body) --> (pr <-- [ r ]))
       | None -> (
           match a with
-          | ExprStubAtom _ | LabelStubAtom _ ->
-              let cond_quants, cond_body = cond pis in
-              (* need to know from a parent context (binop) what
-                 sort this constant needs to be *)
-              let r = zconst "r" sort in
-              let pa = zdecl aid [ sort ] bsort in
-              let pr = zdecl rid [ sort ] bsort in
-              ignore (Hashtbl.add id_to_decl ~key:rid ~data:pr);
-              Hash_set.add chcs
-                (r :: cond_quants
-                |. (pa <-- [ r ] &&& cond_body) --> (pr <-- [ r ]))
+          | LabelStubAtom _ | ExprStubAtom _ -> ()
           | _ -> failwith "resatom non-labeled"))
 
 let test =

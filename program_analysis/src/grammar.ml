@@ -47,7 +47,7 @@ and res = atom list
 and path_cond = res * bool
 [@@deriving hash, sexp, compare, show { with_path = false }]
 
-(* used to accumulate disjuncts when stitching stacks at Var Non-Local *)
+(* used to accumulate disjuncts when stitching stacks *)
 module Choice = struct
   module T = struct
     type t = atom [@@deriving compare, sexp]
@@ -74,3 +74,70 @@ module Maybe_prim = struct
   include T
   include Comparable.Make (T)
 end
+
+let a =
+  [
+    OpAtom
+      (EqualOp
+         ( [
+             ExprResAtom
+               ( [
+                   OpAtom
+                     (MinusOp
+                        ( [
+                            ExprResAtom
+                              ( [
+                                  OpAtom
+                                    (MinusOp
+                                       ( [
+                                           ExprResAtom
+                                             ( [ IntAtom 10 ],
+                                               (Var (Ident "n", 4), [ 12; 13 ])
+                                             );
+                                         ],
+                                         [ IntAtom 1 ] ));
+                                ],
+                                (Var (Ident "n", 4), [ 5; 12 ]) );
+                          ],
+                          [ IntAtom 1 ] ));
+                   OpAtom
+                     (MinusOp
+                        ( [
+                            ExprResAtom
+                              ( [
+                                  OpAtom
+                                    (MinusOp
+                                       ( [
+                                           ExprResAtom
+                                             ( [
+                                                 OpAtom
+                                                   (MinusOp
+                                                      ( [
+                                                          ExprResAtom
+                                                            ( [ IntAtom 10 ],
+                                                              ( Var
+                                                                  (Ident "n", 4),
+                                                                [ 12; 13 ] ) );
+                                                        ],
+                                                        [ IntAtom 1 ] ));
+                                               ],
+                                               (Var (Ident "n", 4), [ 5; 12 ])
+                                             );
+                                         ],
+                                         [ IntAtom 1 ] ));
+                                  OpAtom
+                                    (MinusOp
+                                       ( [
+                                           ExprStubAtom
+                                             (Var (Ident "n", 4), [ 5; 5 ]);
+                                         ],
+                                         [ IntAtom 1 ] ));
+                                ],
+                                (Var (Ident "n", 4), [ 5; 5 ]) );
+                          ],
+                          [ IntAtom 1 ] ));
+                 ],
+                 (Var (Ident "n", 0), [ 5; 5 ]) );
+           ],
+           [ IntAtom 0 ] ));
+  ]
