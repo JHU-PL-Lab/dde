@@ -7,23 +7,6 @@ exception Unreachable
 module AtomKey = struct
   module T = struct
     type t = atom [@@deriving hash, sexp, compare]
-
-    (* let hash = function
-         | LabelResAtom (_, st) -> State.hash_lstate st
-         | ExprResAtom (_, st) -> State.hash_estate st
-         | LabelStubAtom st -> State.hash_lstate st
-         | ExprStubAtom st -> State.hash_estate st
-         | _ as a -> hash a
-
-       let compare a b =
-         match (a, b) with
-         | LabelResAtom (_, st1), LabelStubAtom st2
-         | LabelStubAtom st1, LabelResAtom (_, st2) ->
-             State.compare_lstate st1 st2
-         | ExprResAtom (_, st1), ExprStubAtom st2
-         | ExprStubAtom st1, ExprResAtom (_, st2) ->
-             State.compare_estate st1 st2
-         | _, _ -> compare a b *)
   end
 
   include T
@@ -127,6 +110,7 @@ let entry_decl = ref None
 
 let find_or_add aid sort =
   match Hashtbl.find id_to_decl aid with
+  (* TODO: does the same leaf atom needs to be assigned different predicates? *)
   | Some pa -> pa
   | None ->
       let pa = zdecl aid [ sort ] bsort in
@@ -229,11 +213,11 @@ and chcs_of_atom ?(sort = isort) ?(pis = []) a =
             ((r :: cond_quants |. (pr <-- [ r ]) &&& cond_body)
             --> (pa <-- [ znot r ])))
   | LabelResAtom (r', _) | ExprResAtom (r', _) ->
+      (* TODO: prelabel in a pass *)
       chcs_of_res r' ~sort ~pis;
       let aid = ida a in
       let rid = idr r' in
       let pr = Hashtbl.find_exn id_to_decl rid in
-      (* TODO: can perhaps use ~sort instead *)
       let rdom = FuncDecl.get_domain pr in
       let pa = zdecl aid rdom bsort in
       ignore (Hashtbl.add id_to_decl ~key:aid ~data:pa);
@@ -278,12 +262,11 @@ and chcs_of_res ?(sort = isort) ?(pis = []) r =
               let r = zconst "r" sort in
               let pa = zdecl aid [ sort ] bsort in
               let pr = zdecl rid [ sort ] bsort in
+              ignore (Hashtbl.add id_to_decl ~key:rid ~data:pr);
               Hash_set.add chcs
                 (r :: cond_quants
                 |. (pa <-- [ r ] &&& cond_body) --> (pr <-- [ r ]))
-          | _ ->
-              Format.printf "debug: %a\n" Grammar.pp_atom a;
-              failwith "resatom non-labeled"))
+          | _ -> failwith "resatom non-labeled"))
 
 let test =
   [

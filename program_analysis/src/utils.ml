@@ -79,7 +79,11 @@ let solve_cond r b =
   Z3.Solver.add solver (([ rb ] |. (p <-- [ rb ]) --> (rb === zbool b)) :: chcs);
   let sat =
     match Z3.Solver.check solver [] with
-    | SATISFIABLE -> true
+    | SATISFIABLE ->
+        (* let model = solver |> Z3.Solver.get_model |> Core.Option.value_exn in
+           model |> Z3.Model.to_string |> Format.printf "Model:\n%s\n\n"; *)
+        (* solver |> Z3.Solver.to_string |> Format.printf "Solver:\n%s"; *)
+        true
     | UNSATISFIABLE -> false
     | UNKNOWN -> failwith "unknown"
   in

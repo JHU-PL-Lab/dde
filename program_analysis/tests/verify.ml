@@ -19,7 +19,9 @@ let verify_local_stitching _ =
 let verify_conditional _ =
   verify_result Test_cases.conditional.(0);
   verify_result Test_cases.conditional.(1);
-  verify_result Test_cases.conditional.(2)
+  verify_result Test_cases.conditional.(2);
+  verify_result Test_cases.conditional.(3);
+  verify_result Test_cases.conditional.(4)
 
 let verify_currying _ =
   verify_result Test_cases.currying.(0);
@@ -28,7 +30,10 @@ let verify_currying _ =
   verify_result Test_cases.currying.(3);
   verify_result Test_cases.currying.(4)
 
-let verify_recursion _ = verify_result Test_cases.recursion.(0)
+let verify_recursion _ =
+  verify_result Test_cases.recursion.(0);
+  verify_result Test_cases.recursion.(1);
+  verify_result Test_cases.recursion.(2)
 
 let verify_church_basic _ =
   verify_result Test_cases.church_basic.(0);
