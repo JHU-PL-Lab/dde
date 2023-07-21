@@ -326,25 +326,25 @@ and chcs_of_res ?(pis = []) r =
           | LabelStubAtom _ | ExprStubAtom _ | AssertAtom _ -> ()
           | _ -> failwith "resatom non-labeled"))
 
-let test =
-  [
-    LabelResAtom
-      ([ OpAtom (PlusOp ([ IntAtom 1 ], [ LabelStubAtom (0, []) ])) ], (0, []));
-  ]
+(* let test =
+     [
+       LabelResAtom
+         ([ OpAtom (PlusOp ([ IntAtom 1 ], [ LabelStubAtom (0, []) ])) ], (0, []));
+     ]
 
-let chcs_of_test _ =
-  chcs_of_res test;
-  let chcs = Hash_set.to_list chcs in
-  Format.printf "CHCs:\n";
-  List.iter ~f:(fun chc -> Format.printf "%s\n" (Z3.Expr.to_string chc)) chcs;
-  Format.printf "\nres_to_id:\n";
-  Core.Hashtbl.iteri
-    ~f:(fun ~key ~data ->
-      Format.printf "key: %a\ndata: %d\n" Grammar.pp_res key data)
-    res_to_id;
-  Format.printf "\natom_to_id:\n";
-  Core.Hashtbl.iteri
-    ~f:(fun ~key ~data ->
-      Format.printf "key: %a\ndata: %d\n" Grammar.pp_atom key data)
-    atom_to_id;
-  reset ()
+   let chcs_of_test _ =
+     chcs_of_res test;
+     let chcs = Hash_set.to_list chcs in
+     Format.printf "CHCs:\n";
+     List.iter ~f:(fun chc -> Format.printf "%s\n" (Z3.Expr.to_string chc)) chcs;
+     Format.printf "\nres_to_id:\n";
+     Core.Hashtbl.iteri
+       ~f:(fun ~key ~data ->
+         Format.printf "key: %a\ndata: %d\n" Grammar.pp_res key data)
+       res_to_id;
+     Format.printf "\natom_to_id:\n";
+     Core.Hashtbl.iteri
+       ~f:(fun ~key ~data ->
+         Format.printf "key: %a\ndata: %d\n" Grammar.pp_atom key data)
+       atom_to_id;
+     reset () *)

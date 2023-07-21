@@ -30,10 +30,10 @@ type expr =
   | Equal of expr * expr [@quickcheck.weight 0.05]
   | And of expr * expr [@quickcheck.weight 0.05]
   | Or of expr * expr [@quickcheck.weight 0.05]
-  | Ge of expr * expr
-  | Gt of expr * expr
-  | Le of expr * expr
-  | Lt of expr * expr
+  | Ge of expr * expr [@quickcheck.weight 0.05]
+  | Gt of expr * expr [@quickcheck.weight 0.05]
+  | Le of expr * expr [@quickcheck.weight 0.05]
+  | Lt of expr * expr [@quickcheck.weight 0.05]
   | Not of expr [@quickcheck.weight 0.05]
   | If of expr * expr * expr * int [@quickcheck.weight 0.05]
   | Let of ident * expr * expr * int [@quickcheck.do_not_generate]
