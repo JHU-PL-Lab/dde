@@ -6,8 +6,142 @@ open Utils
 open Solver
 
 exception Unreachable
+exception BadAssert
 
 let empty_choice_set = Set.empty (module Choice)
+
+let solve_cond r b =
+  let solver = Solver.solver in
+  Solver.chcs_of_res r;
+  let p = Option.value_exn !Solver.entry_decl in
+  let chcs = Hash_set.to_list Solver.chcs in
+  let rb = zconst "r" bsort in
+  Z3.Solver.add solver (([ rb ] |. (p <-- [ rb ]) --> (rb === zbool b)) :: chcs);
+  let sat =
+    match Z3.Solver.check solver [] with
+    | SATISFIABLE ->
+        (* let model = solver |> Z3.Solver.get_model |> Core.Option.value_exn in
+           model |> Z3.Model.to_string |> Format.printf "Model:\n%s\n\n"; *)
+        (* solver |> Z3.Solver.to_string |> Format.printf "Solver:\n%s"; *)
+        true
+    | UNSATISFIABLE -> false
+    | UNKNOWN -> failwith "unknown"
+  in
+  Solver.reset ();
+  sat
+
+let rec eval_assert_aux e =
+  match e with
+  | Int i -> IntResultFv i
+  | Bool b -> BoolResultFv b
+  | Plus (e1, e2)
+  | Minus (e1, e2)
+  | Equal (e1, e2)
+  | Ge (e1, e2)
+  | Gt (e1, e2)
+  | Le (e1, e2)
+  | Lt (e1, e2) -> (
+      match (eval_assert_aux e1, eval_assert_aux e2) with
+      | IntResultFv i1, IntResultFv i2 -> (
+          match e with
+          | Plus _ -> IntResultFv (i1 + i2)
+          | Minus _ -> IntResultFv (i1 - i2)
+          | Equal _ -> BoolResultFv (i1 = i2)
+          | Ge _ -> BoolResultFv (i1 >= i2)
+          | Gt _ -> BoolResultFv (i1 > i2)
+          | Le _ -> BoolResultFv (i1 <= i2)
+          | Lt _ -> BoolResultFv (i1 < i2)
+          | _ -> raise Unreachable)
+      | _ -> raise Unreachable)
+  | And (e1, e2) | Or (e1, e2) -> (
+      match (eval_assert_aux e1, eval_assert_aux e2) with
+      | BoolResultFv b1, BoolResultFv b2 -> (
+          match e with
+          | And _ -> BoolResultFv (b1 && b2)
+          | Or _ -> BoolResultFv (b1 || b2)
+          | _ -> raise Unreachable)
+      | _ -> raise Unreachable)
+  | Not e -> (
+      match eval_assert_aux e with
+      | BoolResultFv b -> BoolResultFv (not b)
+      | _ -> raise Unreachable)
+  | _ -> raise BadAssert
+
+(** only allows the following forms:
+    - <bool>
+    - <ident>
+    - <ident> <op> <value> *)
+let eval_assert e id =
+  match e with
+  | Bool b -> BoolResultFv b
+  | Var (id', _) when Stdlib.(id = id') -> VarResultFv
+  (* TODO: allow And/Or (low priority) *)
+  | Equal (e1, e2) | Ge (e1, e2) | Gt (e1, e2) | Le (e1, e2) | Lt (e1, e2) -> (
+      match e1 with
+      | Var (id', _) when Stdlib.(id = id') ->
+          let v2 = eval_assert_aux e2 in
+          OpResultFv
+            (match e with
+            | Equal _ -> EqualOpFv v2
+            | Ge _ -> GeOpFv v2
+            | Gt _ -> GtOpFv v2
+            | Le _ -> LeOpFv v2
+            | Lt _ -> LtOpFv v2
+            | _ -> raise Unreachable)
+      | _ -> raise BadAssert)
+  | Not e' -> (
+      match e' with
+      | Var (id', _) when Stdlib.(id = id') -> OpResultFv NotOpFv
+      | _ -> eval_assert_aux e')
+  | _ -> raise BadAssert
+
+(* let assert_bool b = if not b then raise BadAssert
+
+   let rec assert_valid_aux id is_int = function
+     | IntResultFv _ -> assert_bool is_int
+     | BoolResultFv _ -> assert_bool (not is_int)
+     | OpResultFv op -> (
+         match op with
+         | PlusOpFv (r1, r2) | MinusOpFv (r1, r2) ->
+             assert_bool is_int;
+             assert_valid_aux id true r1;
+             assert_valid_aux id true r2
+         | EqualOpFv (r1, r2)
+         | GeOpFv (r1, r2)
+         | GtOpFv (r1, r2)
+         | LeOpFv (r1, r2)
+         | LtOpFv (r1, r2) ->
+             assert_bool (not is_int);
+             assert_valid_aux id true r1;
+             assert_valid_aux id true r2
+         | AndOpFv (r1, r2) | OrOpFv (r1, r2) ->
+             assert_bool (not is_int);
+             assert_valid_aux id false r1;
+             assert_valid_aux id false r2
+         | NotOpFv r ->
+             assert_bool (not is_int);
+             assert_valid_aux id false r)
+     | VarResultFv _ | FunResultFv | RecordResultFv | ProjectionResultFv
+     | InspectionResultFv ->
+         raise BadAssert
+
+   let assert_valid id = function
+     | BoolResultFv _ -> ()
+     | OpResultFv op -> (
+         match op with
+         | EqualOpFv (r1, r2)
+         | AndOpFv (r1, r2)
+         | OrOpFv (r1, r2)
+         | GeOpFv (r1, r2)
+         | GtOpFv (r1, r2)
+         | LeOpFv (r1, r2)
+         | LtOpFv (r1, r2) -> (
+             assert_valid_aux id true r2;
+             match r1 with
+             | VarResultFv id' when Stdlib.(id = id') -> ()
+             | _ -> assert_valid_aux id true r1)
+         | _ -> raise BadAssert)
+     | _ -> raise BadAssert *)
 
 let rec analyze_aux expr s pi v_set =
   match expr with
@@ -157,8 +291,15 @@ let rec analyze_aux expr s pi v_set =
           let pc_false = PathCondAtom ((r_cond, false), r_false) in
           [ pc_true; pc_false ]
       | _ -> raise Unreachable)
-  | Plus (e1, e2) | Minus (e1, e2) | Equal (e1, e2) | And (e1, e2) | Or (e1, e2)
-    ->
+  | Plus (e1, e2)
+  | Minus (e1, e2)
+  | Equal (e1, e2)
+  | And (e1, e2)
+  | Or (e1, e2)
+  | Ge (e1, e2)
+  | Gt (e1, e2)
+  | Le (e1, e2)
+  | Lt (e1, e2) ->
       let%bind r1 = analyze_aux e1 s pi v_set in
       let%map r2 = analyze_aux e2 s pi v_set in
       [
@@ -169,6 +310,10 @@ let rec analyze_aux expr s pi v_set =
           | Equal _ -> EqualOp (r1, r2)
           | And _ -> AndOp (r1, r2)
           | Or _ -> OrOp (r1, r2)
+          | Ge _ -> GeOp (r1, r2)
+          | Gt _ -> GtOp (r1, r2)
+          | Le _ -> LeOp (r1, r2)
+          | Lt _ -> LtOp (r1, r2)
           | _ -> raise Unreachable [@coverage off]);
       ]
   | Not e ->
@@ -190,6 +335,10 @@ let rec analyze_aux expr s pi v_set =
   | Inspection (l, e) ->
       let%map r0 = analyze_aux e s pi v_set in
       [ InspectionAtom (l, r0) ]
+  | LetAssert (id, e1, e2) ->
+      let%map r1 = analyze_aux e1 s pi v_set in
+      let r2 = eval_assert e2 id in
+      [ AssertAtom (r1, r2) ]
   | Let _ -> raise Unreachable [@coverage off]
 
 let analyze ~debug e =
@@ -199,6 +348,7 @@ let analyze ~debug e =
   build_myfun e None;
   let r = analyze_aux e [] None (Set.empty (module State)) in
 
+  (* Format.printf "result: %a\n" Grammar.pp_res (Option.value_exn r); *)
   (if !is_debug_mode then (
      Format.printf "\n%s\n\n" @@ show_expr e;
      Format.printf "****** Label Table ******\n";

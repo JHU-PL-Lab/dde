@@ -97,7 +97,9 @@ let ( ||| ) e1 e2 = Boolean.mk_or ctx [ e1; e2 ]
 let ( +++ ) e1 e2 = Arithmetic.mk_add ctx [ e1; e2 ]
 let ( --- ) e1 e2 = Arithmetic.mk_sub ctx [ e1; e2 ]
 let ( >== ) e1 e2 = Arithmetic.mk_ge ctx e1 e2
+let ( >>> ) e1 e2 = Arithmetic.mk_gt ctx e1 e2
 let ( <== ) e1 e2 = Arithmetic.mk_le ctx e1 e2
+let ( <<< ) e1 e2 = Arithmetic.mk_lt ctx e1 e2
 
 let ( |. ) vars body =
   Quantifier.expr_of_quantifier
@@ -125,6 +127,41 @@ let reset () =
   Solver.reset solver;
   entry_decl := None;
   fresh_id := -1
+
+let chcs_of_assert p (r : Interpreter.Ast.result_value_fv) =
+  match r with
+  | BoolResultFv b ->
+      let r_ = zconst "r" isort in
+      Hash_set.add chcs ([ r_ ] |. (p <-- [ r_ ]) --> zbool b)
+  | VarResultFv ->
+      let r_ = zconst "r" bsort in
+      Hash_set.add chcs ([ r_ ] |. (p <-- [ r_ ]) --> r_ === ztrue)
+  | OpResultFv op -> (
+      match op with
+      | EqualOpFv (IntResultFv i)
+      | GeOpFv (IntResultFv i)
+      | GtOpFv (IntResultFv i)
+      | LeOpFv (IntResultFv i)
+      | LtOpFv (IntResultFv i) ->
+          let r_ = zconst "r" isort in
+          Hash_set.add chcs
+            ([ r_ ]
+            |. (p <-- [ r_ ])
+               --> (match op with
+                   | EqualOpFv _ -> ( === )
+                   | GeOpFv _ -> ( >== )
+                   | GtOpFv _ -> ( >>> )
+                   | LeOpFv _ -> ( <== )
+                   | LtOpFv _ -> ( <<< )
+                   | _ -> raise Unreachable)
+                     r_ (zint i))
+      | NotOpFv ->
+          let r_ = zconst "r" bsort in
+          Hash_set.add chcs ([ r_ ] |. (p <-- [ r_ ]) --> (r_ === zfalse))
+      | _ ->
+          Format.printf "%a\n" Interpreter.Ast.pp_op_result_value_fv op;
+          raise Unreachable)
+  | _ -> raise Unreachable
 
 let rec cond pis =
   if List.is_empty pis then ([], ztrue)
@@ -161,7 +198,11 @@ and chcs_of_atom ?(pis = []) a =
       | MinusOp (r1, r2)
       | EqualOp (r1, r2)
       | AndOp (r1, r2)
-      | OrOp (r1, r2) ->
+      | OrOp (r1, r2)
+      | GeOp (r1, r2)
+      | GtOp (r1, r2)
+      | LeOp (r1, r2)
+      | LtOp (r1, r2) ->
           let aid, rid1, rid2 = (ida a, idr r1, idr r2) in
           let is_int_arith =
             match op with PlusOp _ | MinusOp _ -> true | _ -> false
@@ -173,6 +214,10 @@ and chcs_of_atom ?(pis = []) a =
             | EqualOp _ -> ( === )
             | AndOp _ -> ( &&& )
             | OrOp _ -> ( ||| )
+            | GeOp _ -> ( >== )
+            | GtOp _ -> ( >>> )
+            | LeOp _ -> ( <== )
+            | LtOp _ -> ( <<< )
             | _ -> raise Unreachable
           in
           let pa =
@@ -254,6 +299,10 @@ and chcs_of_atom ?(pis = []) a =
   | RecordAtom _ -> failwith "unimplemented"
   | ProjectionAtom _ -> failwith "unimplemented"
   | InspectionAtom _ -> failwith "unimplemented"
+  | AssertAtom (r1, r2) ->
+      chcs_of_res r1 ~pis;
+      let p = Hashtbl.find_exn id_to_decl (idr r1) in
+      chcs_of_assert p r2
 
 and chcs_of_res ?(pis = []) r =
   let rid = idr r in
@@ -274,7 +323,7 @@ and chcs_of_res ?(pis = []) r =
             (r :: cond_quants |. (pa <-- [ r ] &&& cond_body) --> (pr <-- [ r ]))
       | None -> (
           match a with
-          | LabelStubAtom _ | ExprStubAtom _ -> ()
+          | LabelStubAtom _ | ExprStubAtom _ | AssertAtom _ -> ()
           | _ -> failwith "resatom non-labeled"))
 
 let test =

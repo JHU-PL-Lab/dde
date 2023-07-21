@@ -10,149 +10,92 @@ type test_case = {
 
 let basic =
   [|
-    {
-      prog = "(fun x -> x) 1";
-      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri === zint 1));
-    };
-    {
-      prog = "(fun y -> 1 + y) 2";
-      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri === zint 3));
-    };
+    "letassert x = (fun x -> x) 1 in x = 1";
+    "letassert x = (fun y -> 1 + y) 2 in x = 3";
   |]
 
 let nonlocal_lookup =
   [|
-    {
-      prog = "(fun x -> (fun y -> x + y) 2) 1";
-      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri === zint 3));
-    };
-    {
-      prog = "((fun x -> fun y -> x + y) 1) 2";
-      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri === zint 3));
-    };
-    {
-      prog = "(fun x -> (fun y -> (fun z -> x + y + z) 2) 1) 3";
-      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri === zint 6));
-    };
+    "letassert x = (fun x -> (fun y -> x + y) 2) 1 in x = 3";
+    "letassert x = ((fun x -> fun y -> x + y) 1) 2 in x = 3";
+    "letassert x = (fun x -> (fun y -> (fun z -> x + y + z) 2) 1) 3 in x = 6";
   |]
 
 let local_stitching =
   [|
-    {
-      prog =
-        "let add = (fun num -> fun n -> n + num) in\n\
-         let add1 = add 1 in\n\
-         let add1' = (fun n -> add1 n) in\n\
-         add1 1 + add1' 1";
-      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri === zint 4));
-    };
-    {
-      prog =
-        "let add = (fun f -> fun g -> fun x -> f g x) in\n\
-         let add1 = add (fun z -> fun n -> z n + 2) in\n\
-         let add2 = add1 (fun y -> y + 1) in\n\
-         add2 0";
-      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri === zint 3));
-    };
+    "letassert x =\n\
+     (let add = (fun num -> fun n -> n + num) in\n\
+     let add1 = add 1 in\n\
+     let add1' = (fun n -> add1 n) in\n\
+     add1 1 + add1' 1)\n\
+     in x = 4";
+    "letassert x =\n\
+     (let add = (fun f -> fun g -> fun x -> f g x) in\n\
+     let add1 = add (fun z -> fun n -> z n + 2) in\n\
+     let add2 = add1 (fun y -> y + 1) in\n\
+     add2 0)\n\
+     in x = 3";
   |]
 
-(* TODO: nested ifs *)
 let conditional =
   [|
-    {
-      prog = "(fun id -> id 10) (fun n -> if n = 0 then 0 else 1 + (n - 1))";
-      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri === zint 10));
-    };
-    {
-      prog = "if true then 1 else 2";
-      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri === zint 1));
-    };
-    {
-      prog = "(fun x -> (if true then (fun y -> y) else (fun z -> z)) x) 1";
-      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri === zint 1));
-    };
-    {
-      prog = "if true then (if true then (if true then 1 else 2) else 3) else 4";
-      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri === zint 1));
-    };
-    {
-      prog =
-        "if (if (if true and false then false else true) then false else true) \
-         then true else false";
-      verif = (fun p -> [ rb ] |. (p <-- [ rb ]) --> (rb === zfalse));
-    };
+    "letassert x = (fun id -> id 10) (fun n -> if n = 0 then 0 else 1 + (n - \
+     1)) in x = 10";
+    "letassert x = if true then 1 else 2 in x = 1";
+    "letassert x = (fun x -> (if true then (fun y -> y) else (fun z -> z)) x) \
+     1 in x = 1";
+    "letassert x = if true then (if true then (if true then 1 else 2) else 3) \
+     else 4 in x = 1";
+    "letassert x = if (if (if true and false then false else true) then false \
+     else true) then true else false in not x";
   |]
 
 let currying =
   [|
-    {
-      prog =
-        "let add = (fun num -> fun n -> n + num) in let add1 = add 1 in add1 2";
-      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri === zint 3));
-    };
-    {
-      prog =
-        "(fun add -> (fun add1 -> (fun add2 -> add1 2) (add 2)) (add 1)) (fun \
-         num -> fun n -> n + num)";
-      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri === zint 3));
-    };
-    {
-      prog =
-        "let add = (fun num -> fun n -> n + num) in let add2 = add 2 in add2 1";
-      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri === zint 3));
-    };
-    {
-      prog =
-        "let add = (fun num -> fun n -> n + num) in let add1 = add 1 in let \
-         add2 = add 2 in add1 2 + add2 1";
-      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri === zint 6));
-    };
-    {
-      prog =
-        "let add = (fun num -> fun n -> n + num) in\n\
-         let add1 = add 1 in\n\
-         let add2 = add 2 in\n\
-         let add3 = add 3 in\n\
-         let add4 = add 4 in\n\
-         let add5 = add 5 in\n\
-         add1 1 + add2 1 + add3 1 + add4 1 + add5 1";
-      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri === zint 20));
-    };
+    "letassert x = let add = (fun num -> fun n -> n + num) in let add1 = add 1 \
+     in add1 2 in x = 3";
+    "letassert x = (fun add -> (fun add1 -> (fun add2 -> add1 2) (add 2)) (add \
+     1)) (fun num -> fun n -> n + num) in x = 3";
+    "letassert x = let add = (fun num -> fun n -> n + num) in let add2 = add 2 \
+     in add2 1 in x = 3";
+    "letassert x = let add = (fun num -> fun n -> n + num) in let add1 = add 1 \
+     in let add2 = add 2 in add1 2 + add2 1 in x = 6";
+    "letassert x =\n\
+     let add = (fun num -> fun n -> n + num) in\n\
+     let add1 = add 1 in\n\
+     let add2 = add 2 in\n\
+     let add3 = add 3 in\n\
+     let add4 = add 4 in\n\
+     let add5 = add 5 in\n\
+     add1 1 + add2 1 + add3 1 + add4 1 + add5 1 in\n\
+     x = 20";
   |]
 
 let recursion =
   [|
-    {
-      (* (1 + (1 + (1 + ((1 + stub) | 0)))) *)
-      (* ((((10 - 1) - 1) | ((((10 - 1) - 1) | (stub - 1)) - 1)) = 0) *)
-      prog =
-        "let id = fun self -> fun n -> if n = 0 then 0 else 1 + self self (n - \
-         1) in id id 10";
-      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri >== zint 2));
-    };
-    {
-      (* (1 + (1 + (1 + ((1 + stub) | 0)))) *)
-      prog =
-        "let id = fun self -> fun n -> if n = 10 then true else false or self \
-         self (n + 1) in id id 0";
-      verif = (fun p -> [ rb ] |. (p <-- [ rb ]) --> (rb === ztrue));
-    };
+    (* (1 + (1 + (1 + ((1 + stub) | 0)))) *)
+    (* ((((10 - 1) - 1) | ((((10 - 1) - 1) | (stub - 1)) - 1)) = 0) *)
+    "letassert x = let id = fun self -> fun n -> if n = 0 then 0 else 1 + self \
+     self (n - 1) in id id 10 in x >= 2";
+    (* (1 + (1 + (1 + ((1 + stub) | 0)))) *)
+    "letassert x = (let id = fun self -> fun n -> if n = 10 then true else \
+     false or self self (n + 1) in id id 0) in x";
     (* kinda like False -> anything? *)
     (* TODO: check divergence before CHCs *)
-    {
-      (* (1 + (1 + (1 + (1 + stub)))) *)
-      (* ((((-1 - 1) - 1) | ((((-1 - 1) - 1) | (stub - 1)) - 1)) = 0) *)
-      prog =
-        "let id = fun self -> fun n -> if n = 0 then 0 else 1 + self self (n - \
-         1) in id id (-1)";
-      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> zfalse);
-    };
-    {
-      prog =
-        "(fun self -> fun n -> self self n) (fun self -> fun n -> self self n) \
-         0";
-      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> zfalse);
-    };
+    (* {
+         (* (1 + (1 + (1 + (1 + stub)))) *)
+         (* ((((-1 - 1) - 1) | ((((-1 - 1) - 1) | (stub - 1)) - 1)) = 0) *)
+         prog =
+           "let id = fun self -> fun n -> if n = 0 then 0 else 1 + self self (n - \
+            1) in id id (-1)";
+         verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> zfalse);
+       };
+       {
+         prog =
+           "(fun self -> fun n -> self self n) (fun self -> fun n -> self self n) \
+            0";
+         verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> zfalse);
+       }; *)
   |]
 
 (** Church numerals *)
@@ -172,28 +115,11 @@ let church n =
 
 let church_basic =
   [|
-    {
-      prog = unchurch ^ church 1;
-      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri === zint 1));
-    };
-    {
-      prog = unchurch ^ church 2;
-      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri === zint 2));
-    };
-    {
-      prog = unchurch ^ church 3;
-      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri === zint 3));
-    };
-    {
-      prog = unchurch ^ church 4;
-      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri === zint 4));
-    };
+    "letassert x = " ^ unchurch ^ church 1 ^ " in x = 1";
+    "letassert x = " ^ unchurch ^ church 2 ^ " in x = 2";
+    "letassert x = " ^ unchurch ^ church 3 ^ " in x = 3";
+    "letassert x = " ^ unchurch ^ church 4 ^ " in x = 4";
   |]
 
 let church_binop =
-  [|
-    {
-      prog = unchurch ^ "(" ^ add ^ zero ^ one ^ ")";
-      verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> (ri === zint 1));
-    };
-  |]
+  [| "letassert x = " ^ unchurch ^ "(" ^ add ^ zero ^ one ^ ") in x = 1" |]

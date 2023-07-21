@@ -30,9 +30,14 @@ type expr =
   | Equal of expr * expr [@quickcheck.weight 0.05]
   | And of expr * expr [@quickcheck.weight 0.05]
   | Or of expr * expr [@quickcheck.weight 0.05]
+  | Ge of expr * expr
+  | Gt of expr * expr
+  | Le of expr * expr
+  | Lt of expr * expr
   | Not of expr [@quickcheck.weight 0.05]
   | If of expr * expr * expr * int [@quickcheck.weight 0.05]
   | Let of ident * expr * expr * int [@quickcheck.do_not_generate]
+  | LetAssert of ident * expr * expr [@quickcheck.do_not_generate]
   | Record of (ident * expr) list [@quickcheck.do_not_generate]
   | Projection of expr * ident [@quickcheck.do_not_generate]
   | Inspection of ident * expr [@quickcheck.do_not_generate]
@@ -47,6 +52,10 @@ type op_result_value =
   | EqualOp of result_value * result_value
   | AndOp of result_value * result_value
   | OrOp of result_value * result_value
+  | GeOp of result_value * result_value
+  | GtOp of result_value * result_value
+  | LeOp of result_value * result_value
+  | LtOp of result_value * result_value
   | NotOp of result_value
 
 and result_value =
@@ -57,6 +66,29 @@ and result_value =
   | RecordResult of (ident * result_value) list
   | ProjectionResult of result_value * ident
   | InspectionResult of ident * result_value
+
+type op_result_value_fv =
+  | PlusOpFv of result_value_fv
+  | MinusOpFv of result_value_fv
+  | EqualOpFv of result_value_fv
+  | AndOpFv of result_value_fv * result_value_fv
+  | OrOpFv of result_value_fv * result_value_fv
+  | GeOpFv of result_value_fv
+  | GtOpFv of result_value_fv
+  | LeOpFv of result_value_fv
+  | LtOpFv of result_value_fv
+  | NotOpFv
+
+and result_value_fv =
+  | IntResultFv of int
+  | BoolResultFv of bool
+  | VarResultFv
+  | OpResultFv of op_result_value_fv
+  | FunResultFv
+  | RecordResultFv
+  | ProjectionResultFv
+  | InspectionResultFv
+[@@deriving hash, sexp, compare, show { with_path = false }]
 
 type fbtype = TArrow of fbtype * fbtype | TVar of string
 [@@coverage off] [@@deriving show { with_path = false }]
@@ -79,7 +111,7 @@ let rec build_myfun e outer =
   match e with
   | Int _ -> ()
   | Bool _ -> ()
-  | Function (i, e', l) ->
+  | Function (_, e', l) ->
       add_myfun l outer;
       build_myfun e' (Some e)
   | Var (_, l) -> add_myfun l outer
@@ -87,8 +119,15 @@ let rec build_myfun e outer =
       add_myfun l outer;
       build_myfun e1 outer;
       build_myfun e2 outer
-  | Plus (e1, e2) | Minus (e1, e2) | Equal (e1, e2) | And (e1, e2) | Or (e1, e2)
-    ->
+  | Plus (e1, e2)
+  | Minus (e1, e2)
+  | Equal (e1, e2)
+  | And (e1, e2)
+  | Or (e1, e2)
+  | Ge (e1, e2)
+  | Gt (e1, e2)
+  | Le (e1, e2)
+  | Lt (e1, e2) ->
       build_myfun e1 outer;
       build_myfun e2 outer
   | Not e -> build_myfun e outer
@@ -99,6 +138,9 @@ let rec build_myfun e outer =
       build_myfun e3 outer
   | Record entries -> List.iter entries ~f:(fun (_, e) -> build_myfun e outer)
   | Projection (e, _) | Inspection (_, e) -> build_myfun e outer
+  | LetAssert (_, e1, e2) ->
+      build_myfun e1 outer;
+      build_myfun e2 outer
   | Let (_, _, _, _) -> raise Unreachable [@coverage off]
 
 let print_myexpr tbl =
@@ -145,6 +187,10 @@ let rec transform_let e =
       let appl = Appl (e1', e2', l) in
       add_myexpr l appl;
       appl
+  | LetAssert (ident, e1, e2) ->
+      let e1' = transform_let e1 in
+      let e2' = transform_let e2 in
+      LetAssert (ident, e1', e2')
   | _ -> e
 
 (* let rec subst e x e' =
@@ -192,6 +238,10 @@ let build_minus e1 e2 = Minus (e1, e2)
 let build_equal e1 e2 = Equal (e1, e2)
 let build_and e1 e2 = And (e1, e2)
 let build_or e1 e2 = Or (e1, e2)
+let build_ge e1 e2 = Ge (e1, e2)
+let build_gt e1 e2 = Gt (e1, e2)
+let build_le e1 e2 = Le (e1, e2)
+let build_lt e1 e2 = Lt (e1, e2)
 let build_not e = Not e
 
 let build_if e1 e2 e3 =
@@ -206,6 +256,7 @@ let build_let ident e1 e2 =
   add_myexpr label labeled_let;
   labeled_let
 
+let build_letassert ident e1 e2 = LetAssert (ident, e1, e2)
 let build_record entries = Record entries
 let build_projection e s = Projection (e, Ident s)
 let build_inspection s e = Inspection (Ident s, e)

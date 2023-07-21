@@ -1,7 +1,6 @@
 open Core
 open Interpreter.Ast
 open Grammar
-open Solver
 
 let prune_sigma ?(k = 2) s = List.filteri s ~f:(fun i _ -> i < k)
 
@@ -48,6 +47,10 @@ let rec pp_atom fmt = function
       | EqualOp (r1, r2) -> ff fmt "(%a = %a)" pp_res r1 pp_res r2
       | AndOp (r1, r2) -> ff fmt "(%a and %a)" pp_res r1 pp_res r2
       | OrOp (r1, r2) -> ff fmt "(%a or %a)" pp_res r1 pp_res r2
+      | GeOp (r1, r2) -> ff fmt "(%a >= %a)" pp_res r1 pp_res r2
+      | GtOp (r1, r2) -> ff fmt "(%a > %a)" pp_res r1 pp_res r2
+      | LeOp (r1, r2) -> ff fmt "(%a <= %a)" pp_res r1 pp_res r2
+      | LtOp (r1, r2) -> ff fmt "(%a < %a)" pp_res r1 pp_res r2
       | NotOp r1 -> ff fmt "(not %a)" pp_res r1)
   | LabelStubAtom _ | ExprStubAtom _ -> ff fmt "stub"
   | PathCondAtom ((r, b), r') -> ff fmt "(%a = %b ⊩ %a)" pp_res r b pp_res r'
@@ -58,6 +61,10 @@ let rec pp_atom fmt = function
         pp_record_atom entries
   | ProjectionAtom (r, Ident s) -> ff fmt "%a.%s" pp_res r s
   | InspectionAtom (Ident s, r) -> ff fmt "%s in %a" s pp_res r
+  | AssertAtom (e1, e2) ->
+      ff fmt "assert %a in %a" pp_res e1
+        (* TODO: pretty print *)
+        Interpreter.Ast.pp_result_value_fv e2
 
 and pp_record_atom fmt = function
   | [] -> ()
@@ -69,23 +76,3 @@ and pp_res fmt = function
   | [] -> ()
   | [ a ] -> ff fmt "%a" pp_atom a
   | a :: _as -> ff fmt "(%a | %a)" pp_atom a pp_res _as
-
-let solve_cond r b =
-  let solver = Solver.solver in
-  Solver.chcs_of_res r;
-  let p = Option.value_exn !Solver.entry_decl in
-  let chcs = Hash_set.to_list Solver.chcs in
-  let rb = zconst "r" bsort in
-  Z3.Solver.add solver (([ rb ] |. (p <-- [ rb ]) --> (rb === zbool b)) :: chcs);
-  let sat =
-    match Z3.Solver.check solver [] with
-    | SATISFIABLE ->
-        (* let model = solver |> Z3.Solver.get_model |> Core.Option.value_exn in
-           model |> Z3.Model.to_string |> Format.printf "Model:\n%s\n\n"; *)
-        (* solver |> Z3.Solver.to_string |> Format.printf "Solver:\n%s"; *)
-        true
-    | UNSATISFIABLE -> false
-    | UNKNOWN -> failwith "unknown"
-  in
-  Solver.reset ();
-  sat

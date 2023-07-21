@@ -15,14 +15,19 @@ open Ast;;
 %token EOEX
 %token EQUAL
 %token FUNCTION
+%token GE
 %token GOESTO
+%token GT
 %token <string> IDENT
 %token IN
 %token IF
 %token <int> INT
-%token LET
 %token LBRACE
+%token LE
+%token LET
+%token LETASSERT
 %token LPAREN
+%token LT
 %token MINUS
 %token NOT
 %token OR
@@ -37,11 +42,13 @@ open Ast;;
  * Precedences and associativities.  Lower precedences come first.
  */
 %right prec_let                         /* let f x = ... in ... */
+%right prec_letassert                   /* letassert x = ... in ... */
 %right prec_fun                         /* function declaration */
 %right prec_if                          /* if ... then ... else */
 %right OR                               /* or */
 %right AND                              /* and */
 %left EQUAL                             /* = */
+%left GE GT LE LT                       /* >= > <= < */
 %left PLUS MINUS                        /* + - */
 %right NOT                              /* not e */
 
@@ -68,6 +75,14 @@ expr:
       { build_and $1 $3 }
   | expr OR expr
       { build_or $1 $3 }
+  | expr GE expr
+      { build_ge $1 $3 }
+  | expr GT expr
+      { build_gt $1 $3 }
+  | expr LE expr
+      { build_le $1 $3 }
+  | expr LT expr
+      { build_lt $1 $3 }
   | NOT expr
       { build_not $2 }
   | expr EQUAL expr
@@ -76,6 +91,8 @@ expr:
       { build_function $2 $4 }
   | LET ident_decl EQUAL expr IN expr %prec prec_let
       { build_let $2 $4 $6 }
+  | LETASSERT ident_decl EQUAL expr IN expr %prec prec_letassert
+     { build_letassert $2 $4 $6 }
   | IF expr THEN expr ELSE expr %prec prec_if
       { build_if $2 $4 $6 }
   | LBRACE separated_list(SEP, record_entry) RBRACE

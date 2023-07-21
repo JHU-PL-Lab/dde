@@ -26,6 +26,10 @@ type op =
   | EqualOp of res * res
   | AndOp of res * res
   | OrOp of res * res
+  | GeOp of res * res
+  | GtOp of res * res
+  | LeOp of res * res
+  | LtOp of res * res
   | NotOp of res
 
 and atom =
@@ -41,6 +45,7 @@ and atom =
   | RecordAtom of (ident * res) list
   | ProjectionAtom of res * ident
   | InspectionAtom of ident * res
+  | AssertAtom of res * Interpreter.Ast.result_value_fv
 
 and res = atom list
 
@@ -60,15 +65,6 @@ end
 module PathChoice = struct
   module T = struct
     type t = path_cond * atom [@@deriving compare, sexp]
-  end
-
-  include T
-  include Comparable.Make (T)
-end
-
-module Maybe_prim = struct
-  module T = struct
-    type t = DefInt of int | DefBool of bool | Any [@@deriving compare, sexp]
   end
 
   include T

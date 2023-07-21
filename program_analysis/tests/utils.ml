@@ -32,6 +32,8 @@ let ( |>-> ) v f = Option.bind v f
 (* TODO: can't use Debugutils.parse_analyze *)
 let pau s =
   s |> Core.Fn.flip ( ^ ) ";;" |> Lexing.from_string |> Parser.main Lexer.token
+  |> (function
+       | Interpreter.Ast.LetAssert (_, e, _) -> e | _ -> raise Unreachable)
   |> Lib.analyze ~debug:false
   |> Format.asprintf "%a" Utils.pp_res
 
@@ -44,18 +46,17 @@ let pau' s =
   Solver.chcs_of_res r;
   let chcs = Solver.list_of_chcs () in
 
-  let entry = Option.get !Solver.entry_decl in
-
   (* Format.printf "CHCs:\n";
-     List.iter ~f:(fun chc -> Format.printf "%s\n" (Z3.Expr.to_string chc)) chcs; *)
+     Core.List.iter
+       ~f:(fun chc -> Format.printf "%s\n" (Z3.Expr.to_string chc))
+       chcs; *)
   Solver.reset ();
-  (chcs, entry)
+  chcs
 
-let verify_result { prog; verif } =
-  (* pf "\nTest: %s\n" prog; *)
+let verify_result prog =
   let solver = Solver.solver in
-  let chcs, p = pau' prog in
-  Z3.Solver.add solver (verif p :: chcs);
+  let chcs = pau' prog in
+  Z3.Solver.add solver chcs;
 
   match Z3.Solver.check solver [] with
   | SATISFIABLE ->
