@@ -52,7 +52,7 @@ module Ast : sig
   type op_result_value_fv =
     | PlusOpFv of result_value_fv
     | MinusOpFv of result_value_fv
-    | EqualOpFv of result_value_fv
+    | EqOpFv of result_value_fv
     | AndOpFv of result_value_fv * result_value_fv
     | OrOpFv of result_value_fv * result_value_fv
     | GeOpFv of result_value_fv

@@ -128,39 +128,28 @@ let reset () =
   entry_decl := None;
   fresh_id := -1
 
+(** can assume good form due to call to `eval_assert` *)
 let chcs_of_assert p (r : Interpreter.Ast.result_value_fv) =
+  let ri = zconst "r" isort in
+  let rb = zconst "r" bsort in
   match r with
-  | BoolResultFv b ->
-      let r_ = zconst "r" isort in
-      Hash_set.add chcs ([ r_ ] |. (p <-- [ r_ ]) --> zbool b)
-  | VarResultFv ->
-      let r_ = zconst "r" bsort in
-      Hash_set.add chcs ([ r_ ] |. (p <-- [ r_ ]) --> r_ === ztrue)
+  | BoolResultFv b -> Hash_set.add chcs ([ ri ] |. (p <-- [ ri ]) --> zbool b)
+  | VarResultFv -> Hash_set.add chcs ([ rb ] |. (p <-- [ rb ]) --> rb === ztrue)
   | OpResultFv op -> (
       match op with
-      | EqualOpFv (IntResultFv i)
-      | GeOpFv (IntResultFv i)
-      | GtOpFv (IntResultFv i)
-      | LeOpFv (IntResultFv i)
+      | EqOpFv (IntResultFv i) ->
+          Hash_set.add chcs ([ ri ] |. (p <-- [ ri ]) --> (ri === zint i))
+      | GeOpFv (IntResultFv i) ->
+          Hash_set.add chcs ([ ri ] |. (p <-- [ ri ]) --> (ri >== zint i))
+      | GtOpFv (IntResultFv i) ->
+          Hash_set.add chcs ([ ri ] |. (p <-- [ ri ]) --> (ri >>> zint i))
+      | LeOpFv (IntResultFv i) ->
+          Hash_set.add chcs ([ ri ] |. (p <-- [ ri ]) --> (ri <== zint i))
       | LtOpFv (IntResultFv i) ->
-          let r_ = zconst "r" isort in
-          Hash_set.add chcs
-            ([ r_ ]
-            |. (p <-- [ r_ ])
-               --> (match op with
-                   | EqualOpFv _ -> ( === )
-                   | GeOpFv _ -> ( >== )
-                   | GtOpFv _ -> ( >>> )
-                   | LeOpFv _ -> ( <== )
-                   | LtOpFv _ -> ( <<< )
-                   | _ -> raise Unreachable)
-                     r_ (zint i))
+          Hash_set.add chcs ([ ri ] |. (p <-- [ ri ]) --> (ri <<< zint i))
       | NotOpFv ->
-          let r_ = zconst "r" bsort in
-          Hash_set.add chcs ([ r_ ] |. (p <-- [ r_ ]) --> (r_ === zfalse))
-      | _ ->
-          Format.printf "%a\n" Interpreter.Ast.pp_op_result_value_fv op;
-          raise Unreachable)
+          Hash_set.add chcs ([ rb ] |. (p <-- [ rb ]) --> (rb === zfalse))
+      | _ -> raise Unreachable)
   | _ -> raise Unreachable
 
 let rec cond pis =
@@ -271,7 +260,7 @@ and chcs_of_atom ?(pis = []) a =
             | Some pa ->
                 (* TODO: assert that all disjuncts are of the same type *)
                 Some (pa |> FuncDecl.get_domain |> List.hd_exn)
-            | None -> raise Unreachable)
+            | None -> t (* should hit this case at least once *))
         |> function
         | Some t -> t
         | None -> raise Unreachable

@@ -10,6 +10,7 @@ type test_case = {
 
 let basic =
   [|
+    "letassert x = 1 in true";
     "letassert x = (fun x -> x) 1 in x = 1";
     "letassert x = (fun y -> 1 + y) 2 in x = 3";
   |]
@@ -80,22 +81,13 @@ let recursion =
     (* (1 + (1 + (1 + ((1 + stub) | 0)))) *)
     "letassert x = (let id = fun self -> fun n -> if n = 10 then true else \
      false or self self (n + 1) in id id 0) in x";
-    (* kinda like False -> anything? *)
+    (* (1 + (1 + (1 + (1 + stub)))) *)
+    (* ((((-1 - 1) - 1) | ((((-1 - 1) - 1) | (stub - 1)) - 1)) = 0) *)
+    "letassert _x = (let id = fun self -> fun n -> if n = 0 then 0 else 1 + \
+     self self (n - 1) in id id (-1)) in false";
     (* TODO: check divergence before CHCs *)
-    (* {
-         (* (1 + (1 + (1 + (1 + stub)))) *)
-         (* ((((-1 - 1) - 1) | ((((-1 - 1) - 1) | (stub - 1)) - 1)) = 0) *)
-         prog =
-           "let id = fun self -> fun n -> if n = 0 then 0 else 1 + self self (n - \
-            1) in id id (-1)";
-         verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> zfalse);
-       };
-       {
-         prog =
-           "(fun self -> fun n -> self self n) (fun self -> fun n -> self self n) \
-            0";
-         verif = (fun p -> [ ri ] |. (p <-- [ ri ]) --> zfalse);
-       }; *)
+    (* "letassert _x = ((fun self -> fun n -> self self n) (fun self -> fun n -> \
+       self self n) 0) in false"; *)
   |]
 
 (** Church numerals *)

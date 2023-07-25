@@ -76,3 +76,23 @@ and pp_res fmt = function
   | [] -> ()
   | [ a ] -> ff fmt "%a" pp_atom a
   | a :: _as -> ff fmt "(%a | %a)" pp_atom a pp_res _as
+
+let verify_result r =
+  let solver = Solver.solver in
+  Solver.chcs_of_res r;
+  let chcs = Solver.list_of_chcs () in
+  Z3.Solver.add solver chcs;
+
+  match Z3.Solver.check solver [] with
+  | SATISFIABLE ->
+      (* Format.printf "sat" *)
+      (* let model = solver |> Z3.Solver.get_model |> Core.Option.value_exn in
+         model |> Z3.Model.to_string |> pf "Model:\n%s\n\n"; *)
+      (* solver |> Z3.Solver.to_string |> Format.printf "Solver:\n%s"; *)
+      Solver.reset ()
+  | UNSATISFIABLE ->
+      Solver.reset ();
+      failwith "unsat"
+  | UNKNOWN ->
+      Solver.reset ();
+      failwith "unknown"

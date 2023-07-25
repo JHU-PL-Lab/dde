@@ -68,80 +68,44 @@ let rec eval_assert_aux e =
   | _ -> raise BadAssert
 
 (** only allows the following forms:
-    - <bool>
-    - <ident>
-    - <ident> <op> <value> *)
+    - arbitrary variable-free arithmetic
+    - <var>
+    - not <var>
+    - <var> <op> <value> *)
 let eval_assert e id =
   match e with
   | Bool b -> BoolResultFv b
   | Var (id', _) when Stdlib.(id = id') -> VarResultFv
-  (* TODO: allow And/Or (low priority) *)
   | Equal (e1, e2) | Ge (e1, e2) | Gt (e1, e2) | Le (e1, e2) | Lt (e1, e2) -> (
       match e1 with
       | Var (id', _) when Stdlib.(id = id') ->
           let v2 = eval_assert_aux e2 in
           OpResultFv
             (match e with
-            | Equal _ -> EqualOpFv v2
+            | Equal _ -> EqOpFv v2
             | Ge _ -> GeOpFv v2
             | Gt _ -> GtOpFv v2
             | Le _ -> LeOpFv v2
             | Lt _ -> LtOpFv v2
             | _ -> raise Unreachable)
-      | _ -> raise BadAssert)
+      | _ -> (
+          let v1, v2 = (eval_assert_aux e1, eval_assert_aux e2) in
+          match (v1, v2) with
+          | IntResultFv i1, IntResultFv i2 -> (
+              match e with
+              | Equal _ -> BoolResultFv (i1 = i2)
+              | Ge _ -> BoolResultFv (i1 >= i2)
+              | Gt _ -> BoolResultFv (i1 > i2)
+              | Le _ -> BoolResultFv (i1 <= i2)
+              | Lt _ -> BoolResultFv (i1 < i2)
+              | _ -> raise Unreachable)
+          | _ -> raise BadAssert))
+  (* TODO: support And/Or (low priority) *)
   | Not e' -> (
       match e' with
       | Var (id', _) when Stdlib.(id = id') -> OpResultFv NotOpFv
       | _ -> eval_assert_aux e')
   | _ -> raise BadAssert
-
-(* let assert_bool b = if not b then raise BadAssert
-
-   let rec assert_valid_aux id is_int = function
-     | IntResultFv _ -> assert_bool is_int
-     | BoolResultFv _ -> assert_bool (not is_int)
-     | OpResultFv op -> (
-         match op with
-         | PlusOpFv (r1, r2) | MinusOpFv (r1, r2) ->
-             assert_bool is_int;
-             assert_valid_aux id true r1;
-             assert_valid_aux id true r2
-         | EqualOpFv (r1, r2)
-         | GeOpFv (r1, r2)
-         | GtOpFv (r1, r2)
-         | LeOpFv (r1, r2)
-         | LtOpFv (r1, r2) ->
-             assert_bool (not is_int);
-             assert_valid_aux id true r1;
-             assert_valid_aux id true r2
-         | AndOpFv (r1, r2) | OrOpFv (r1, r2) ->
-             assert_bool (not is_int);
-             assert_valid_aux id false r1;
-             assert_valid_aux id false r2
-         | NotOpFv r ->
-             assert_bool (not is_int);
-             assert_valid_aux id false r)
-     | VarResultFv _ | FunResultFv | RecordResultFv | ProjectionResultFv
-     | InspectionResultFv ->
-         raise BadAssert
-
-   let assert_valid id = function
-     | BoolResultFv _ -> ()
-     | OpResultFv op -> (
-         match op with
-         | EqualOpFv (r1, r2)
-         | AndOpFv (r1, r2)
-         | OrOpFv (r1, r2)
-         | GeOpFv (r1, r2)
-         | GtOpFv (r1, r2)
-         | LeOpFv (r1, r2)
-         | LtOpFv (r1, r2) -> (
-             assert_valid_aux id true r2;
-             match r1 with
-             | VarResultFv id' when Stdlib.(id = id') -> ()
-             | _ -> assert_valid_aux id true r1)
-         | _ -> raise BadAssert)
-     | _ -> raise BadAssert *)
 
 let rec analyze_aux expr s pi v_set =
   match expr with
@@ -341,12 +305,12 @@ let rec analyze_aux expr s pi v_set =
       [ AssertAtom (r1, r2) ]
   | Let _ -> raise Unreachable [@coverage off]
 
-let analyze ~debug e =
+let analyze ?(debug = false) ?(verify = true) e =
   is_debug_mode := debug;
 
   let e = transform_let e in
   build_myfun e None;
-  let r = analyze_aux e [] None (Set.empty (module State)) in
+  let r = Option.value_exn (analyze_aux e [] None (Set.empty (module State))) in
 
   (* Format.printf "result: %a\n" Grammar.pp_res (Option.value_exn r); *)
   (if !is_debug_mode then (
@@ -360,4 +324,6 @@ let analyze ~debug e =
   clean_up ();
   Hashset.clear s_set;
 
-  Option.value_exn r
+  if verify then verify_result r;
+
+  r

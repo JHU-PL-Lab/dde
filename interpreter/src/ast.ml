@@ -70,7 +70,7 @@ and result_value =
 type op_result_value_fv =
   | PlusOpFv of result_value_fv
   | MinusOpFv of result_value_fv
-  | EqualOpFv of result_value_fv
+  | EqOpFv of result_value_fv
   | AndOpFv of result_value_fv * result_value_fv
   | OrOpFv of result_value_fv * result_value_fv
   | GeOpFv of result_value_fv
@@ -79,6 +79,7 @@ type op_result_value_fv =
   | LtOpFv of result_value_fv
   | NotOpFv
 
+(** result values that may contain free variables *)
 and result_value_fv =
   | IntResultFv of int
   | BoolResultFv of bool

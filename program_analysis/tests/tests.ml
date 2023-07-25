@@ -9,10 +9,14 @@ open Test_cases
 let gen_test ls =
   List.iter ls ~f:(fun f ->
       let expected, actual = f () in
-      assert_equal expected actual)
+      assert_equal ~printer:Fn.id expected actual)
 
 let basic_thunked =
-  [ (fun _ -> ("1", pau basic.(0))); (fun _ -> ("(1 + 2)", pau basic.(1))) ]
+  [
+    (fun _ -> ("1", pau basic.(0)));
+    (fun _ -> ("1", pau basic.(1)));
+    (fun _ -> ("(1 + 2)", pau basic.(2)));
+  ]
 
 let test_basic _ = gen_test basic_thunked
 
@@ -39,6 +43,11 @@ let conditional_thunked =
     (fun _ -> ("((10 = 0) = false ⊩ (1 + (10 - 1)))", pau conditional.(0)));
     (fun _ -> ("(true = true ⊩ 1)", pau conditional.(1)));
     (fun _ -> ("1", pau conditional.(2)));
+    (fun _ ->
+      ("(true = true ⊩ (true = true ⊩ (true = true ⊩ 1)))", pau conditional.(3)));
+    (fun _ ->
+      ( "((((true and false) = false ⊩ true) = true ⊩ false) = false ⊩ false)",
+        pau conditional.(4) ));
   ]
 
 let test_conditional _ = gen_test conditional_thunked
@@ -72,6 +81,11 @@ let recursion_thunked =
          + 1) + 1) | ((((0 + 1) + 1) | (stub + 1)) + 1)) = 10) = true ⊩ \
          true))))))))",
         pau recursion.(1) ));
+    (fun _ ->
+      ( "((-1 = 0) = false ⊩ (1 + (((-1 - 1) = 0) = false ⊩ (1 + ((((-1 - 1) - \
+         1) = 0) = false ⊩ (1 + (((((-1 - 1) - 1) | ((((-1 - 1) - 1) | (stub - \
+         1)) - 1)) = 0) = false ⊩ (1 + stub))))))))",
+        pau recursion.(2) ));
   ]
 
 let test_recursion _ = gen_test recursion_thunked
@@ -85,14 +99,13 @@ let test_pa =
     "Basics" >:: test_basic;
     "Non-local variable lookup" >:: test_nonlocal_lookup;
     "Var local stack stitching" >:: test_local_stitching;
-    "If" >:: test_conditional;
+    "Conditional" >:: test_conditional;
     "Currying" >:: test_currying;
     "Recursion" >:: test_recursion;
     "Church numerals" >::: test_church;
   ]
 
-(* let tests = "Program analysis tests" >::: Verify.verify_pa *)
-let tests = "Program analysis tests" >::: test_pa @ Verify.verify_pa
+let tests = "Program analysis tests" >::: test_pa
 
 let _ =
   (* Pbt.run _; *)

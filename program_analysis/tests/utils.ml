@@ -29,45 +29,9 @@ let ( |>-> ) v f = Option.bind v f
 
 (** General *)
 
-(* TODO: can't use Debugutils.parse_analyze *)
+(*? can't use Debugutils.parse_analyze *)
 let pau s =
   s |> Core.Fn.flip ( ^ ) ";;" |> Lexing.from_string |> Parser.main Lexer.token
-  |> (function
-       | Interpreter.Ast.LetAssert (_, e, _) -> e | _ -> raise Unreachable)
-  |> Lib.analyze ~debug:false
+  |> Lib.analyze
+  |> (function [ AssertAtom (r, _) ] -> r | _ -> raise Unreachable)
   |> Format.asprintf "%a" Utils.pp_res
-
-let pau' s =
-  s |> Core.Fn.flip ( ^ ) ";;" |> Lexing.from_string |> Parser.main Lexer.token
-  |> Lib.analyze ~debug:false
-  |> fun r ->
-  (* pf "result: %a\n" Utils.pp_res r; *)
-  (* pf "result: %a\n" Grammar.pp_res r; *)
-  Solver.chcs_of_res r;
-  let chcs = Solver.list_of_chcs () in
-
-  (* Format.printf "CHCs:\n";
-     Core.List.iter
-       ~f:(fun chc -> Format.printf "%s\n" (Z3.Expr.to_string chc))
-       chcs; *)
-  Solver.reset ();
-  chcs
-
-let verify_result prog =
-  let solver = Solver.solver in
-  let chcs = pau' prog in
-  Z3.Solver.add solver chcs;
-
-  match Z3.Solver.check solver [] with
-  | SATISFIABLE ->
-      (* pf "\nsat\n\n"; *)
-      (* let model = solver |> Z3.Solver.get_model |> Core.Option.value_exn in
-         model |> Z3.Model.to_string |> pf "Model:\n%s\n\n"; *)
-      (* solver |> Z3.Solver.to_string |> pf "Solver:\n%s"; *)
-      true
-  | UNSATISFIABLE ->
-      pf "unsat\n";
-      false
-  | UNKNOWN ->
-      pf "unknown\n";
-      false
