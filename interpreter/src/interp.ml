@@ -11,8 +11,8 @@ let rec eval_int = function
       match op with
       | PlusOp (r1, r2) -> eval_int r1 + eval_int r2
       | MinusOp (r1, r2) -> eval_int r1 - eval_int r2
-      | EqualOp _ | AndOp _ | OrOp _ | GeOp _ | GtOp _ | LeOp _ | LtOp _
-      | NotOp _ ->
+      | EqOp _ | AndOp _ | OrOp _ | GeOp _ | GtOp _ | LeOp _ | LtOp _ | NotOp _
+        ->
           raise TypeMismatch)
   | ProjectionResult (r, x) -> (
       match r with
@@ -26,7 +26,7 @@ let rec eval_bool = function
   | OpResult op_r -> (
       match op_r with
       | PlusOp _ | MinusOp _ -> raise TypeMismatch
-      | EqualOp (r1, r2) -> eval_int r1 = eval_int r2
+      | EqOp (r1, r2) -> eval_int r1 = eval_int r2
       | AndOp (r1, r2) -> eval_bool r1 && eval_bool r2
       | OrOp (r1, r2) -> eval_bool r1 || eval_bool r2
       | GeOp (r1, r2) -> eval_int r1 >= eval_int r2
@@ -101,7 +101,7 @@ let rec eval_aux (e : expr) (sigma : int list) : result_value =
               (match e with
               | Plus _ -> PlusOp (r1, r2)
               | Minus _ -> MinusOp (r1, r2)
-              | Equal _ -> EqualOp (r1, r2)
+              | Equal _ -> EqOp (r1, r2)
               | And _ -> AndOp (r1, r2)
               | Or _ -> OrOp (r1, r2)
               | Ge _ -> GeOp (r1, r2)
@@ -137,7 +137,7 @@ let rec result_value_to_expr (r : result_value) : expr =
       match op with
       | PlusOp (r1, r2)
       | MinusOp (r1, r2)
-      | EqualOp (r1, r2)
+      | EqOp (r1, r2)
       | AndOp (r1, r2)
       | OrOp (r1, r2)
       | GeOp (r1, r2)
@@ -149,7 +149,7 @@ let rec result_value_to_expr (r : result_value) : expr =
           match op with
           | PlusOp _ -> Plus (e1, e2)
           | MinusOp _ -> Minus (e1, e2)
-          | EqualOp _ -> Equal (e1, e2)
+          | EqOp _ -> Equal (e1, e2)
           | AndOp _ -> And (e1, e2)
           | OrOp _ -> Or (e1, e2)
           | GeOp _ -> Ge (e1, e2)
@@ -241,7 +241,7 @@ and eval_result_value (r : result_value) : result_value =
       match op with
       | PlusOp (r1, r2)
       | MinusOp (r1, r2)
-      | EqualOp (r1, r2)
+      | EqOp (r1, r2)
       | GeOp (r1, r2)
       | GtOp (r1, r2)
       | LeOp (r1, r2)
@@ -253,7 +253,7 @@ and eval_result_value (r : result_value) : result_value =
               match op with
               | PlusOp _ -> IntResult (i1 + i2)
               | MinusOp _ -> IntResult (i1 - i2)
-              | EqualOp _ -> BoolResult (i1 = i2)
+              | EqOp _ -> BoolResult (i1 = i2)
               | GeOp _ -> BoolResult (i1 >= i2)
               | GtOp _ -> BoolResult (i1 > i2)
               | LeOp _ -> BoolResult (i1 <= i2)

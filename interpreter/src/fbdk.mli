@@ -31,7 +31,7 @@ module Ast : sig
   type op_result_value =
     | PlusOp of result_value * result_value
     | MinusOp of result_value * result_value
-    | EqualOp of result_value * result_value
+    | EqOp of result_value * result_value
     | AndOp of result_value * result_value
     | OrOp of result_value * result_value
     | GeOp of result_value * result_value

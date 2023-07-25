@@ -66,8 +66,7 @@ let rec pp_result_value fmt = function
           ff fmt "%a + %a" pp_result_value r1 pp_result_value r2
       | MinusOp (r1, r2) ->
           ff fmt "%a - %a" pp_result_value r1 pp_result_value r2
-      | EqualOp (r1, r2) ->
-          ff fmt "%a = %a" pp_result_value r1 pp_result_value r2
+      | EqOp (r1, r2) -> ff fmt "%a = %a" pp_result_value r1 pp_result_value r2
       | AndOp (r1, r2) ->
           ff fmt "%a and %a" pp_result_value r1 pp_result_value r2
       | OrOp (r1, r2) -> ff fmt "%a or %a" pp_result_value r1 pp_result_value r2
