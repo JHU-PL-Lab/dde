@@ -22,15 +22,20 @@ rule token = parse
 | "then"               { THEN }
 | "else"               { ELSE }
 | "let"                { LET }
+| "letassert"          { LETASSERT }
 | "in"                 { IN }
+| ">="                 { GE }
 | "->"                 { GOESTO }
+| ">"                  { GT }
 | "false"              { BOOL false }
 | "true"               { BOOL true }
 | ";;"                 { EOEX }
 | '+'                  { PLUS }
 | '-'                  { MINUS }
 | '='                  { EQUAL }
+| "<="                 { LE }
 | '('                  { LPAREN }
+| "<"                  { LT }
 | ')'                  { RPAREN }
 | '{'                  { LBRACE }
 | '}'                  { RBRACE }

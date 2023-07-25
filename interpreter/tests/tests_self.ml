@@ -32,11 +32,15 @@ let test_record _ =
   assert_equal "2"
     (peu ~should_simplify:true "{ hd = 1; tl = { hd = 2; tl = {} } }.tl.hd")
 
+let test_letassert _ =
+  assert_equal "2" (peu ~should_simplify:true "letassert x = 1 + 1 in x = 2")
+
 let dde_self_tests =
   [
     "Laziness" >:: test_laziness;
     (* "Memoization" >:: test_memoization; *)
     "Record operations" >:: test_record;
+    "letassert" >:: test_letassert;
   ]
 
 let dde_self = "DDE against self" >::: dde_self_tests

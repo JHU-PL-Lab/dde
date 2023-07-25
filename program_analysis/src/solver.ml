@@ -97,7 +97,9 @@ let ( ||| ) e1 e2 = Boolean.mk_or ctx [ e1; e2 ]
 let ( +++ ) e1 e2 = Arithmetic.mk_add ctx [ e1; e2 ]
 let ( --- ) e1 e2 = Arithmetic.mk_sub ctx [ e1; e2 ]
 let ( >== ) e1 e2 = Arithmetic.mk_ge ctx e1 e2
+let ( >>> ) e1 e2 = Arithmetic.mk_gt ctx e1 e2
 let ( <== ) e1 e2 = Arithmetic.mk_le ctx e1 e2
+let ( <<< ) e1 e2 = Arithmetic.mk_lt ctx e1 e2
 
 let ( |. ) vars body =
   Quantifier.expr_of_quantifier
@@ -125,6 +127,30 @@ let reset () =
   Solver.reset solver;
   entry_decl := None;
   fresh_id := -1
+
+(** can assume good form due to call to `eval_assert` *)
+let chcs_of_assert p (r : Interpreter.Ast.result_value_fv) =
+  let ri = zconst "r" isort in
+  let rb = zconst "r" bsort in
+  match r with
+  | BoolResultFv b -> Hash_set.add chcs ([ ri ] |. (p <-- [ ri ]) --> zbool b)
+  | VarResultFv -> Hash_set.add chcs ([ rb ] |. (p <-- [ rb ]) --> rb === ztrue)
+  | OpResultFv op -> (
+      match op with
+      | EqOpFv (IntResultFv i) ->
+          Hash_set.add chcs ([ ri ] |. (p <-- [ ri ]) --> (ri === zint i))
+      | GeOpFv (IntResultFv i) ->
+          Hash_set.add chcs ([ ri ] |. (p <-- [ ri ]) --> (ri >== zint i))
+      | GtOpFv (IntResultFv i) ->
+          Hash_set.add chcs ([ ri ] |. (p <-- [ ri ]) --> (ri >>> zint i))
+      | LeOpFv (IntResultFv i) ->
+          Hash_set.add chcs ([ ri ] |. (p <-- [ ri ]) --> (ri <== zint i))
+      | LtOpFv (IntResultFv i) ->
+          Hash_set.add chcs ([ ri ] |. (p <-- [ ri ]) --> (ri <<< zint i))
+      | NotOpFv ->
+          Hash_set.add chcs ([ rb ] |. (p <-- [ rb ]) --> (rb === zfalse))
+      | _ -> raise Unreachable)
+  | _ -> raise Unreachable
 
 let rec cond pis =
   if List.is_empty pis then ([], ztrue)
@@ -161,7 +187,11 @@ and chcs_of_atom ?(pis = []) a =
       | MinusOp (r1, r2)
       | EqualOp (r1, r2)
       | AndOp (r1, r2)
-      | OrOp (r1, r2) ->
+      | OrOp (r1, r2)
+      | GeOp (r1, r2)
+      | GtOp (r1, r2)
+      | LeOp (r1, r2)
+      | LtOp (r1, r2) ->
           let aid, rid1, rid2 = (ida a, idr r1, idr r2) in
           let is_int_arith =
             match op with PlusOp _ | MinusOp _ -> true | _ -> false
@@ -173,6 +203,10 @@ and chcs_of_atom ?(pis = []) a =
             | EqualOp _ -> ( === )
             | AndOp _ -> ( &&& )
             | OrOp _ -> ( ||| )
+            | GeOp _ -> ( >== )
+            | GtOp _ -> ( >>> )
+            | LeOp _ -> ( <== )
+            | LtOp _ -> ( <<< )
             | _ -> raise Unreachable
           in
           let pa =
@@ -226,7 +260,7 @@ and chcs_of_atom ?(pis = []) a =
             | Some pa ->
                 (* TODO: assert that all disjuncts are of the same type *)
                 Some (pa |> FuncDecl.get_domain |> List.hd_exn)
-            | None -> raise Unreachable)
+            | None -> t (* should hit this case at least once *))
         |> function
         | Some t -> t
         | None -> raise Unreachable
@@ -254,6 +288,10 @@ and chcs_of_atom ?(pis = []) a =
   | RecordAtom _ -> failwith "unimplemented"
   | ProjectionAtom _ -> failwith "unimplemented"
   | InspectionAtom _ -> failwith "unimplemented"
+  | AssertAtom (r1, r2) ->
+      chcs_of_res r1 ~pis;
+      let p = Hashtbl.find_exn id_to_decl (idr r1) in
+      chcs_of_assert p r2
 
 and chcs_of_res ?(pis = []) r =
   let rid = idr r in
@@ -274,28 +312,28 @@ and chcs_of_res ?(pis = []) r =
             (r :: cond_quants |. (pa <-- [ r ] &&& cond_body) --> (pr <-- [ r ]))
       | None -> (
           match a with
-          | LabelStubAtom _ | ExprStubAtom _ -> ()
+          | LabelStubAtom _ | ExprStubAtom _ | AssertAtom _ -> ()
           | _ -> failwith "resatom non-labeled"))
 
-let test =
-  [
-    LabelResAtom
-      ([ OpAtom (PlusOp ([ IntAtom 1 ], [ LabelStubAtom (0, []) ])) ], (0, []));
-  ]
+(* let test =
+     [
+       LabelResAtom
+         ([ OpAtom (PlusOp ([ IntAtom 1 ], [ LabelStubAtom (0, []) ])) ], (0, []));
+     ]
 
-let chcs_of_test _ =
-  chcs_of_res test;
-  let chcs = Hash_set.to_list chcs in
-  Format.printf "CHCs:\n";
-  List.iter ~f:(fun chc -> Format.printf "%s\n" (Z3.Expr.to_string chc)) chcs;
-  Format.printf "\nres_to_id:\n";
-  Core.Hashtbl.iteri
-    ~f:(fun ~key ~data ->
-      Format.printf "key: %a\ndata: %d\n" Grammar.pp_res key data)
-    res_to_id;
-  Format.printf "\natom_to_id:\n";
-  Core.Hashtbl.iteri
-    ~f:(fun ~key ~data ->
-      Format.printf "key: %a\ndata: %d\n" Grammar.pp_atom key data)
-    atom_to_id;
-  reset ()
+   let chcs_of_test _ =
+     chcs_of_res test;
+     let chcs = Hash_set.to_list chcs in
+     Format.printf "CHCs:\n";
+     List.iter ~f:(fun chc -> Format.printf "%s\n" (Z3.Expr.to_string chc)) chcs;
+     Format.printf "\nres_to_id:\n";
+     Core.Hashtbl.iteri
+       ~f:(fun ~key ~data ->
+         Format.printf "key: %a\ndata: %d\n" Grammar.pp_res key data)
+       res_to_id;
+     Format.printf "\natom_to_id:\n";
+     Core.Hashtbl.iteri
+       ~f:(fun ~key ~data ->
+         Format.printf "key: %a\ndata: %d\n" Grammar.pp_atom key data)
+       atom_to_id;
+     reset () *)

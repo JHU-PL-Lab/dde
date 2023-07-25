@@ -1,6 +1,6 @@
 (test
  (name tests)
- (modules test_cases tests pbt church bench verify utils)
+ (modules test_cases tests pbt church bench utils)
  (libraries
   core
   core_bench

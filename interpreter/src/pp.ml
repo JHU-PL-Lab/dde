@@ -29,6 +29,10 @@ let rec pp_expr fmt = function
   | Equal (e1, e2) -> ff fmt "(%a = %a)" pp_expr e1 pp_expr e2
   | And (e1, e2) -> ff fmt "(%a and %a)" pp_expr e1 pp_expr e2
   | Or (e1, e2) -> ff fmt "(%a or %a)" pp_expr e1 pp_expr e2
+  | Ge (e1, e2) -> ff fmt "(%a >= %a)" pp_expr e1 pp_expr e2
+  | Gt (e1, e2) -> ff fmt "(%a > %a)" pp_expr e1 pp_expr e2
+  | Le (e1, e2) -> ff fmt "(%a <= %a)" pp_expr e1 pp_expr e2
+  | Lt (e1, e2) -> ff fmt "(%a < %a)" pp_expr e1 pp_expr e2
   | Not e1 -> ff fmt "(not %a)" pp_expr e1
   | If (e1, e2, e3, l) ->
       ff fmt "@[<hv>if %a then@;<1 4>%a@;<1 0>else@;<1 4>%a@]" pp_expr e1
@@ -36,6 +40,9 @@ let rec pp_expr fmt = function
   | Let (Ident i, e1, e2, l) ->
       ff fmt "@[<hv>let %s =@;<1 4>%a@;<1 0>in@;<1 4>%a@]" i pp_expr e1 pp_expr
         e2
+  | LetAssert (Ident i, e1, e2) ->
+      ff fmt "@[<hv>letassert %s =@;<1 4>%a@;<1 0>in@;<1 4>%a@]" i pp_expr e1
+        pp_expr e2
   | Record entries ->
       ff fmt
         (if List.length entries = 0 then "{%a}" else "{ %a }")
@@ -59,11 +66,14 @@ let rec pp_result_value fmt = function
           ff fmt "%a + %a" pp_result_value r1 pp_result_value r2
       | MinusOp (r1, r2) ->
           ff fmt "%a - %a" pp_result_value r1 pp_result_value r2
-      | EqualOp (r1, r2) ->
-          ff fmt "%a = %a" pp_result_value r1 pp_result_value r2
+      | EqOp (r1, r2) -> ff fmt "%a = %a" pp_result_value r1 pp_result_value r2
       | AndOp (r1, r2) ->
           ff fmt "%a and %a" pp_result_value r1 pp_result_value r2
       | OrOp (r1, r2) -> ff fmt "%a or %a" pp_result_value r1 pp_result_value r2
+      | GeOp (r1, r2) -> ff fmt "%a >= %a" pp_result_value r1 pp_result_value r2
+      | GtOp (r1, r2) -> ff fmt "%a > %a" pp_result_value r1 pp_result_value r2
+      | LeOp (r1, r2) -> ff fmt "%a <= %a" pp_result_value r1 pp_result_value r2
+      | LtOp (r1, r2) -> ff fmt "%a < %a" pp_result_value r1 pp_result_value r2
       | NotOp r1 -> ff fmt "not %a" pp_result_value r1)
   | RecordResult entries ->
       ff fmt

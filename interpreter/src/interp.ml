@@ -11,10 +11,9 @@ let rec eval_int = function
       match op with
       | PlusOp (r1, r2) -> eval_int r1 + eval_int r2
       | MinusOp (r1, r2) -> eval_int r1 - eval_int r2
-      | EqualOp (r1, r2) -> raise TypeMismatch
-      | AndOp (r1, r2) -> raise TypeMismatch
-      | OrOp (r1, r2) -> raise TypeMismatch
-      | NotOp r -> raise TypeMismatch)
+      | EqOp _ | AndOp _ | OrOp _ | GeOp _ | GtOp _ | LeOp _ | LtOp _ | NotOp _
+        ->
+          raise TypeMismatch)
   | ProjectionResult (r, x) -> (
       match r with
       | RecordResult entries ->
@@ -26,11 +25,14 @@ let rec eval_bool = function
   | BoolResult b -> b
   | OpResult op_r -> (
       match op_r with
-      | PlusOp (r1, r2) -> raise TypeMismatch
-      | MinusOp (r1, r2) -> raise TypeMismatch
-      | EqualOp (r1, r2) -> eval_int r1 = eval_int r2
+      | PlusOp _ | MinusOp _ -> raise TypeMismatch
+      | EqOp (r1, r2) -> eval_int r1 = eval_int r2
       | AndOp (r1, r2) -> eval_bool r1 && eval_bool r2
       | OrOp (r1, r2) -> eval_bool r1 || eval_bool r2
+      | GeOp (r1, r2) -> eval_int r1 >= eval_int r2
+      | GtOp (r1, r2) -> eval_int r1 > eval_int r2
+      | LeOp (r1, r2) -> eval_int r1 <= eval_int r2
+      | LtOp (r1, r2) -> eval_int r1 < eval_int r2
       | NotOp r -> not (eval_bool r))
   | ProjectionResult (r, x) -> (
       match r with
@@ -88,16 +90,24 @@ let rec eval_aux (e : expr) (sigma : int list) : result_value =
         | Minus (e1, e2)
         | Equal (e1, e2)
         | And (e1, e2)
-        | Or (e1, e2) ->
+        | Or (e1, e2)
+        | Ge (e1, e2)
+        | Gt (e1, e2)
+        | Le (e1, e2)
+        | Lt (e1, e2) ->
             let r1 = eval_aux e1 sigma in
             let r2 = eval_aux e2 sigma in
             OpResult
               (match e with
               | Plus _ -> PlusOp (r1, r2)
               | Minus _ -> MinusOp (r1, r2)
-              | Equal _ -> EqualOp (r1, r2)
+              | Equal _ -> EqOp (r1, r2)
               | And _ -> AndOp (r1, r2)
               | Or _ -> OrOp (r1, r2)
+              | Ge _ -> GeOp (r1, r2)
+              | Gt _ -> GtOp (r1, r2)
+              | Le _ -> LeOp (r1, r2)
+              | Lt _ -> LtOp (r1, r2)
               | _ -> raise Unreachable [@coverage off])
         | Not e -> OpResult (NotOp (eval_aux e sigma))
         | If (e1, e2, e3, _) ->
@@ -108,6 +118,9 @@ let rec eval_aux (e : expr) (sigma : int list) : result_value =
               (List.map (fun (x, e) -> (x, eval_aux e sigma)) entries)
         | Projection (e, x) -> ProjectionResult (eval_aux e sigma, x)
         | Inspection (x, e) -> InspectionResult (x, eval_aux e sigma)
+        | LetAssert (_, e, _) ->
+            (* TODO: still assert *)
+            eval_aux e sigma
         | Let (_, _, _, _) -> raise Unreachable [@coverage off]
       in
       let () = Hashtbl.replace memo_cache (e, sigma) eval_res in
@@ -124,17 +137,25 @@ let rec result_value_to_expr (r : result_value) : expr =
       match op with
       | PlusOp (r1, r2)
       | MinusOp (r1, r2)
-      | EqualOp (r1, r2)
+      | EqOp (r1, r2)
       | AndOp (r1, r2)
-      | OrOp (r1, r2) -> (
+      | OrOp (r1, r2)
+      | GeOp (r1, r2)
+      | GtOp (r1, r2)
+      | LeOp (r1, r2)
+      | LtOp (r1, r2) -> (
           let e1 = result_value_to_expr r1 in
           let e2 = result_value_to_expr r2 in
           match op with
           | PlusOp _ -> Plus (e1, e2)
           | MinusOp _ -> Minus (e1, e2)
-          | EqualOp _ -> Equal (e1, e2)
+          | EqOp _ -> Equal (e1, e2)
           | AndOp _ -> And (e1, e2)
           | OrOp _ -> Or (e1, e2)
+          | GeOp _ -> Ge (e1, e2)
+          | GtOp _ -> Gt (e1, e2)
+          | LeOp _ -> Le (e1, e2)
+          | LtOp _ -> Lt (e1, e2)
           | NotOp _ -> raise Unreachable [@coverage off])
       | NotOp r -> Not (result_value_to_expr r))
   | RecordResult entries ->
@@ -160,8 +181,15 @@ let rec subst_free_vars (e : expr) (target_l : int) (sigma : int list)
         ( subst_free_vars e1 target_l sigma seen,
           subst_free_vars e2 target_l sigma seen,
           l )
-  | Plus (e1, e2) | Minus (e1, e2) | Equal (e1, e2) | And (e1, e2) | Or (e1, e2)
-    -> (
+  | Plus (e1, e2)
+  | Minus (e1, e2)
+  | Equal (e1, e2)
+  | And (e1, e2)
+  | Or (e1, e2)
+  | Ge (e1, e2)
+  | Gt (e1, e2)
+  | Le (e1, e2)
+  | Lt (e1, e2) -> (
       let e1 = subst_free_vars e1 target_l sigma seen in
       let e2 = subst_free_vars e2 target_l sigma seen in
       match e with
@@ -170,6 +198,10 @@ let rec subst_free_vars (e : expr) (target_l : int) (sigma : int list)
       | Equal _ -> Equal (e1, e2)
       | And _ -> And (e1, e2)
       | Or _ -> Or (e1, e2)
+      | Ge _ -> Ge (e1, e2)
+      | Gt _ -> Gt (e1, e2)
+      | Le _ -> Le (e1, e2)
+      | Lt _ -> Lt (e1, e2)
       | _ -> raise Unreachable [@coverage off])
   | Not e -> Not (subst_free_vars e target_l sigma seen)
   | If (e1, e2, e3, l) ->
@@ -185,6 +217,8 @@ let rec subst_free_vars (e : expr) (target_l : int) (sigma : int list)
            entries)
   | Projection (e, x) -> Projection (subst_free_vars e target_l sigma seen, x)
   | Inspection (x, e) -> Inspection (x, subst_free_vars e target_l sigma seen)
+  (* ignore letassert *)
+  | LetAssert (_, e, _) -> subst_free_vars e target_l sigma seen
   | Let _ -> raise Unreachable [@coverage off]
 
 and eval_result_value (r : result_value) : result_value =
@@ -205,7 +239,13 @@ and eval_result_value (r : result_value) : result_value =
       | _ -> raise Unreachable [@coverage off])
   | OpResult op -> (
       match op with
-      | PlusOp (r1, r2) | MinusOp (r1, r2) | EqualOp (r1, r2) -> (
+      | PlusOp (r1, r2)
+      | MinusOp (r1, r2)
+      | EqOp (r1, r2)
+      | GeOp (r1, r2)
+      | GtOp (r1, r2)
+      | LeOp (r1, r2)
+      | LtOp (r1, r2) -> (
           let v1 = eval_result_value r1 in
           let v2 = eval_result_value r2 in
           match (v1, v2) with
@@ -213,7 +253,11 @@ and eval_result_value (r : result_value) : result_value =
               match op with
               | PlusOp _ -> IntResult (i1 + i2)
               | MinusOp _ -> IntResult (i1 - i2)
-              | EqualOp _ -> BoolResult (i1 = i2)
+              | EqOp _ -> BoolResult (i1 = i2)
+              | GeOp _ -> BoolResult (i1 >= i2)
+              | GtOp _ -> BoolResult (i1 > i2)
+              | LeOp _ -> BoolResult (i1 <= i2)
+              | LtOp _ -> BoolResult (i1 < i2)
               | _ -> raise Unreachable [@coverage off])
           | _ -> raise TypeMismatch [@coverage off])
       | AndOp (r1, r2) | OrOp (r1, r2) -> (

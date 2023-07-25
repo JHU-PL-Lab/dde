@@ -14,9 +14,14 @@ module Ast : sig
     | Equal of expr * expr
     | And of expr * expr
     | Or of expr * expr
+    | Ge of expr * expr
+    | Gt of expr * expr
+    | Le of expr * expr
+    | Lt of expr * expr
     | Not of expr
     | If of expr * expr * expr * int
     | Let of ident * expr * expr * int
+    | LetAssert of ident * expr * expr
     | Record of (ident * expr) list
     | Projection of expr * ident
     | Inspection of ident * expr
@@ -26,9 +31,13 @@ module Ast : sig
   type op_result_value =
     | PlusOp of result_value * result_value
     | MinusOp of result_value * result_value
-    | EqualOp of result_value * result_value
+    | EqOp of result_value * result_value
     | AndOp of result_value * result_value
     | OrOp of result_value * result_value
+    | GeOp of result_value * result_value
+    | GtOp of result_value * result_value
+    | LeOp of result_value * result_value
+    | LtOp of result_value * result_value
     | NotOp of result_value
 
   and result_value =
@@ -39,6 +48,28 @@ module Ast : sig
     | RecordResult of (ident * result_value) list
     | ProjectionResult of result_value * ident
     | InspectionResult of ident * result_value
+
+  type op_result_value_fv =
+    | PlusOpFv of result_value_fv
+    | MinusOpFv of result_value_fv
+    | EqOpFv of result_value_fv
+    | AndOpFv of result_value_fv * result_value_fv
+    | OrOpFv of result_value_fv * result_value_fv
+    | GeOpFv of result_value_fv
+    | GtOpFv of result_value_fv
+    | LeOpFv of result_value_fv
+    | LtOpFv of result_value_fv
+    | NotOpFv
+
+  and result_value_fv =
+    | IntResultFv of int
+    | BoolResultFv of bool
+    | VarResultFv
+    | OpResultFv of op_result_value_fv
+    | FunResultFv
+    | RecordResultFv
+    | ProjectionResultFv
+    | InspectionResultFv
 
   type fbtype = Ast.fbtype = TArrow of fbtype * fbtype | TVar of string
 
