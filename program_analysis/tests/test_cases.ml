@@ -79,15 +79,19 @@ let recursion =
     "letassert x = let id = fun self -> fun n -> if n = 0 then 0 else 1 + self \
      self (n - 1) in id id 10 in x >= 2";
     (* (1 + (1 + (1 + ((1 + stub) | 0)))) *)
-    "letassert x = (let id = fun self -> fun n -> if n = 10 then true else \
-     false or self self (n + 1) in id id 0) in x";
+    "letassert x = let id = fun self -> fun n -> if n = 10 then true else \
+     false or self self (n + 1) in id id 0 in x";
     (* (1 + (1 + (1 + (1 + stub)))) *)
     (* ((((-1 - 1) - 1) | ((((-1 - 1) - 1) | (stub - 1)) - 1)) = 0) *)
-    "letassert _x = (let id = fun self -> fun n -> if n = 0 then 0 else 1 + \
-     self self (n - 1) in id id (-1)) in false";
+    "letassert _x = let id = fun self -> fun n -> if n = 0 then 0 else 1 + \
+     self self (n - 1) in id id (-1) in false";
     (* TODO: check divergence before CHCs *)
     (* "letassert _x = ((fun self -> fun n -> self self n) (fun self -> fun n -> \
        self self n) 0) in false"; *)
+    "letassert x = let id = fun self -> fun n -> if n > 0 then 1 + self self \
+     (n - 1) else 0 in id id 10 in x >= 2";
+    "letassert x = let id = fun self -> fun n -> if n > 0 then 1 + self self \
+     (n - 1) else 0 in id id (-1) in x = 0";
   |]
 
 (** Church numerals *)

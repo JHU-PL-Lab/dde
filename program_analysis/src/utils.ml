@@ -61,10 +61,7 @@ let rec pp_atom fmt = function
         pp_record_atom entries
   | ProjectionAtom (r, Ident s) -> ff fmt "%a.%s" pp_res r s
   | InspectionAtom (Ident s, r) -> ff fmt "%s in %a" s pp_res r
-  | AssertAtom (e1, e2) ->
-      ff fmt "assert %a in %a" pp_res e1
-        (* TODO: pretty print *)
-        Interpreter.Ast.pp_result_value_fv e2
+  | AssertAtom (r, _) -> ff fmt "%a" pp_res r
 
 and pp_record_atom fmt = function
   | [] -> ()

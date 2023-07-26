@@ -8,11 +8,11 @@ let is_debug_mode = ref false
 let parse s =
   s ^ ";;" |> Lexing.from_string
   |> Interpreter.Parser.main Interpreter.Lexer.token
-  |> fun expr ->
+  |> fun e ->
   (* keep labeling consistent across multiple calls
      to `analyze` *)
   Interpreter.Ast.reset_label ();
-  expr
+  e
 
 let unparse = Format.asprintf "%a" pp_res
 let parse_analyze s = s |> parse |> analyze ~debug:!is_debug_mode

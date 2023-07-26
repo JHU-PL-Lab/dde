@@ -23,6 +23,8 @@ let solve_cond r b =
         (* let model = solver |> Z3.Solver.get_model |> Core.Option.value_exn in
            model |> Z3.Model.to_string |> Format.printf "Model:\n%s\n\n"; *)
         (* solver |> Z3.Solver.to_string |> Format.printf "Solver:\n%s"; *)
+        (* let prog = Format.asprintf "%a" pp_res r in
+           Format.printf "if condition: %s\n" prog; *)
         true
     | UNSATISFIABLE -> false
     | UNKNOWN -> failwith "unknown"
@@ -233,22 +235,16 @@ let rec analyze_aux expr s pi v_set =
       | _ -> raise Unreachable [@coverage off])
   | If (e, e_true, e_false, l) -> (
       let%bind r_cond = analyze_aux e s pi v_set in
-      (* let prog = Format.asprintf "%a" pp_res r_cond in *)
-      (* Format.printf "if condition: %s\n" prog; *)
-      (* Format.printf "if condition: %a\n" Grammar.pp_res r_cond; *)
       let true_sat = solve_cond r_cond true in
       let false_sat = solve_cond r_cond false in
       match (true_sat, false_sat) with
       | true, false ->
-          (* Format.printf "\ntake true branch\n"; *)
           let%map r_true = analyze_aux e_true s pi v_set in
           [ PathCondAtom ((r_cond, true), r_true) ]
       | false, true ->
-          (* Format.printf "\ntake false branch\n"; *)
           let%map r_false = analyze_aux e_false s pi v_set in
           [ PathCondAtom ((r_cond, false), r_false) ]
       | false, false ->
-          (* Format.printf "\ntake both branch\n"; *)
           let%bind r_true = analyze_aux e_true s pi v_set in
           let pc_true = PathCondAtom ((r_cond, true), r_true) in
           let%map r_false = analyze_aux e_false s pi v_set in
