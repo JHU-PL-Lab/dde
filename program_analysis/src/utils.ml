@@ -2,6 +2,8 @@ open Core
 open Interpreter.Ast
 open Grammar
 
+let pf = Format.printf
+let pfl = pf "%s\n"
 let prune_sigma ?(k = 2) s = List.filteri s ~f:(fun i _ -> i < k)
 
 let rec starts_with sigma_parent sigma_child =
@@ -53,8 +55,8 @@ let rec pp_atom fmt = function
       | LtOp (r1, r2) -> ff fmt "(%a < %a)" pp_res r1 pp_res r2
       | NotOp r1 -> ff fmt "(not %a)" pp_res r1)
   | LabelStubAtom _ | ExprStubAtom _ -> ff fmt "stub"
-  | PathCondAtom ((r, b), r') -> ff fmt "(%a = %b ⊩ %a)" pp_res r b pp_res r'
-  (* | PathCondAtom (_, a) -> ff fmt "%a" pp_res a *)
+  (* | PathCondAtom ((r, b), r') -> ff fmt "(%a = %b ⊩ %a)" pp_res r b pp_res r' *)
+  | PathCondAtom (_, a) -> ff fmt "%a" pp_res a
   | RecordAtom entries ->
       ff fmt
         (if List.length entries = 0 then "{%a}" else "{ %a }")

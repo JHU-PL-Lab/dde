@@ -72,6 +72,16 @@ let currying =
      x = 20";
   |]
 
+let rec_eg_5 =
+  "let f = fun self -> fun x -> (fun y -> if x and y then true else if x and \
+   not y then not (self self true true) else if not x and y then self self \
+   true false else self self false true) in f f "
+
+let rec_eg_6 =
+  "let f = (fun x -> fun dummy -> x) in let loop = fun self -> fun x -> let r \
+   = f x in if x = 1 then r 1 else if x = 0 then self self 1 else self self 0 \
+   in loop loop "
+
 let recursion =
   [|
     (* (1 + (1 + (1 + ((1 + stub) | 0)))) *)
@@ -92,11 +102,30 @@ let recursion =
      (n - 1) else 0 in id id 10 in x >= 2";
     "letassert x = let id = fun self -> fun n -> if n > 0 then 1 + self self \
      (n - 1) else 0 in id id (-1) in x = 0";
+    (* tests adapted from standard PA *)
+    "letassert x = " ^ rec_eg_5 ^ "true true in x";
+    (* TODO *)
+    rec_eg_5 ^ "true false";
+    "letassert x = let f = (fun x -> (fun y -> y) x) in let repeat = fun self \
+     -> fun acc -> if acc then true else self self (self self (f true)) in \
+     repeat repeat true in x";
+    "letassert x = let f = (fun x -> fun dummy -> x) in let loop = (fun self \
+     -> fun x -> let r = f x in if x then r 0 else self self true) in loop \
+     loop false in x";
+    "letassert x = " ^ rec_eg_6 ^ "0 in x >= 1";
+    "letassert x = " ^ rec_eg_6 ^ "1 in x >= 1";
+    "letassert x = " ^ rec_eg_6 ^ "(0 - 1) in x >= 1";
+    (* TODOs *)
+    "let fib = fun self -> fun n -> if n <= 1 then 1 else (self self (n - 1)) \
+     + (self self (n - 2)) in fib fib 4";
+    (* "let fib = (fun n -> if n < 2 then 1 else let go = (fun self -> fun i -> \
+       fun prev -> fun prevprev -> let res = (prev + prevprev) in if i = 0 then \
+       res else self self (i - 1) res prev) in go go (n - 2) 1 1) in fib 2"; *)
   |]
 
 (** Church numerals *)
-
 let zero = "(fun f -> fun x -> x)"
+
 let one = "(fun f -> f)"
 let succ = "(fun c -> fun f -> fun x -> f (c f x))"
 let add = "(fun m -> fun n -> fun f -> fun x -> m f (n f x))"
@@ -119,3 +148,6 @@ let church_basic =
 
 let church_binop =
   [| "letassert x = " ^ unchurch ^ "(" ^ add ^ zero ^ one ^ ") in x = 1" |]
+
+(* TODO: test runtime exceptions *)
+(* TODO: use Z3 variant type to encode records: int | bool | notafield *)

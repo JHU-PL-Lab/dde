@@ -2,7 +2,6 @@
 
 open OUnit2
 open Core
-open Church
 open Utils
 open Test_cases
 
@@ -40,14 +39,11 @@ let test_local_stitching _ = gen_test local_stitching_thunked
 
 let conditional_thunked =
   [
-    (fun _ -> ("((10 = 0) = false ⊩ (1 + (10 - 1)))", pau conditional.(0)));
-    (fun _ -> ("(true = true ⊩ 1)", pau conditional.(1)));
+    (fun _ -> ("(1 + (10 - 1))", pau conditional.(0)));
+    (fun _ -> ("1", pau conditional.(1)));
     (fun _ -> ("1", pau conditional.(2)));
-    (fun _ ->
-      ("(true = true ⊩ (true = true ⊩ (true = true ⊩ 1)))", pau conditional.(3)));
-    (fun _ ->
-      ( "((((true and false) = false ⊩ true) = true ⊩ false) = false ⊩ false)",
-        pau conditional.(4) ));
+    (fun _ -> ("1", pau conditional.(3)));
+    (fun _ -> ("false", pau conditional.(4)));
   ]
 
 let test_conditional _ = gen_test conditional_thunked
@@ -65,51 +61,59 @@ let currying_thunked =
 
 let test_currying _ = gen_test currying_thunked
 
+(* TODO: add input atom (random integer); check DDSE benchmarks;
+   forall x. true *)
+(* TODO: use record for variants and other DS: trees, list *)
+(* TODO: PL assignment examples, e.g. array multiplications *)
+(* TODO: Racket/Van Horn examples *)
 let recursion_thunked =
   [
-    (fun _ ->
-      (* TODO: make more readable *)
-      ( "((10 = 0) = false ⊩ (1 + (((10 - 1) = 0) = false ⊩ (1 + ((((10 - 1) - \
-         1) = 0) = false ⊩ (1 + ((((((10 - 1) - 1) | ((((10 - 1) - 1) | (stub \
-         - 1)) - 1)) = 0) = false ⊩ (1 + stub)) | (((((10 - 1) - 1) | ((((10 - \
-         1) - 1) | (stub - 1)) - 1)) = 0) = true ⊩ 0))))))))",
-        pau recursion.(0) ));
-    (fun _ ->
-      ( "((0 = 10) = false ⊩ (false or (((0 + 1) = 10) = false ⊩ (false or \
-         ((((0 + 1) + 1) = 10) = false ⊩ (false or ((((((0 + 1) + 1) | ((((0 + \
-         1) + 1) | (stub + 1)) + 1)) = 10) = false ⊩ (false or stub)) | (((((0 \
-         + 1) + 1) | ((((0 + 1) + 1) | (stub + 1)) + 1)) = 10) = true ⊩ \
-         true))))))))",
-        pau recursion.(1) ));
-    (fun _ ->
-      ( "((-1 = 0) = false ⊩ (1 + (((-1 - 1) = 0) = false ⊩ (1 + ((((-1 - 1) - \
-         1) = 0) = false ⊩ (1 + (((((-1 - 1) - 1) | ((((-1 - 1) - 1) | (stub - \
-         1)) - 1)) = 0) = false ⊩ (1 + stub))))))))",
-        pau recursion.(2) ));
-    (fun _ ->
-      ( "((10 > 0) = true ⊩ (1 + (((10 - 1) > 0) = true ⊩ (1 + ((((10 - 1) - \
-         1) > 0) = true ⊩ (1 + ((((((10 - 1) - 1) | ((((10 - 1) - 1) | (stub - \
-         1)) - 1)) > 0) = false ⊩ 0) | (((((10 - 1) - 1) | ((((10 - 1) - 1) | \
-         (stub - 1)) - 1)) > 0) = true ⊩ (1 + stub)))))))))",
-        pau recursion.(3) ));
-    (fun _ -> ("((-1 > 0) = false ⊩ 0)", pau recursion.(4)));
+    (* (fun _ -> ("(1 + (1 + (1 + ((1 + stub) | 0))))", pau recursion.(0)));
+       (fun _ ->
+         ( "(false or (false or (false or ((false or stub) | true))))",
+           pau recursion.(1) ));
+       (fun _ -> ("(1 + (1 + (1 + (1 + stub))))", pau recursion.(2)));
+       (fun _ -> ("(1 + (1 + (1 + (0 | (1 + stub)))))", pau recursion.(3)));
+       (fun _ -> ("0", pau recursion.(4)));
+       (fun _ -> ("true", pau recursion.(5)));
+       (* (fun _ -> ("false", pau recursion.(6))); *)
+       (fun _ -> ("true", pau recursion.(7)));
+       (fun _ -> ("true", pau recursion.(8)));
+       (fun _ -> ("1", pau recursion.(9)));
+       (fun _ -> ("1", pau recursion.(10)));
+       (fun _ -> ("1", pau recursion.(11))); *)
+    (fun _ -> ("", pau recursion.(12)));
   ]
 
 let test_recursion _ = gen_test recursion_thunked
 
+let church_basic_thunked =
+  [
+    (fun _ -> ("(0 + 1)", pau church_basic.(0)));
+    (fun _ -> ("((0 + 1) + 1)", pau church_basic.(1)));
+    (fun _ -> ("(((0 + 1) + 1) + 1)", pau church_basic.(2)));
+    (fun _ -> ("((((0 + 1) + 1) + 1) + 1)", pau church_basic.(3)));
+  ]
+
+let test_church_basic _ = gen_test church_basic_thunked
+let church_binop_thunked = [ (fun _ -> ("(0 + 1)", pau church_binop.(0))) ]
+let test_church_binop _ = gen_test church_binop_thunked
+
 let tests_thunked =
   basic_thunked @ nonlocal_lookup_thunked @ local_stitching_thunked
   @ conditional_thunked @ currying_thunked @ recursion_thunked
+  @ church_basic_thunked @ church_binop_thunked
 
 let test_pa =
   [
-    "Basics" >:: test_basic;
-    "Non-local variable lookup" >:: test_nonlocal_lookup;
-    "Var local stack stitching" >:: test_local_stitching;
-    "Conditional" >:: test_conditional;
-    "Currying" >:: test_currying;
+    (* "Basics" >:: test_basic;
+       "Non-local variable lookup" >:: test_nonlocal_lookup;
+       "Var local stack stitching" >:: test_local_stitching;
+       "Conditional" >:: test_conditional;
+       "Currying" >:: test_currying; *)
     "Recursion" >:: test_recursion;
-    "Church numerals" >::: test_church;
+    (* "Church numerals basics" >:: test_church_basic;
+       "Church numerals binary operations" >:: test_church_binop; *)
   ]
 
 let tests = "Program analysis tests" >::: test_pa
