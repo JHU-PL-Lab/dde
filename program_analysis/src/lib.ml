@@ -329,7 +329,7 @@ let rec analyze_aux expr s pi v_set =
           let%map r1 = analyze_aux e1 s pi v_set in
           let r2 = eval_assert e2 id in
           [ AssertAtom (r1, r2) ]
-      | Let _ -> raise Unreachable [@coverage off])
+      | Let _ | LetRec _ -> raise Unreachable [@coverage off])
 
 let analyze ?(debug = false) ?(verify = true) e =
   is_debug_mode := debug;

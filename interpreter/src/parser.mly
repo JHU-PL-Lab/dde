@@ -34,6 +34,7 @@ open Ast;;
 %token PLUS
 %token PROJECT
 %token RBRACE
+%token REC
 %token RPAREN
 %token SEP
 %token THEN
@@ -42,7 +43,6 @@ open Ast;;
  * Precedences and associativities.  Lower precedences come first.
  */
 %right prec_let                         /* let f x = ... in ... */
-%right prec_letassert                   /* letassert x = ... in ... */
 %right prec_fun                         /* function declaration */
 %right prec_if                          /* if ... then ... else */
 %right OR                               /* or */
@@ -91,7 +91,9 @@ expr:
       { build_function $2 $4 }
   | LET ident_decl EQUAL expr IN expr %prec prec_let
       { build_let $2 $4 $6 }
-  | LETASSERT ident_decl EQUAL expr IN expr %prec prec_letassert
+  | LET REC ident_decl ident_decl EQUAL expr IN expr %prec prec_let
+      { build_letrec $3 $4 $6 $8 }
+  | LETASSERT ident_decl EQUAL expr IN expr %prec prec_let
      { build_letassert $2 $4 $6 }
   | IF expr THEN expr ELSE expr %prec prec_if
       { build_if $2 $4 $6 }

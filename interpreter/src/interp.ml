@@ -44,6 +44,73 @@ let rec eval_bool = function
       | RecordResult entries -> List.exists (fun (x', _) -> x = x') entries
       | _ -> raise TypeMismatch)
 
+let rec result_value_to_expr (r : result_value) : expr =
+  match r with
+  | IntResult i -> Int i
+  | BoolResult b -> Bool b
+  | FunResult { f; l; sigma } -> f
+  | OpResult op -> (
+      match op with
+      | PlusOp (r1, r2)
+      | MinusOp (r1, r2)
+      | EqOp (r1, r2)
+      | AndOp (r1, r2)
+      | OrOp (r1, r2)
+      | GeOp (r1, r2)
+      | GtOp (r1, r2)
+      | LeOp (r1, r2)
+      | LtOp (r1, r2) -> (
+          let e1 = result_value_to_expr r1 in
+          let e2 = result_value_to_expr r2 in
+          match op with
+          | PlusOp _ -> Plus (e1, e2)
+          | MinusOp _ -> Minus (e1, e2)
+          | EqOp _ -> Equal (e1, e2)
+          | AndOp _ -> And (e1, e2)
+          | OrOp _ -> Or (e1, e2)
+          | GeOp _ -> Ge (e1, e2)
+          | GtOp _ -> Gt (e1, e2)
+          | LeOp _ -> Le (e1, e2)
+          | LtOp _ -> Lt (e1, e2)
+          | NotOp _ -> raise Unreachable [@coverage off])
+      | NotOp r -> Not (result_value_to_expr r))
+  | RecordResult entries ->
+      Record (List.map (fun (x, v) -> (x, result_value_to_expr v)) entries)
+  | ProjectionResult (r, x) -> Projection (result_value_to_expr r, x)
+  | InspectionResult (x, r) -> Inspection (x, result_value_to_expr r)
+
+let rec subst x v e =
+  match e with
+  | Let (id, e1, e2, l) ->
+      Let (id, subst x v e1, (if id = x then e2 else subst x v e2), l)
+  | Var (id, l) -> if id = x then result_value_to_expr v else e
+  | Function (id, e1, l) ->
+      Function (id, (if x = id then e1 else subst x v e1), l)
+  | Appl (e1, e2, l) ->
+      let e = Appl (subst x v e1, subst x v e2, l) in
+      (* only sync expression of label here as function application is
+         the only expression looked up by its label, besides a variable *)
+      add_myexpr l e;
+      e
+  | If (e1, e2, e3, l) -> If (subst x v e1, subst x v e2, subst x v e3, l)
+  | Plus (e1, e2) -> Plus (subst x v e1, subst x v e2)
+  | Minus (e1, e2) -> Minus (subst x v e1, subst x v e2)
+  | Equal (e1, e2) -> Equal (subst x v e1, subst x v e2)
+  | And (e1, e2) -> And (subst x v e1, subst x v e2)
+  | Or (e1, e2) -> Or (subst x v e1, subst x v e2)
+  | Ge (e1, e2) -> Ge (subst x v e1, subst x v e2)
+  | Gt (e1, e2) -> Gt (subst x v e1, subst x v e2)
+  | Le (e1, e2) -> Le (subst x v e1, subst x v e2)
+  | Lt (e1, e2) -> Lt (subst x v e1, subst x v e2)
+  | Not e1 -> Not (subst x v e1)
+  | Record entries ->
+      Record (List.map (fun (x', e') -> (x', subst x v e')) entries)
+  | Projection (e1, id) -> Projection (subst x v e1, id)
+  | Inspection (id, e1) -> Inspection (id, subst x v e1)
+  | LetAssert (id, e1, e2) -> LetAssert (id, subst x v e1, e2)
+  | Int _ | Bool _ -> e
+  | LetRec _ -> failwith "TODO"
+
 let memo_cache = Hashtbl.create 10000
 
 (* can't do memoization like this in OCaml/Haskell; better laziness  *)
@@ -69,6 +136,7 @@ let rec eval_aux (e : expr) (sigma : int list) : result_value =
                 eval_aux e (app_l :: sigma)
             | _ -> raise Unreachable [@coverage off])
         | Var (Ident x, l) -> (
+            (* Format.printf "looking up %s, %d\n" x l; *)
             match get_myfun l with
             | Function (Ident x', _, _) -> (
                 if x = x' then
@@ -121,47 +189,17 @@ let rec eval_aux (e : expr) (sigma : int list) : result_value =
         | LetAssert (_, e, _) ->
             (* TODO: still assert *)
             eval_aux e sigma
-        | Let (_, _, _, _) -> raise Unreachable [@coverage off]
+        | Let (id, e1, e2, _) ->
+            let v1 = eval_aux e1 sigma in
+            let e' = subst id v1 e2 in
+            (* Format.printf "after subst:%a\n" Pp.pp_expr e'; *)
+            eval_aux e' sigma
+        | LetRec _ -> raise Unreachable [@coverage off]
       in
       let () = Hashtbl.replace memo_cache (e, sigma) eval_res in
       eval_res
 
 module StringSet = Set.Make (String)
-
-let rec result_value_to_expr (r : result_value) : expr =
-  match r with
-  | IntResult i -> Int i
-  | BoolResult b -> Bool b
-  | FunResult { f; l; sigma } -> f
-  | OpResult op -> (
-      match op with
-      | PlusOp (r1, r2)
-      | MinusOp (r1, r2)
-      | EqOp (r1, r2)
-      | AndOp (r1, r2)
-      | OrOp (r1, r2)
-      | GeOp (r1, r2)
-      | GtOp (r1, r2)
-      | LeOp (r1, r2)
-      | LtOp (r1, r2) -> (
-          let e1 = result_value_to_expr r1 in
-          let e2 = result_value_to_expr r2 in
-          match op with
-          | PlusOp _ -> Plus (e1, e2)
-          | MinusOp _ -> Minus (e1, e2)
-          | EqOp _ -> Equal (e1, e2)
-          | AndOp _ -> And (e1, e2)
-          | OrOp _ -> Or (e1, e2)
-          | GeOp _ -> Ge (e1, e2)
-          | GtOp _ -> Gt (e1, e2)
-          | LeOp _ -> Le (e1, e2)
-          | LtOp _ -> Lt (e1, e2)
-          | NotOp _ -> raise Unreachable [@coverage off])
-      | NotOp r -> Not (result_value_to_expr r))
-  | RecordResult entries ->
-      Record (List.map (fun (x, v) -> (x, result_value_to_expr v)) entries)
-  | ProjectionResult (r, x) -> Projection (result_value_to_expr r, x)
-  | InspectionResult (x, r) -> Inspection (x, result_value_to_expr r)
 
 let rec subst_free_vars (e : expr) (target_l : int) (sigma : int list)
     (seen : StringSet.t) =
@@ -219,7 +257,7 @@ let rec subst_free_vars (e : expr) (target_l : int) (sigma : int list)
   | Inspection (x, e) -> Inspection (x, subst_free_vars e target_l sigma seen)
   (* ignore letassert *)
   | LetAssert (_, e, _) -> subst_free_vars e target_l sigma seen
-  | Let _ -> raise Unreachable [@coverage off]
+  | Let _ | LetRec _ -> raise Unreachable [@coverage off]
 
 and eval_result_value (r : result_value) : result_value =
   match r with
@@ -291,8 +329,9 @@ and eval_result_value (r : result_value) : result_value =
       | _ -> raise TypeMismatch)
 
 let eval e ~is_debug_mode ~should_simplify =
-  let e = transform_let e in
+  (* let e = transform_let e in *)
   build_myfun e None;
+  (* print_myfun myfun; *)
   let r = eval_aux e [] in
 
   (if is_debug_mode then (
