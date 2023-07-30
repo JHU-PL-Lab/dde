@@ -36,8 +36,8 @@ type expr =
   | Lt of expr * expr [@quickcheck.weight 0.05]
   | Not of expr [@quickcheck.weight 0.05]
   | If of expr * expr * expr * int [@quickcheck.weight 0.05]
-  | Let of ident * expr * expr * int [@quickcheck.do_not_generate]
-  | LetRec of ident * ident * expr * expr [@quickcheck.do_not_generate]
+  | Let of ident * expr * expr [@quickcheck.do_not_generate]
+  | LetRec of ident * ident * expr * expr * int [@quickcheck.do_not_generate]
   | LetAssert of ident * expr * expr [@quickcheck.do_not_generate]
   | Record of (ident * expr) list [@quickcheck.do_not_generate]
   | Projection of expr * ident [@quickcheck.do_not_generate]
@@ -100,7 +100,7 @@ let myexpr = Hashtbl.create (module Int)
 let myfun = Hashtbl.create (module Int)
 let get_myexpr label = Hashtbl.find_exn myexpr label
 let add_myexpr label e = Hashtbl.set myexpr ~key:label ~data:e
-let get_myfun label = Hashtbl.find_exn myfun label
+let get_myfun label = Hashtbl.find myfun label
 
 let add_myfun label outer =
   if Option.is_some outer then
@@ -135,6 +135,7 @@ let rec build_myfun e outer =
       build_myfun e2 outer
   | Not e -> build_myfun e outer
   | If (e1, e2, e3, l) ->
+      (* TODO: likely don't need this l *)
       add_myfun l outer;
       build_myfun e1 outer;
       build_myfun e2 outer;
@@ -144,10 +145,10 @@ let rec build_myfun e outer =
   | LetAssert (_, e1, e2) ->
       build_myfun e1 outer;
       build_myfun e2 outer
-  | Let (id, e1, e2, _) ->
+  | Let (_, e1, e2) ->
       build_myfun e1 outer;
       build_myfun e2 outer
-  | LetRec _ -> raise Unreachable [@coverage off]
+  | LetRec (_, _, _, _, l) -> add_myfun l outer
 
 let print_myexpr tbl =
   Hashtbl.to_alist tbl
@@ -169,44 +170,6 @@ let get_next_label () =
   l
 
 let reset_label () = next_label := 0
-
-let rec transform_let e =
-  match e with
-  (* TODO: many more cases *)
-  | Int _ | Bool _ -> e
-  | Function (ident, e, l) ->
-      let e' = transform_let e in
-      let f = Function (ident, e', l) in
-      add_myexpr l f;
-      f
-  | Let (ident, e1, e2, let_l) ->
-      let fun_l = get_next_label () in
-      let e2' = transform_let e2 in
-      let f = Function (ident, e2', fun_l) in
-      add_myexpr fun_l f;
-      let e1' = transform_let e1 in
-      let appl = Appl (f, e1', let_l) in
-      add_myexpr let_l appl;
-      appl
-  | Appl (e1, e2, l) ->
-      let e1' = transform_let e1 in
-      let e2' = transform_let e2 in
-      let appl = Appl (e1', e2', l) in
-      add_myexpr l appl;
-      appl
-  | If (e1, e2, e3, l) ->
-      let e1' = transform_let e1 in
-      let e2' = transform_let e2 in
-      let e3' = transform_let e3 in
-      let if' = If (e1', e2', e3', l) in
-      add_myexpr l if';
-      if'
-  | LetAssert (ident, e1, e2) ->
-      let e1' = transform_let e1 in
-      let e2' = transform_let e2 in
-      LetAssert (ident, e1', e2')
-  | _ -> e
-
 let build_int i = Int i
 let build_bool b = Bool b
 
@@ -245,13 +208,14 @@ let build_if e1 e2 e3 =
   add_myexpr label labeled_if;
   labeled_if
 
-let build_let id e1 e2 =
-  let label = get_next_label () in
-  let labeled_let = Let (id, e1, e2, label) in
-  add_myexpr label labeled_let;
-  labeled_let
+let build_let id e1 e2 = Let (id, e1, e2)
 
-let build_letrec f id e1 e2 = LetRec (f, id, e1, e2)
+let build_letrec f id e1 e2 =
+  let label = get_next_label () in
+  let labeled_letrec = LetRec (f, id, e1, e2, label) in
+  add_myexpr label labeled_letrec;
+  labeled_letrec
+
 let build_letassert id e1 e2 = LetAssert (id, e1, e2)
 let build_record entries = Record entries
 let build_projection e s = Projection (e, Ident s)

@@ -68,21 +68,21 @@ let test_currying _ = gen_test currying_thunked
 (* TODO: Racket/Van Horn examples *)
 let recursion_thunked =
   [
-    (* (fun _ -> ("(1 + (1 + (1 + ((1 + stub) | 0))))", pau recursion.(0)));
-       (fun _ ->
-         ( "(false or (false or (false or ((false or stub) | true))))",
-           pau recursion.(1) ));
-       (fun _ -> ("(1 + (1 + (1 + (1 + stub))))", pau recursion.(2)));
-       (fun _ -> ("(1 + (1 + (1 + (0 | (1 + stub)))))", pau recursion.(3)));
-       (fun _ -> ("0", pau recursion.(4)));
-       (fun _ -> ("true", pau recursion.(5)));
-       (* (fun _ -> ("false", pau recursion.(6))); *)
-       (fun _ -> ("true", pau recursion.(7)));
-       (fun _ -> ("true", pau recursion.(8)));
-       (fun _ -> ("1", pau recursion.(9)));
-       (fun _ -> ("1", pau recursion.(10)));
-       (fun _ -> ("1", pau recursion.(11))); *)
-    (fun _ -> ("", pau recursion.(12)));
+    (fun _ -> ("(1 + (1 + (1 + ((1 + stub) | 0))))", pau recursion.(0)));
+    (fun _ ->
+      ( "(false or (false or (false or ((false or stub) | true))))",
+        pau recursion.(1) ));
+    (fun _ -> ("(1 + (1 + (1 + (1 + stub))))", pau recursion.(2)));
+    (fun _ -> ("(1 + (1 + (1 + (0 | (1 + stub)))))", pau recursion.(3)));
+    (fun _ -> ("0", pau recursion.(4)));
+    (fun _ -> ("true", pau recursion.(5)));
+    (* (fun _ -> ("false", pau recursion.(6))); *)
+    (fun _ -> ("true", pau recursion.(7)));
+    (fun _ -> ("true", pau recursion.(8)));
+    (fun _ -> ("1", pau recursion.(9)));
+    (fun _ -> ("1", pau recursion.(10)));
+    (fun _ -> ("1", pau recursion.(11)));
+    (* (fun _ -> ("", pau recursion.(12))); *)
   ]
 
 let test_recursion _ = gen_test recursion_thunked
@@ -106,14 +106,14 @@ let tests_thunked =
 
 let test_pa =
   [
-    (* "Basics" >:: test_basic;
-       "Non-local variable lookup" >:: test_nonlocal_lookup;
-       "Var local stack stitching" >:: test_local_stitching;
-       "Conditional" >:: test_conditional;
-       "Currying" >:: test_currying; *)
+    "Basics" >:: test_basic;
+    "Non-local variable lookup" >:: test_nonlocal_lookup;
+    "Var local stack stitching" >:: test_local_stitching;
+    "Conditional" >:: test_conditional;
+    "Currying" >:: test_currying;
     "Recursion" >:: test_recursion;
-    (* "Church numerals basics" >:: test_church_basic;
-       "Church numerals binary operations" >:: test_church_binop; *)
+    "Church numerals basics" >:: test_church_basic;
+    "Church numerals binary operations" >:: test_church_binop;
   ]
 
 let tests = "Program analysis tests" >::: test_pa

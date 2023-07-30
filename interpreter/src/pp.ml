@@ -34,13 +34,13 @@ let rec pp_expr fmt = function
   | Le (e1, e2) -> ff fmt "(%a <= %a)" pp_expr e1 pp_expr e2
   | Lt (e1, e2) -> ff fmt "(%a < %a)" pp_expr e1 pp_expr e2
   | Not e1 -> ff fmt "(not %a)" pp_expr e1
-  | If (e1, e2, e3, l) ->
+  | If (e1, e2, e3, _) ->
       ff fmt "@[<hv>if %a then@;<1 4>%a@;<1 0>else@;<1 4>%a@]" pp_expr e1
         pp_expr e2 pp_expr e3
-  | Let (Ident i, e1, e2, _) ->
+  | Let (Ident i, e1, e2) ->
       ff fmt "@[<hv>let %s =@;<1 4>%a@;<1 0>in@;<1 4>%a@]" i pp_expr e1 pp_expr
         e2
-  | LetRec (Ident f, Ident i, e1, e2) ->
+  | LetRec (Ident f, Ident i, e1, e2, _) ->
       ff fmt "@[<hv>let %s %s =@;<1 4>%a@;<1 0>in@;<1 4>%a@]" f i pp_expr e1
         pp_expr e2
   | LetAssert (Ident i, e1, e2) ->
