@@ -114,8 +114,8 @@ let recursion =
     "letassert x = " ^ rec_eg_6 ^ "1 in x >= 1";
     "letassert x = " ^ rec_eg_6 ^ "(0 - 1) in x >= 1";
     (* TODOs *)
-    "let rec fib n = if n <= 1 then 1 else (fib (n - 1)) + (fib (n - 2)) in \
-     fib 4";
+    "let rec fib n = if n <= 1 then n else (fib (n - 1)) + (fib (n - 2)) in \
+     fib 7";
     (* "let fib = (fun n -> if n < 2 then 1 else let go = (fun self -> fun i -> \
        fun prev -> fun prevprev -> let res = (prev + prevprev) in if i = 0 then \
        res else self self (i - 1) res prev) in go go (n - 2) 1 1) in fib 2"; *)

@@ -45,10 +45,10 @@ let test_letrec _ =
 
 let dde_self_tests =
   [
-    (* "Laziness" >:: test_laziness; *)
+    "Laziness" >:: test_laziness;
     (* "Memoization" >:: test_memoization; *)
-    (* "Record operations" >:: test_record; *)
-    (* "letassert" >:: test_letassert; *)
+    "Record operations" >:: test_record;
+    "letassert" >:: test_letassert;
     "letrec" >:: test_letrec;
   ]
 
