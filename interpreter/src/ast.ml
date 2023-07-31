@@ -78,6 +78,7 @@ type op_result_value_fv =
   | LeOpFv of result_value_fv
   | LtOpFv of result_value_fv
   | NotOpFv
+(* TODO: pretty print *)
 
 (** result values that may contain free variables *)
 and result_value_fv =
@@ -167,6 +168,7 @@ let reset_label () = next_label := 0
 
 let rec transform_let e =
   match e with
+  (* TODO: many more cases *)
   | Int _ | Bool _ -> e
   | Function (ident, e, l) ->
       let e' = transform_let e in
@@ -188,6 +190,13 @@ let rec transform_let e =
       let appl = Appl (e1', e2', l) in
       add_myexpr l appl;
       appl
+  | If (e1, e2, e3, l) ->
+      let e1' = transform_let e1 in
+      let e2' = transform_let e2 in
+      let e3' = transform_let e3 in
+      let if' = If (e1', e2', e3', l) in
+      add_myexpr l if';
+      if'
   | LetAssert (ident, e1, e2) ->
       let e1' = transform_let e1 in
       let e2' = transform_let e2 in

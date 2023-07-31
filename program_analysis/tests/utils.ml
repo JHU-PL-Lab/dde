@@ -33,5 +33,4 @@ let ( |>-> ) v f = Option.bind v f
 let pau s =
   s |> Core.Fn.flip ( ^ ) ";;" |> Lexing.from_string |> Parser.main Lexer.token
   |> Lib.analyze
-  |> (function [ AssertAtom (r, _) ] -> r | _ -> raise Unreachable)
   |> Format.asprintf "%a" Utils.pp_res

@@ -214,7 +214,9 @@ and chcs_of_atom ?(pis = []) a =
           in
           let param_sort =
             match op with
-            | PlusOp _ | MinusOp _ | EqualOp _ -> isort
+            | PlusOp _ | MinusOp _ | EqualOp _ | GeOp _ | GtOp _ | LeOp _
+            | LtOp _ ->
+                isort
             | _ -> bsort
           in
           let pr1, pr2 =
