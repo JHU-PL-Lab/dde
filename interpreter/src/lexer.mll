@@ -22,6 +22,7 @@ rule token = parse
 | "then"               { THEN }
 | "else"               { ELSE }
 | "let"                { LET }
+| "rec"                { REC }
 | "letassert"          { LETASSERT }
 | "in"                 { IN }
 | ">="                 { GE }

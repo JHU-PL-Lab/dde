@@ -44,11 +44,46 @@ let rec eval_bool = function
       | RecordResult entries -> List.exists (fun (x', _) -> x = x') entries
       | _ -> raise TypeMismatch)
 
+let rec subst x e' e =
+  match e with
+  | Let (id, e1, e2) ->
+      Let (id, subst x e' e1, if id = x then e2 else subst x e' e2)
+  | LetRec (f, id, e1, e2, l) ->
+      if f = x then e
+      else if id = x then LetRec (f, id, e1, subst x e' e2, l)
+      else LetRec (f, id, subst x e' e1, subst x e' e2, l)
+  | Var (id, l) -> if id = x then e' else e
+  | Function (id, e1, l) ->
+      Function (id, (if id = x then e1 else subst x e' e1), l)
+  | Appl (e1, e2, l) ->
+      let e = Appl (subst x e' e1, subst x e' e2, l) in
+      (* only sync expression of label here as function application is
+         the only expression looked up by its label, besides a variable *)
+      add_myexpr l e;
+      e
+  | If (e1, e2, e3, l) -> If (subst x e' e1, subst x e' e2, subst x e' e3, l)
+  | Plus (e1, e2) -> Plus (subst x e' e1, subst x e' e2)
+  | Minus (e1, e2) -> Minus (subst x e' e1, subst x e' e2)
+  | Equal (e1, e2) -> Equal (subst x e' e1, subst x e' e2)
+  | And (e1, e2) -> And (subst x e' e1, subst x e' e2)
+  | Or (e1, e2) -> Or (subst x e' e1, subst x e' e2)
+  | Ge (e1, e2) -> Ge (subst x e' e1, subst x e' e2)
+  | Gt (e1, e2) -> Gt (subst x e' e1, subst x e' e2)
+  | Le (e1, e2) -> Le (subst x e' e1, subst x e' e2)
+  | Lt (e1, e2) -> Lt (subst x e' e1, subst x e' e2)
+  | Not e1 -> Not (subst x e' e1)
+  | Record entries ->
+      Record (List.map (fun (x1, e1) -> (x1, subst x e' e1)) entries)
+  | Projection (e1, id) -> Projection (subst x e' e1, id)
+  | Inspection (id, e1) -> Inspection (id, subst x e' e1)
+  | LetAssert (id, e1, e2) -> LetAssert (id, subst x e' e1, e2)
+  | Int _ | Bool _ -> e
+
 let memo_cache = Hashtbl.create 10000
 
 (* can't do memoization like this in OCaml/Haskell; better laziness  *)
 (* laziness + memoization *)
-let rec eval_aux (e : expr) (sigma : int list) : result_value =
+let rec eval_aux e sigma =
   match Hashtbl.find_opt memo_cache (e, sigma) with
   | Some res ->
       (* Format.printf "cache hit\n"; *)
@@ -63,14 +98,14 @@ let rec eval_aux (e : expr) (sigma : int list) : result_value =
         (* Application *)
         | Appl (e1, e2, app_l) -> (
             match eval_aux e1 sigma with
-            | FunResult { f = Function (_, e, _); l; sigma = sigma' } ->
+            | FunResult { f = Function (id, e, f_l); l; sigma = sigma' } ->
                 (* make sure e2 doesn't diverge - call-by-value-ish *)
                 let _ = eval_aux e2 sigma in
                 eval_aux e (app_l :: sigma)
             | _ -> raise Unreachable [@coverage off])
         | Var (Ident x, l) -> (
             match get_myfun l with
-            | Function (Ident x', _, _) -> (
+            | Some (Function (Ident x', _, _)) -> (
                 if x = x' then
                   (* Var Local *)
                   match get_myexpr (List.hd sigma) with
@@ -121,7 +156,25 @@ let rec eval_aux (e : expr) (sigma : int list) : result_value =
         | LetAssert (_, e, _) ->
             (* TODO: still assert *)
             eval_aux e sigma
-        | Let (_, _, _, _) -> raise Unreachable [@coverage off]
+        | Let (id, e1, e2) -> eval_aux (subst id e1 e2) sigma
+        | LetRec (f, id, e1, e2, l) ->
+            let new_var_label = get_next_label () in
+            let new_var = Var (f, new_var_label) in
+            add_myexpr new_var_label new_var;
+
+            let new_letrec_label = get_next_label () in
+            let new_letrec = LetRec (f, id, e1, new_var, new_letrec_label) in
+            add_myexpr new_letrec_label new_letrec;
+
+            let body = subst f new_letrec e1 in
+            let func_label = get_next_label () in
+            let func = Function (id, body, func_label) in
+            add_myexpr func_label func;
+
+            let e' = subst f func e2 in
+            build_myfun e' (get_myfun l);
+
+            eval_aux e' sigma
       in
       let () = Hashtbl.replace memo_cache (e, sigma) eval_res in
       eval_res
@@ -163,8 +216,7 @@ let rec result_value_to_expr (r : result_value) : expr =
   | ProjectionResult (r, x) -> Projection (result_value_to_expr r, x)
   | InspectionResult (x, r) -> Inspection (x, result_value_to_expr r)
 
-let rec subst_free_vars (e : expr) (target_l : int) (sigma : int list)
-    (seen : StringSet.t) =
+let rec subst_free_vars e target_l sigma seen =
   match e with
   | Int _ -> e
   | Bool _ -> e
@@ -174,6 +226,7 @@ let rec subst_free_vars (e : expr) (target_l : int) (sigma : int list)
   | Var (Ident x, _) ->
       if StringSet.mem x seen then e (* only substitute free variables *)
       else
+        (* Format.printf "triggered\n"; *)
         eval_aux (Var (Ident x, target_l)) sigma
         |> eval_result_value |> result_value_to_expr
   | Appl (e1, e2, l) ->
@@ -219,7 +272,7 @@ let rec subst_free_vars (e : expr) (target_l : int) (sigma : int list)
   | Inspection (x, e) -> Inspection (x, subst_free_vars e target_l sigma seen)
   (* ignore letassert *)
   | LetAssert (_, e, _) -> subst_free_vars e target_l sigma seen
-  | Let _ -> raise Unreachable [@coverage off]
+  | Let _ | LetRec _ -> raise Unreachable [@coverage off]
 
 and eval_result_value (r : result_value) : result_value =
   match r with
@@ -291,7 +344,6 @@ and eval_result_value (r : result_value) : result_value =
       | _ -> raise TypeMismatch)
 
 let eval e ~is_debug_mode ~should_simplify =
-  let e = transform_let e in
   build_myfun e None;
   let r = eval_aux e [] in
 

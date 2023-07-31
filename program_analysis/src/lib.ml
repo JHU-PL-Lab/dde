@@ -134,6 +134,7 @@ let rec analyze_aux expr s pi v_set =
           let ls_pruned = prune_sigma (l :: s) in
           let state = State.Lstate (l, ls_pruned) in
           (if !is_debug_mode then pf "Appl: %d\n" l) [@coverage off];
+          (* TODO: id 100 slower than id 10? *)
           match
             Set.find v_set ~f:(function
               | State.Lstate (l', s'), _ when l = l' && Stdlib.(s = s') -> true
@@ -169,7 +170,7 @@ let rec analyze_aux expr s pi v_set =
       | Var (Ident x, l) -> (
           (* Format.printf "yo\n"; *)
           match get_myfun l with
-          | Function (Ident x1, _, l_myfun) ->
+          | Some (Function (Ident x1, _, l_myfun)) ->
               if String.(x = x1) then (
                 (* Var Local *)
                 (if !is_debug_mode then
@@ -329,12 +330,32 @@ let rec analyze_aux expr s pi v_set =
           let%map r1 = analyze_aux e1 s pi v_set in
           let r2 = eval_assert e2 id in
           [ AssertAtom (r1, r2) ]
-      | Let _ -> raise Unreachable [@coverage off])
+      | Let (id, e1, e2) ->
+          let e' = Interpreter.Interp.subst id e1 e2 in
+          (* Format.printf "after subst:%a\n" Pp.pp_expr e'; *)
+          analyze_aux e' s pi v_set
+      | LetRec (f, id, e1, e2, l) ->
+          let new_var_label = get_next_label () in
+          let new_var = Var (f, new_var_label) in
+          add_myexpr new_var_label new_var;
+
+          let new_letrec_label = get_next_label () in
+          let new_letrec = LetRec (f, id, e1, new_var, new_letrec_label) in
+          add_myexpr new_letrec_label new_letrec;
+
+          let body = Interpreter.Interp.subst f new_letrec e1 in
+          let func_label = get_next_label () in
+          let func = Function (id, body, func_label) in
+          add_myexpr func_label func;
+
+          let e' = Interpreter.Interp.subst f func e2 in
+          build_myfun e' (get_myfun l);
+
+          analyze_aux e' s pi v_set)
 
 let analyze ?(debug = false) ?(verify = true) e =
   is_debug_mode := debug;
 
-  let e = transform_let e in
   build_myfun e None;
   let r = Option.value_exn (analyze_aux e [] None (Set.empty (module State))) in
 
