@@ -330,33 +330,13 @@ let rec analyze_aux expr s pi v_set =
           let%map r1 = analyze_aux e1 s pi v_set in
           let r2 = eval_assert e2 id in
           [ AssertAtom (r1, r2) ]
-      | Let (id, e1, e2) ->
-          let e' = Interpreter.Interp.subst id e1 e2 in
-          (* Format.printf "after subst:%a\n" Pp.pp_expr e'; *)
-          analyze_aux e' s pi v_set
-      | LetRec (f, id, e1, e2, l) ->
-          let new_var_label = get_next_label () in
-          let new_var = Var (f, new_var_label) in
-          add_myexpr new_var_label new_var;
-
-          let new_letrec_label = get_next_label () in
-          let new_letrec = LetRec (f, id, e1, new_var, new_letrec_label) in
-          add_myexpr new_letrec_label new_letrec;
-
-          let body = Interpreter.Interp.subst f new_letrec e1 in
-          let func_label = get_next_label () in
-          let func = Function (id, body, func_label) in
-          add_myexpr func_label func;
-
-          let e' = Interpreter.Interp.subst f func e2 in
-          build_myfun e' (get_myfun l);
-
-          analyze_aux e' s pi v_set)
+      | Let _ -> raise Unreachable [@coverage off])
 
 let analyze ?(debug = false) ?(verify = true) e =
   is_debug_mode := debug;
 
   build_myfun e None;
+  let e = trans_let None None e in
   let r = Option.value_exn (analyze_aux e [] None (Set.empty (module State))) in
 
   (* Format.printf "result: %a\n" Grammar.pp_res (Option.value_exn r); *)

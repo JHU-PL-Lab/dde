@@ -20,8 +20,7 @@ module Ast : sig
     | Lt of expr * expr
     | Not of expr
     | If of expr * expr * expr * int
-    | Let of ident * expr * expr
-    | LetRec of ident * ident * expr * expr * int
+    | Let of ident * expr * expr * int
     | LetAssert of ident * expr * expr
     | Record of (ident * expr) list
     | Projection of expr * ident

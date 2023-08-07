@@ -86,39 +86,42 @@ let recursion =
   [|
     (* (1 + (1 + (1 + ((1 + stub) | 0)))) *)
     (* ((((10 - 1) - 1) | ((((10 - 1) - 1) | (stub - 1)) - 1)) = 0) *)
-    "letassert x = let rec id n = if n = 0 then 0 else 1 + id (n - 1) in id 10 \
-     in x >= 2";
+    "letassert x = let id = fun self -> fun n -> if n = 0 then 0 else 1 + self \
+     self (n - 1) in id id 10 in x >= 2";
     (* (1 + (1 + (1 + ((1 + stub) | 0)))) *)
-    "letassert x = let rec id n = if n = 10 then true else false or id (n + 1) \
-     in id 0 in x";
+    "letassert x = let id = fun self -> fun n -> if n = 10 then true else \
+     false or self self (n + 1) in id id 0 in x";
     (* (1 + (1 + (1 + (1 + stub)))) *)
     (* ((((-1 - 1) - 1) | ((((-1 - 1) - 1) | (stub - 1)) - 1)) = 0) *)
-    "letassert _x = let rec id n = if n = 0 then 0 else 1 + id (n - 1) in id \
-     (-1) in false";
+    "letassert _x = let id = fun self -> fun n -> if n = 0 then 0 else 1 + \
+     self self (n - 1) in id id (-1) in false";
     (* TODO: check divergence before CHCs *)
     (* "letassert _x = ((fun self -> fun n -> self self n) (fun self -> fun n -> \
        self self n) 0) in false"; *)
-    "letassert x = let rec id n = if n > 0 then 1 + id (n - 1) else 0 in id 10 \
-     in x >= 2";
-    "letassert x = let rec id n = if n > 0 then 1 + id (n - 1) else 0 in id \
-     (-1) in x = 0";
+    "letassert x = let id = fun self -> fun n -> if n > 0 then 1 + self self \
+     (n - 1) else 0 in id id 10 in x >= 2";
+    "letassert x = let id = fun self -> fun n -> if n > 0 then 1 + self self \
+     (n - 1) else 0 in id id (-1) in x = 0";
     (* tests adapted from standard PA *)
     "letassert x = " ^ rec_eg_5 ^ "true true in x";
     (* TODO *)
     rec_eg_5 ^ "true false";
-    "letassert x = let f = (fun x -> (fun y -> y) x) in let rec repeat acc = \
-     if acc then true else repeat (repeat (f true)) in repeat true in x";
-    "letassert x = let f = (fun x -> fun dummy -> x) in let rec loop x = let r \
-     = (f x) in if x then r 0 else (loop true) in (loop false) in x";
+    "letassert x = let f = (fun x -> (fun y -> y) x) in let repeat = fun self \
+     -> fun acc -> if acc then true else self self (self self (f true)) in \
+     repeat repeat true in x";
+    "letassert x = let f = (fun x -> fun dummy -> x) in let loop = fun self -> \
+     fun x -> let r = (f x) in if x then r 0 else (self self true) in (loop \
+     loop false) in x";
     "letassert x = " ^ rec_eg_6 ^ "0 in x >= 1";
     "letassert x = " ^ rec_eg_6 ^ "1 in x >= 1";
     "letassert x = " ^ rec_eg_6 ^ "(0 - 1) in x >= 1";
     (* TODOs *)
-    "let rec fib n = if n <= 1 then n else (fib (n - 1)) + (fib (n - 2)) in \
-     fib 7";
+    "let fib n = if n <= 1 then n else (fib (n - 1)) + (fib (n - 2)) in fib 7";
     (* "let fib = (fun n -> if n < 2 then 1 else let go = (fun self -> fun i -> \
        fun prev -> fun prevprev -> let res = (prev + prevprev) in if i = 0 then \
        res else self self (i - 1) res prev) in go go (n - 2) 1 1) in fib 2"; *)
+    "letassert x = let id = fun self -> fun n -> if n = 0 then 0 else 1 + self \
+     self (n - 1) + self self (n - 1) in id id 10 in x >= 2";
   |]
 
 (** Church numerals *)

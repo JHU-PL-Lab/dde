@@ -91,8 +91,6 @@ expr:
       { build_function $2 $4 }
   | LET ident_decl EQUAL expr IN expr %prec prec_let
       { build_let $2 $4 $6 }
-  | LET REC ident_decl ident_decl EQUAL expr IN expr %prec prec_let
-      { build_letrec $3 $4 $6 $8 }
   | LETASSERT ident_decl EQUAL expr IN expr %prec prec_let
      { build_letassert $2 $4 $6 }
   | IF expr THEN expr ELSE expr %prec prec_if
