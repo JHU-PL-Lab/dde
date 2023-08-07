@@ -34,7 +34,6 @@ open Ast;;
 %token PLUS
 %token PROJECT
 %token RBRACE
-%token REC
 %token RPAREN
 %token SEP
 %token THEN

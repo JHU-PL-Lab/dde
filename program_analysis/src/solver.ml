@@ -3,6 +3,7 @@ open Z3
 open Grammar
 
 exception Unreachable
+exception BadAssert
 
 module AtomKey = struct
   module T = struct
@@ -129,28 +130,49 @@ let reset () =
   fresh_id := -1
 
 (** can assume good form due to call to `eval_assert` *)
-let chcs_of_assert p (r : Interpreter.Ast.result_value_fv) =
+let chcs_of_assert r1 (r2 : Interpreter.Ast.result_value_fv) =
+  let p = Hashtbl.find_exn id_to_decl (idr r1) in
   let ri = zconst "r" isort in
   let rb = zconst "r" bsort in
-  match r with
+  match r2 with
   | BoolResultFv b -> Hash_set.add chcs ([ ri ] |. (p <-- [ ri ]) --> zbool b)
-  | VarResultFv -> Hash_set.add chcs ([ rb ] |. (p <-- [ rb ]) --> rb === ztrue)
+  | VarResultFv id' ->
+      Hash_set.add chcs ([ rb ] |. (p <-- [ rb ]) --> rb === ztrue)
   | OpResultFv op -> (
       match op with
-      | EqOpFv (IntResultFv i) ->
-          Hash_set.add chcs ([ ri ] |. (p <-- [ ri ]) --> (ri === zint i))
-      | GeOpFv (IntResultFv i) ->
-          Hash_set.add chcs ([ ri ] |. (p <-- [ ri ]) --> (ri >== zint i))
-      | GtOpFv (IntResultFv i) ->
-          Hash_set.add chcs ([ ri ] |. (p <-- [ ri ]) --> (ri >>> zint i))
-      | LeOpFv (IntResultFv i) ->
-          Hash_set.add chcs ([ ri ] |. (p <-- [ ri ]) --> (ri <== zint i))
-      | LtOpFv (IntResultFv i) ->
-          Hash_set.add chcs ([ ri ] |. (p <-- [ ri ]) --> (ri <<< zint i))
-      | NotOpFv ->
+      | EqOpFv (v1, IntResultFv i)
+      | GeOpFv (v1, IntResultFv i)
+      | GtOpFv (v1, IntResultFv i)
+      | LeOpFv (v1, IntResultFv i)
+      | LtOpFv (v1, IntResultFv i) -> (
+          let op =
+            match op with
+            | EqOpFv _ -> ( === )
+            | GeOpFv _ -> ( >== )
+            | GtOpFv _ -> ( >>> )
+            | LeOpFv _ -> ( <== )
+            | LtOpFv _ -> ( <<< )
+            | _ -> raise Unreachable
+          in
+          match v1 with
+          | VarResultFv _ ->
+              Hash_set.add chcs ([ ri ] |. (p <-- [ ri ]) --> op ri (zint i))
+          | ProjectionResultFv (VarResultFv _, Ident x) ->
+              Format.printf "%a\n" Grammar.pp_atom (List.hd_exn r1);
+              let record =
+                match List.hd_exn r1 with
+                | LabelResAtom ([ a ], _) -> a
+                | ProjectionAtom (r, x) -> failwith "TODO"
+                | _ -> raise Unreachable
+              in
+              let r2id = ida record ^ "_" ^ x in
+              let p = Hashtbl.find_exn id_to_decl r2id in
+              Hash_set.add chcs ([ ri ] |. (p <-- [ ri ]) --> op ri (zint i))
+          | _ -> raise Unreachable)
+      | NotOpFv _ ->
           Hash_set.add chcs ([ rb ] |. (p <-- [ rb ]) --> (rb === zfalse))
       | _ -> raise Unreachable)
-  | _ -> raise Unreachable
+  | _ -> raise BadAssert
 
 let rec cond pis =
   if List.is_empty pis then ([], ztrue)
@@ -287,13 +309,26 @@ and chcs_of_atom ?(pis = []) a =
         (Hashtbl.add id_to_decl ~key:(ida a)
            ~data:(Hashtbl.find_exn id_to_decl (idr r0)))
   | FunAtom _ | LabelStubAtom _ | ExprStubAtom _ -> ()
-  | RecordAtom _ -> failwith "unimplemented"
-  | ProjectionAtom _ -> failwith "unimplemented"
-  | InspectionAtom _ -> failwith "unimplemented"
-  | AssertAtom (r1, r2) ->
+  | RecordAtom entries ->
+      let aid = ida a in
+      let pa = zdecl aid [ isort ] bsort in
+      ignore (Hashtbl.add id_to_decl ~key:aid ~data:pa);
+      List.iter entries ~f:(fun (Ident x, r) ->
+          chcs_of_res r ~pis;
+          let pr = Hashtbl.find_exn id_to_decl (idr r) in
+          ignore (Hashtbl.add id_to_decl ~key:(aid ^ "_" ^ x) ~data:pr);
+          let r_ = zconst "r" isort in
+          Hash_set.add chcs ([ r_ ] |. (pr <-- [ r_ ]) --> (pa <-- [ r_ ])))
+  | ProjectionAtom (r, Ident x) ->
+      chcs_of_res r ~pis;
+      let record = List.hd_exn r in
+      ignore
+        (Hashtbl.add id_to_decl ~key:(ida a)
+           ~data:(Hashtbl.find_exn id_to_decl (ida record ^ "_" ^ x)))
+  | InspectionAtom _ -> failwith "inspection"
+  | AssertAtom (id, r1, r2) ->
       chcs_of_res r1 ~pis;
-      let p = Hashtbl.find_exn id_to_decl (idr r1) in
-      chcs_of_assert p r2
+      chcs_of_assert r1 r2
 
 and chcs_of_res ?(pis = []) r =
   let rid = idr r in
@@ -313,6 +348,7 @@ and chcs_of_res ?(pis = []) r =
           Hash_set.add chcs
             (r :: cond_quants |. (pa <-- [ r ] &&& cond_body) --> (pr <-- [ r ]))
       | None -> (
+          (* Format.printf "%a\n" Grammar.pp_atom a; *)
           match a with
           | LabelStubAtom _ | ExprStubAtom _ | AssertAtom _ -> ()
           | _ -> failwith "resatom non-labeled"))

@@ -63,7 +63,7 @@ let rec pp_atom fmt = function
         pp_record_atom entries
   | ProjectionAtom (r, Ident s) -> ff fmt "%a.%s" pp_res r s
   | InspectionAtom (Ident s, r) -> ff fmt "%s in %a" s pp_res r
-  | AssertAtom (r, _) -> ff fmt "%a" pp_res r
+  | AssertAtom (_, r, _) -> ff fmt "%a" pp_res r
 
 and pp_record_atom fmt = function
   | [] -> ()
@@ -87,7 +87,7 @@ let verify_result r =
       (* Format.printf "sat" *)
       (* let model = solver |> Z3.Solver.get_model |> Core.Option.value_exn in
          model |> Z3.Model.to_string |> pf "Model:\n%s\n\n"; *)
-      (* solver |> Z3.Solver.to_string |> Format.printf "Solver:\n%s"; *)
+      solver |> Z3.Solver.to_string |> Format.printf "Solver:\n%s";
       Solver.reset ()
   | UNSATISFIABLE ->
       Solver.reset ();

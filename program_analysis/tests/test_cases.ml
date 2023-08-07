@@ -116,12 +116,11 @@ let recursion =
     "letassert x = " ^ rec_eg_6 ^ "1 in x >= 1";
     "letassert x = " ^ rec_eg_6 ^ "(0 - 1) in x >= 1";
     (* TODOs *)
-    "let fib n = if n <= 1 then n else (fib (n - 1)) + (fib (n - 2)) in fib 7";
     (* "let fib = (fun n -> if n < 2 then 1 else let go = (fun self -> fun i -> \
        fun prev -> fun prevprev -> let res = (prev + prevprev) in if i = 0 then \
        res else self self (i - 1) res prev) in go go (n - 2) 1 1) in fib 2"; *)
-    "letassert x = let id = fun self -> fun n -> if n = 0 then 0 else 1 + self \
-     self (n - 1) + self self (n - 1) in id id 10 in x >= 2";
+    "let fib = fun self -> fun n -> if n = 0 or n = 1 then n else self self (n \
+     - 1) + self self (n - 2) in fib fib 2";
   |]
 
 (** Church numerals *)
@@ -149,6 +148,16 @@ let church_basic =
 
 let church_binop =
   [| "letassert x = " ^ unchurch ^ "(" ^ add ^ zero ^ one ^ ") in x = 1" |]
+
+let list_cons = "(fun x -> fun ls -> { hd = x; tl = ls })"
+
+let lists =
+  [|
+    "letassert x = " ^ list_cons ^ " 1 ({})" ^ " in x.hd = 1";
+    "letassert x = let ls = { x = 1; y = 2; z = 3 } in ls.y in x = 2";
+    "letassert x = ({ hd = 1; tl = { hd = 2; tl = { hd = 3; tl = {} } } }.tl) \
+     in x.hd = 2";
+  |]
 
 (* TODO: test runtime exceptions *)
 (* TODO: use Z3 variant type to encode records: int | bool | notafield *)

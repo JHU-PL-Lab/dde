@@ -68,27 +68,27 @@ and result_value =
   | InspectionResult of ident * result_value
 
 type op_result_value_fv =
-  | PlusOpFv of result_value_fv
-  | MinusOpFv of result_value_fv
-  | EqOpFv of result_value_fv
+  | PlusOpFv of result_value_fv * result_value_fv
+  | MinusOpFv of result_value_fv * result_value_fv
+  | EqOpFv of result_value_fv * result_value_fv
   | AndOpFv of result_value_fv * result_value_fv
   | OrOpFv of result_value_fv * result_value_fv
-  | GeOpFv of result_value_fv
-  | GtOpFv of result_value_fv
-  | LeOpFv of result_value_fv
-  | LtOpFv of result_value_fv
-  | NotOpFv
+  | GeOpFv of result_value_fv * result_value_fv
+  | GtOpFv of result_value_fv * result_value_fv
+  | LeOpFv of result_value_fv * result_value_fv
+  | LtOpFv of result_value_fv * result_value_fv
+  | NotOpFv of result_value_fv
 (* TODO: pretty print *)
 
 (** result values that may contain free variables *)
 and result_value_fv =
   | IntResultFv of int
   | BoolResultFv of bool
-  | VarResultFv
+  | VarResultFv of ident
   | OpResultFv of op_result_value_fv
   | FunResultFv
-  | RecordResultFv
-  | ProjectionResultFv
+  | RecordResultFv of (ident * result_value_fv) list
+  | ProjectionResultFv of result_value_fv * ident
   | InspectionResultFv
 [@@deriving hash, sexp, compare, show { with_path = false }]
 
