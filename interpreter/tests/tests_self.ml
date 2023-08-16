@@ -37,12 +37,19 @@ let test_record _ =
 let test_letassert _ =
   assert_equal "2" (peu ~should_simplify:true "letassert x = 1 + 1 in x = 2")
 
+let test_letrec _ =
+  assert_equal "1" (peu ~should_simplify:true "let rec f x = (x) in f 1");
+  assert_equal "10"
+    (peu ~should_simplify:true
+       "let rec f x = (if x = 0 then 0 else 1 + f (x - 1)) in f 10")
+
 let dde_self_tests =
   [
     "Laziness" >:: test_laziness;
     (* "Memoization" >:: test_memoization; *)
     "Record operations" >:: test_record;
     "letassert" >:: test_letassert;
+    "letrec" >:: test_letrec;
   ]
 
 let dde_self = "DDE against self" >::: dde_self_tests
