@@ -26,6 +26,7 @@ let rec pp_expr fmt = function
         e2
   | Plus (e1, e2) -> ff fmt "(%a + %a)" pp_expr e1 pp_expr e2
   | Minus (e1, e2) -> ff fmt "(%a - %a)" pp_expr e1 pp_expr e2
+  | Mult (e1, e2) -> ff fmt "(%a * %a)" pp_expr e1 pp_expr e2
   | Equal (e1, e2) -> ff fmt "(%a = %a)" pp_expr e1 pp_expr e2
   | And (e1, e2) -> ff fmt "(%a and %a)" pp_expr e1 pp_expr e2
   | Or (e1, e2) -> ff fmt "(%a or %a)" pp_expr e1 pp_expr e2
@@ -66,6 +67,8 @@ let rec pp_result_value fmt = function
           ff fmt "%a + %a" pp_result_value r1 pp_result_value r2
       | MinusOp (r1, r2) ->
           ff fmt "%a - %a" pp_result_value r1 pp_result_value r2
+      | MultOp (r1, r2) ->
+          ff fmt "%a * %a" pp_result_value r1 pp_result_value r2
       | EqOp (r1, r2) -> ff fmt "%a = %a" pp_result_value r1 pp_result_value r2
       | AndOp (r1, r2) ->
           ff fmt "%a and %a" pp_result_value r1 pp_result_value r2
@@ -79,8 +82,6 @@ let rec pp_result_value fmt = function
       ff fmt
         (if List.length entries = 0 then "{%a}" else "{ %a }")
         pp_record_result entries
-  | ProjectionResult (r, Ident s) -> ff fmt "%a.%s" pp_result_value r s
-  | InspectionResult (Ident s, r) -> ff fmt "%s in %a" s pp_result_value r
 
 and pp_record_result fmt = function
   | [] -> ()

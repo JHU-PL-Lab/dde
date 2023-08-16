@@ -23,6 +23,7 @@ end
 type op =
   | PlusOp of res * res
   | MinusOp of res * res
+  | MultOp of res * res
   | EqualOp of res * res
   | AndOp of res * res
   | OrOp of res * res
@@ -51,6 +52,17 @@ and res = atom list
 
 and path_cond = res * bool
 [@@deriving hash, sexp, compare, show { with_path = false }]
+
+type pi = (atom list * bool) option [@@deriving hash, sexp, compare]
+
+module CacheKey = struct
+  module T = struct
+    type t = expr * sigma * pi [@@deriving hash, sexp, compare]
+  end
+
+  include T
+  include Comparable.Make (T)
+end
 
 (* used to accumulate disjuncts when stitching stacks *)
 module Choice = struct

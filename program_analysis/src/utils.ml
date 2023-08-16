@@ -21,10 +21,7 @@ let rec fold_res r ~init ~f =
   | [] -> init
 
 let s_set = Hashset.create 1000
-
-let print_set () =
-  Hashset.fold (fun s acc -> show_sigma s ^ "\n" ^ acc) s_set ""
-
+let show_set () = Hashset.fold (fun s acc -> show_sigma s ^ "\n" ^ acc) s_set ""
 let pp_pair fmt (l, s) = Format.fprintf fmt "(%d, %s)" l @@ show_sigma s
 let pp_pair_list fmt ls = Format.pp_print_list pp_pair fmt ls
 let is_debug_mode = ref false
@@ -46,6 +43,7 @@ let rec pp_atom fmt = function
       match op with
       | PlusOp (r1, r2) -> ff fmt "(%a + %a)" pp_res r1 pp_res r2
       | MinusOp (r1, r2) -> ff fmt "(%a - %a)" pp_res r1 pp_res r2
+      | MultOp (r1, r2) -> ff fmt "(%a * %a)" pp_res r1 pp_res r2
       | EqualOp (r1, r2) -> ff fmt "(%a = %a)" pp_res r1 pp_res r2
       | AndOp (r1, r2) -> ff fmt "(%a and %a)" pp_res r1 pp_res r2
       | OrOp (r1, r2) -> ff fmt "(%a or %a)" pp_res r1 pp_res r2
@@ -75,23 +73,3 @@ and pp_res fmt = function
   | [] -> ()
   | [ a ] -> ff fmt "%a" pp_atom a
   | a :: _as -> ff fmt "(%a | %a)" pp_atom a pp_res _as
-
-let verify_result r =
-  let solver = Solver.solver in
-  Solver.chcs_of_res r;
-  let chcs = Solver.list_of_chcs () in
-  Z3.Solver.add solver chcs;
-
-  match Z3.Solver.check solver [] with
-  | SATISFIABLE ->
-      (* Format.printf "sat" *)
-      (* let model = solver |> Z3.Solver.get_model |> Core.Option.value_exn in
-         model |> Z3.Model.to_string |> pf "Model:\n%s\n\n"; *)
-      solver |> Z3.Solver.to_string |> Format.printf "Solver:\n%s";
-      Solver.reset ()
-  | UNSATISFIABLE ->
-      Solver.reset ();
-      failwith "unsat"
-  | UNKNOWN ->
-      Solver.reset ();
-      failwith "unknown"

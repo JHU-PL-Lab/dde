@@ -82,10 +82,26 @@ let recursion_thunked =
     (fun _ -> ("1", pau recursion.(9)));
     (fun _ -> ("1", pau recursion.(10)));
     (fun _ -> ("1", pau recursion.(11)));
-    (* (fun _ -> ("", pau recursion.(12))); *)
+    (fun _ ->
+      ( "(((((stub + ((((4 - 1) - 1) | ((((4 - 1) - 1) | (stub - 1)) - 1)) - \
+         2)) | (((4 - 1) - 1) | ((((4 - 1) - 1) | (stub - 1)) - 1))) + ((((4 - \
+         1) - 1) | ((((4 - 1) - 1) | (stub - 1)) - 1)) - 2)) + (((4 - 1) - 2) \
+         | ((((4 - 1) - 1) | ((((4 - 1) - 1) | (stub - 1)) - 1)) - 2))) + (((4 \
+         - 2) - 1) + ((4 - 2) - 2)))",
+        pau ~verify:false recursion.(12) ));
   ]
 
 let test_recursion _ = gen_test recursion_thunked
+
+let adapted_thunked =
+  [
+    (fun _ ->
+      ( "((3 * ((3 - 1) * 1)) + (4 * ((4 - 1) * (((4 - 1) - 1) * (((((4 - 1) - \
+         1) | ((((4 - 1) - 1) | (stub - 1)) - 1)) * stub) | 1)))))",
+        pau ~verify:true adapted.(0) ));
+  ]
+
+let test_adapted _ = gen_test adapted_thunked
 
 let church_basic_thunked =
   [
@@ -101,9 +117,11 @@ let test_church_binop _ = gen_test church_binop_thunked
 
 let lists_thunked =
   [
-    (* (fun _ -> ("{ hd = 1; tl = {} }", pau lists.(0))); *)
-    (* (fun _ -> ("{ x = 1; y = 2; z = 3 }.y", pau lists.(1))); *)
-    (fun _ -> ("{ x = 1; y = 2; z = 3 }.y", pau lists.(2)));
+    (* (fun _ -> ("{ hd = 1; tl = {} }", pau lists.(0)));
+       (fun _ -> ("2", pau lists.(1)));
+       (fun _ -> ("{ hd = 2; tl = { hd = 3; tl = {} } }", pau lists.(2)));
+       (fun _ -> ("2", pau lists.(3))); *)
+    (fun _ -> ("", pau lists.(4)));
   ]
 
 let test_lists _ = gen_test lists_thunked
@@ -112,6 +130,7 @@ let tests_thunked =
   basic_thunked @ nonlocal_lookup_thunked @ local_stitching_thunked
   @ conditional_thunked @ currying_thunked @ recursion_thunked
   @ church_basic_thunked @ church_binop_thunked @ lists_thunked
+  @ adapted_thunked
 
 let test_pa =
   [
@@ -123,14 +142,21 @@ let test_pa =
        "Recursion" >:: test_recursion;
        "Church numerals basics" >:: test_church_basic;
        "Church numerals binary operations" >:: test_church_binop; *)
-    "Lists" >:: test_lists;
+    "Adapted" >:: test_adapted;
+    (* "Lists" >:: test_lists; *)
   ]
 
 let tests = "Program analysis tests" >::: test_pa
 
 let _ =
   (* Pbt.run _; *)
+  let out_file = Out_channel.create "logs" in
+  Logs.set_reporter
+    (Logs_fmt.reporter ~dst:(Format.formatter_of_out_channel out_file) ());
+  Logs.set_level (Some Logs.Info);
   let bench = ref false in
   Arg.parse [ ("--bench", Arg.Set bench, "run benchmarks") ] (fun _ -> ()) "";
   if !bench then Bench.run tests_thunked;
   run_test_tt_main tests
+
+(* TODO: more tests, more projections than available *)

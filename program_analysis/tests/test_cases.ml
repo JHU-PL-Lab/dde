@@ -104,7 +104,7 @@ let recursion =
      (n - 1) else 0 in id id (-1) in x = 0";
     (* tests adapted from standard PA *)
     "letassert x = " ^ rec_eg_5 ^ "true true in x";
-    (* TODO *)
+    (* TODO: solver gives unknown *)
     rec_eg_5 ^ "true false";
     "letassert x = let f = (fun x -> (fun y -> y) x) in let repeat = fun self \
      -> fun acc -> if acc then true else self self (self self (f true)) in \
@@ -115,12 +115,25 @@ let recursion =
     "letassert x = " ^ rec_eg_6 ^ "0 in x >= 1";
     "letassert x = " ^ rec_eg_6 ^ "1 in x >= 1";
     "letassert x = " ^ rec_eg_6 ^ "(0 - 1) in x >= 1";
-    (* TODOs *)
     (* "let fib = (fun n -> if n < 2 then 1 else let go = (fun self -> fun i -> \
        fun prev -> fun prevprev -> let res = (prev + prevprev) in if i = 0 then \
-       res else self self (i - 1) res prev) in go go (n - 2) 1 1) in fib 2"; *)
-    "let fib = fun self -> fun n -> if n = 0 or n = 1 then n else self self (n \
-     - 1) + self self (n - 2) in fib fib 2";
+       res else self self (i - 1) res prev) in go go (n - 2) 1 1) in fib 4"; *)
+    "let fib = fun self -> fun n -> if n <= 1 then n else self self (n - 1) + \
+     self self (n - 2) in fib fib 4";
+    "let fib = fun n -> fun self -> if n <= 1 then n else self (n - 1) self + \
+     self (n - 2) self in fib 4 fib";
+    (* "let nonsense = fun self -> fun n -> if (self self n) = 0 then 1 else 0 in \
+       nonsense nonsense 0"; *)
+  |]
+
+let adapted =
+  [|
+    "letassert x =\n\
+     let id = (fun x -> x) in\n\
+     let f = fun self -> fun n -> if n <= 1 then 1 else n * self self (n - 1) in\n\
+     let g = fun self -> fun n -> if n <= 1 then 1 else n * self self (n - 1) in\n\
+     (id f) (id f) 3 + (id g) (id g) 4\n\
+     in x >= 1";
   |]
 
 (** Church numerals *)
@@ -151,12 +164,32 @@ let church_binop =
 
 let list_cons = "(fun x -> fun ls -> { hd = x; tl = ls })"
 
+let list_incr =
+  "let incr = fun self -> fun ls -> { hd = ls.hd + 1; tl = if hd in ls.tl then \
+   self self (ls.tl) else {} } in incr incr"
+
+let incr_cell =
+  "let incr = fun self -> fun ls -> fun n -> if n = 0 then ls else self self \
+   ({ hd = ls.hd + 1; tl = {} }) (n - 1) in incr incr"
+
 let lists =
   [|
     "letassert x = " ^ list_cons ^ " 1 ({})" ^ " in x.hd = 1";
     "letassert x = let ls = { x = 1; y = 2; z = 3 } in ls.y in x = 2";
     "letassert x = ({ hd = 1; tl = { hd = 2; tl = { hd = 3; tl = {} } } }.tl) \
      in x.hd = 2";
+    "letassert x = ({ hd = 1; tl = { hd = 2; tl = { hd = 3; tl = {} } } \
+     }.tl.hd) in x = 2";
+    (* incr_cell ^ " ({ hd = 0; tl = {} }) 3"; *)
+    (* list_incr ^ " ({ hd = 1; tl = {} })"; *)
+    (* list_incr ^ " ({ hd = 1; tl = { hd = 2; tl = {} } })"; *)
+    (* list_incr ^ " ({ hd = 1; tl = { hd = 2; tl = { hd = 3; tl = {} } } })"; *)
+    list_incr
+    ^ " ({ hd = 1; tl = { hd = 2; tl = { hd = 3; tl = { hd = 4; tl = {} } } } \
+       })";
+    (* list_incr
+       ^ " ({ hd = 1; tl = { hd = 2; tl = { hd = 3; tl = { hd = 4; tl = { hd = 5; \
+          tl = {} } } } } })"; *)
   |]
 
 (* TODO: test runtime exceptions *)

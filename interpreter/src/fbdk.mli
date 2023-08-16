@@ -11,6 +11,7 @@ module Ast : sig
     | Appl of expr * expr * int
     | Plus of expr * expr
     | Minus of expr * expr
+    | Mult of expr * expr
     | Equal of expr * expr
     | And of expr * expr
     | Or of expr * expr
@@ -31,6 +32,7 @@ module Ast : sig
   type op_result_value =
     | PlusOp of result_value * result_value
     | MinusOp of result_value * result_value
+    | MultOp of result_value * result_value
     | EqOp of result_value * result_value
     | AndOp of result_value * result_value
     | OrOp of result_value * result_value
@@ -46,8 +48,6 @@ module Ast : sig
     | FunResult of { f : expr; l : int; sigma : int list }
     | OpResult of op_result_value
     | RecordResult of (ident * result_value) list
-    | ProjectionResult of result_value * ident
-    | InspectionResult of ident * result_value
 
   type op_result_value_fv =
     | PlusOpFv of result_value_fv * result_value_fv

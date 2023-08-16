@@ -97,6 +97,7 @@ let ( &&& ) e1 e2 = Boolean.mk_and ctx [ e1; e2 ]
 let ( ||| ) e1 e2 = Boolean.mk_or ctx [ e1; e2 ]
 let ( +++ ) e1 e2 = Arithmetic.mk_add ctx [ e1; e2 ]
 let ( --- ) e1 e2 = Arithmetic.mk_sub ctx [ e1; e2 ]
+let ( *** ) e1 e2 = Arithmetic.mk_mul ctx [ e1; e2 ]
 let ( >== ) e1 e2 = Arithmetic.mk_ge ctx e1 e2
 let ( >>> ) e1 e2 = Arithmetic.mk_gt ctx e1 e2
 let ( <== ) e1 e2 = Arithmetic.mk_le ctx e1 e2
@@ -154,19 +155,22 @@ let chcs_of_assert r1 (r2 : Interpreter.Ast.result_value_fv) =
             | LtOpFv _ -> ( <<< )
             | _ -> raise Unreachable
           in
+          (* LHS of assertion *)
           match v1 with
           | VarResultFv _ ->
               Hash_set.add chcs ([ ri ] |. (p <-- [ ri ]) --> op ri (zint i))
           | ProjectionResultFv (VarResultFv _, Ident x) ->
-              Format.printf "%a\n" Grammar.pp_atom (List.hd_exn r1);
-              let record =
-                match List.hd_exn r1 with
-                | LabelResAtom ([ a ], _) -> a
-                | ProjectionAtom (r, x) -> failwith "TODO"
-                | _ -> raise Unreachable
+              let p =
+                let r1_hd = List.hd_exn r1 in
+                match r1_hd with
+                | RecordAtom _ ->
+                    Hashtbl.find_exn id_to_decl (ida r1_hd ^ "_" ^ x)
+                | LabelResAtom ([ a ], _) ->
+                    Hashtbl.find_exn id_to_decl (ida a ^ "_" ^ x)
+                | _ ->
+                    (* Format.printf "%a\n" Grammar.pp_atom r1_hd; *)
+                    raise Unreachable
               in
-              let r2id = ida record ^ "_" ^ x in
-              let p = Hashtbl.find_exn id_to_decl r2id in
               Hash_set.add chcs ([ ri ] |. (p <-- [ ri ]) --> op ri (zint i))
           | _ -> raise Unreachable)
       | NotOpFv _ ->
@@ -207,6 +211,7 @@ and chcs_of_atom ?(pis = []) a =
       match op with
       | PlusOp (r1, r2)
       | MinusOp (r1, r2)
+      | MultOp (r1, r2)
       | EqualOp (r1, r2)
       | AndOp (r1, r2)
       | OrOp (r1, r2)
@@ -216,12 +221,13 @@ and chcs_of_atom ?(pis = []) a =
       | LtOp (r1, r2) ->
           let aid, rid1, rid2 = (ida a, idr r1, idr r2) in
           let is_int_arith =
-            match op with PlusOp _ | MinusOp _ -> true | _ -> false
+            match op with PlusOp _ | MinusOp _ | MultOp _ -> true | _ -> false
           in
           let zop =
             match op with
             | PlusOp _ -> ( +++ )
             | MinusOp _ -> ( --- )
+            | MultOp _ -> ( *** )
             | EqualOp _ -> ( === )
             | AndOp _ -> ( &&& )
             | OrOp _ -> ( ||| )
@@ -236,8 +242,8 @@ and chcs_of_atom ?(pis = []) a =
           in
           let param_sort =
             match op with
-            | PlusOp _ | MinusOp _ | EqualOp _ | GeOp _ | GtOp _ | LeOp _
-            | LtOp _ ->
+            | PlusOp _ | MinusOp _ | MultOp _ | EqualOp _ | GeOp _ | GtOp _
+            | LeOp _ | LtOp _ ->
                 isort
             | _ -> bsort
           in
@@ -299,7 +305,7 @@ and chcs_of_atom ?(pis = []) a =
       chcs_of_res r ~pis;
       let r_ = zconst "r" sort in
       Hash_set.add chcs ([ r_ ] |. (pr <-- [ r_ ]) --> (pa <-- [ r_ ]))
-  | PathCondAtom (((r, b) as pi), r0) ->
+  | PathCondAtom (((r, _) as pi), r0) ->
       (* generate CHCs for current path condition using
          the previous path conditions *)
       chcs_of_res r ~pis;
@@ -311,21 +317,27 @@ and chcs_of_atom ?(pis = []) a =
   | FunAtom _ | LabelStubAtom _ | ExprStubAtom _ -> ()
   | RecordAtom entries ->
       let aid = ida a in
+      (* Format.printf "aid: %s\nrecord: %a\n" aid Grammar.pp_atom a; *)
       let pa = zdecl aid [ isort ] bsort in
       ignore (Hashtbl.add id_to_decl ~key:aid ~data:pa);
       List.iter entries ~f:(fun (Ident x, r) ->
           chcs_of_res r ~pis;
           let pr = Hashtbl.find_exn id_to_decl (idr r) in
+          (* Format.printf "%s -> %s\n" (aid ^ "_" ^ x) (idr r);
+             Format.printf "%a\n" Grammar.pp_res r; *)
           ignore (Hashtbl.add id_to_decl ~key:(aid ^ "_" ^ x) ~data:pr);
           let r_ = zconst "r" isort in
           Hash_set.add chcs ([ r_ ] |. (pr <-- [ r_ ]) --> (pa <-- [ r_ ])))
   | ProjectionAtom (r, Ident x) ->
-      chcs_of_res r ~pis;
-      let record = List.hd_exn r in
-      ignore
-        (Hashtbl.add id_to_decl ~key:(ida a)
-           ~data:(Hashtbl.find_exn id_to_decl (ida record ^ "_" ^ x)))
+      Format.printf "projectionatom:\n%a\n" Utils.pp_res r;
+      (* Format.printf "__________\n%a\n" Grammar.pp_res r; *)
+      chcs_of_res r ~pis
+      (* let record = List.hd_exn r in *)
+      (* ignore
+         (Hashtbl.add id_to_decl ~key:(ida a)
+            ~data:(Hashtbl.find_exn id_to_decl (ida record ^ "_" ^ x))) *)
   | InspectionAtom _ -> failwith "inspection"
+  (* records are good for: subsumes shape analysis *)
   | AssertAtom (id, r1, r2) ->
       chcs_of_res r1 ~pis;
       chcs_of_assert r1 r2
@@ -375,3 +387,28 @@ and chcs_of_res ?(pis = []) r =
          Format.printf "key: %a\ndata: %d\n" Grammar.pp_atom key data)
        atom_to_id;
      reset () *)
+
+let verify_result r =
+  (* let solver = Z3.Solver.mk_solver_s ctx "HORN" in *)
+  chcs_of_res r;
+  let chcs = list_of_chcs () in
+  Z3.Solver.add solver chcs;
+
+  (* let start = Stdlib.Sys.time () in *)
+  let status = Z3.Solver.check solver [] in
+
+  (* Format.printf "verification time: %f\n" (Stdlib.Sys.time () -. start); *)
+  (* List.iter chcs ~f:(fun chc -> Format.printf "%s\n" (Z3.Expr.to_string chc)); *)
+  match status with
+  | SATISFIABLE ->
+      (* Format.printf "sat" *)
+      (* let model = solver |> Z3.Solver.get_model |> Core.Option.value_exn in
+         model |> Z3.Model.to_string |> pf "Model:\n%s\n\n"; *)
+      (* solver |> Z3.Solver.to_string |> Format.printf "Solver:\n%s"; *)
+      reset ()
+  | UNSATISFIABLE ->
+      reset ();
+      failwith "unsat"
+  | UNKNOWN ->
+      reset ();
+      failwith "unknown"

@@ -29,6 +29,7 @@ open Ast;;
 %token LPAREN
 %token LT
 %token MINUS
+%token MULT
 %token NOT
 %token OR
 %token PLUS
@@ -41,7 +42,7 @@ open Ast;;
 /*
  * Precedences and associativities.  Lower precedences come first.
  */
-%right prec_let                         /* let f x = ... in ... */
+%right prec_let                         /* let x = ... in ... */
 %right prec_fun                         /* function declaration */
 %right prec_if                          /* if ... then ... else */
 %right OR                               /* or */
@@ -49,6 +50,7 @@ open Ast;;
 %left EQUAL                             /* = */
 %left GE GT LE LT                       /* >= > <= < */
 %left PLUS MINUS                        /* + - */
+%left MULT                              /* * */
 %right NOT                              /* not e */
 
 /*
@@ -70,6 +72,8 @@ expr:
       { build_plus $1 $3 }
   | expr MINUS expr
       { build_minus $1 $3 }
+  | expr MULT expr
+      { build_mult $1 $3 }
   | expr AND expr
       { build_and $1 $3 }
   | expr OR expr

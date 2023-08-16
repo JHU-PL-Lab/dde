@@ -6,8 +6,8 @@ let assert_equal = assert_equal ~printer:Core.Fn.id
 let test_laziness _ =
   assert_equal "{ x = 1 + 1; y = 1 + 1 }"
     (peu "{ x = 1 + 1; y = (fun z -> z + 1) 1 }");
-  assert_equal "{ x = 1 }.x" (peu "{ x = 1 }.x");
-  assert_equal "{ label = 1 }.x" (peu "{ label = if true then 1 else 0 }.x");
+  assert_equal "1" (peu "{ x = 1 }.x");
+  assert_equal "1" (peu "{ label = if true then 1 else 0 }.label");
   assert_equal "fun y -> 7"
     (peu ~should_simplify:true
        "(fun x -> fun y -> x) ((fun z -> z + 1) (1 + 2 + 3))");
@@ -37,12 +37,31 @@ let test_record _ =
 let test_letassert _ =
   assert_equal "2" (peu ~should_simplify:true "letassert x = 1 + 1 in x = 2")
 
+let list_incr =
+  "let incr = fun self -> fun ls -> { hd = ls.hd + 1; tl = if hd in ls.tl then \
+   self self (ls.tl) else {} } in incr incr"
+
+let incr_cell =
+  "let incr = fun self -> fun ls -> fun n -> if n = 0 then ls else self self \
+   ({ hd = ls.hd + 1; tl = {} }) (n - 1) in incr incr"
+
+let test_record_rec _ =
+  assert_equal
+    "{ hd = 2; tl = { hd = 3; tl = { hd = 4; tl = { hd = 5; tl = {} } } } }"
+    (peu ~should_simplify:true
+       (list_incr
+      ^ " ({ hd = 1; tl = { hd = 2; tl = { hd = 3; tl = { hd = 4; tl = {} } } \
+         } })"));
+  assert_equal "{ hd = 5; tl = {} }"
+    (peu ~should_simplify:true (incr_cell ^ " ({ hd = 0; tl = {} }) 5"))
+
 let dde_self_tests =
   [
     "Laziness" >:: test_laziness;
     (* "Memoization" >:: test_memoization; *)
     "Record operations" >:: test_record;
     "letassert" >:: test_letassert;
+    "record rec" >:: test_record_rec;
   ]
 
 let dde_self = "DDE against self" >::: dde_self_tests
