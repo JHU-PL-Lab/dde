@@ -20,8 +20,7 @@ module Ast : sig
     | Lt of expr * expr
     | Not of expr
     | If of expr * expr * expr * int
-    | Let of ident * expr * expr
-    | LetRec of ident * ident * expr * expr * int
+    | Let of ident * expr * expr * int
     | LetAssert of ident * expr * expr
     | Record of (ident * expr) list
     | Projection of expr * ident
@@ -51,25 +50,25 @@ module Ast : sig
     | InspectionResult of ident * result_value
 
   type op_result_value_fv =
-    | PlusOpFv of result_value_fv
-    | MinusOpFv of result_value_fv
-    | EqOpFv of result_value_fv
+    | PlusOpFv of result_value_fv * result_value_fv
+    | MinusOpFv of result_value_fv * result_value_fv
+    | EqOpFv of result_value_fv * result_value_fv
     | AndOpFv of result_value_fv * result_value_fv
     | OrOpFv of result_value_fv * result_value_fv
-    | GeOpFv of result_value_fv
-    | GtOpFv of result_value_fv
-    | LeOpFv of result_value_fv
-    | LtOpFv of result_value_fv
-    | NotOpFv
+    | GeOpFv of result_value_fv * result_value_fv
+    | GtOpFv of result_value_fv * result_value_fv
+    | LeOpFv of result_value_fv * result_value_fv
+    | LtOpFv of result_value_fv * result_value_fv
+    | NotOpFv of result_value_fv
 
   and result_value_fv =
     | IntResultFv of int
     | BoolResultFv of bool
-    | VarResultFv
+    | VarResultFv of ident
     | OpResultFv of op_result_value_fv
     | FunResultFv
-    | RecordResultFv
-    | ProjectionResultFv
+    | RecordResultFv of (ident * result_value_fv) list
+    | ProjectionResultFv of result_value_fv * ident
     | InspectionResultFv
 
   type fbtype = Ast.fbtype = TArrow of fbtype * fbtype | TVar of string

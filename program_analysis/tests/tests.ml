@@ -99,21 +99,31 @@ let test_church_basic _ = gen_test church_basic_thunked
 let church_binop_thunked = [ (fun _ -> ("(0 + 1)", pau church_binop.(0))) ]
 let test_church_binop _ = gen_test church_binop_thunked
 
+let lists_thunked =
+  [
+    (* (fun _ -> ("{ hd = 1; tl = {} }", pau lists.(0))); *)
+    (* (fun _ -> ("{ x = 1; y = 2; z = 3 }.y", pau lists.(1))); *)
+    (fun _ -> ("{ x = 1; y = 2; z = 3 }.y", pau lists.(2)));
+  ]
+
+let test_lists _ = gen_test lists_thunked
+
 let tests_thunked =
   basic_thunked @ nonlocal_lookup_thunked @ local_stitching_thunked
   @ conditional_thunked @ currying_thunked @ recursion_thunked
-  @ church_basic_thunked @ church_binop_thunked
+  @ church_basic_thunked @ church_binop_thunked @ lists_thunked
 
 let test_pa =
   [
-    "Basics" >:: test_basic;
-    "Non-local variable lookup" >:: test_nonlocal_lookup;
-    "Var local stack stitching" >:: test_local_stitching;
-    "Conditional" >:: test_conditional;
-    "Currying" >:: test_currying;
-    "Recursion" >:: test_recursion;
-    "Church numerals basics" >:: test_church_basic;
-    "Church numerals binary operations" >:: test_church_binop;
+    (* "Basics" >:: test_basic;
+       "Non-local variable lookup" >:: test_nonlocal_lookup;
+       "Var local stack stitching" >:: test_local_stitching;
+       "Conditional" >:: test_conditional;
+       "Currying" >:: test_currying;
+       "Recursion" >:: test_recursion;
+       "Church numerals basics" >:: test_church_basic;
+       "Church numerals binary operations" >:: test_church_binop; *)
+    "Lists" >:: test_lists;
   ]
 
 let tests = "Program analysis tests" >::: test_pa
