@@ -193,4 +193,9 @@ let lists =
   |]
 
 (* TODO: test runtime exceptions *)
+(* TODO: benchmark expressiveness - runtime type error; our system is path sensitive so can serve as a type checker *)
+(* performance/expressiveness table *)
+(* polymorphic identity function *)
+(* id = fun x -> x, appl = fun f -> fun x -> f x - 1CFA has trouble *)
+(* TODO: type inferencer before Z3 *)
 (* TODO: use Z3 variant type to encode records: int | bool | notafield *)

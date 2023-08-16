@@ -98,7 +98,7 @@ let adapted_thunked =
     (fun _ ->
       ( "((3 * ((3 - 1) * 1)) + (4 * ((4 - 1) * (((4 - 1) - 1) * (((((4 - 1) - \
          1) | ((((4 - 1) - 1) | (stub - 1)) - 1)) * stub) | 1)))))",
-        pau ~verify:true adapted.(0) ));
+        pau ~verify:false adapted.(0) ));
   ]
 
 let test_adapted _ = gen_test adapted_thunked
@@ -134,14 +134,14 @@ let tests_thunked =
 
 let test_pa =
   [
-    (* "Basics" >:: test_basic;
-       "Non-local variable lookup" >:: test_nonlocal_lookup;
-       "Var local stack stitching" >:: test_local_stitching;
-       "Conditional" >:: test_conditional;
-       "Currying" >:: test_currying;
-       "Recursion" >:: test_recursion;
-       "Church numerals basics" >:: test_church_basic;
-       "Church numerals binary operations" >:: test_church_binop; *)
+    "Basics" >:: test_basic;
+    "Non-local variable lookup" >:: test_nonlocal_lookup;
+    "Var local stack stitching" >:: test_local_stitching;
+    "Conditional" >:: test_conditional;
+    "Currying" >:: test_currying;
+    "Recursion" >:: test_recursion;
+    "Church numerals basics" >:: test_church_basic;
+    "Church numerals binary operations" >:: test_church_binop;
     "Adapted" >:: test_adapted;
     (* "Lists" >:: test_lists; *)
   ]

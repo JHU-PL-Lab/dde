@@ -390,14 +390,15 @@ let rec analyze_aux d expr s pi v_set =
                           with
                           | Some ri -> fold_res ri ~init:acc ~f:Set.add
                           | None -> acc)
-                      | a ->
+                      | LabelStubAtom _ | ExprStubAtom _ ->
                           (* provably infeasible path: a singleton stub *)
                           info (fun m ->
                               m
                                 "reached a provably infeasible path and got a: \
                                  %a"
                                 Grammar.pp_atom a);
-                          acc)
+                          acc (* TODO: return [] when any atom is stub *)
+                      | _ -> raise TypeMismatch)
                 in
                 info (fun m ->
                     m "*********** Appl (%a) ************"
@@ -734,6 +735,3 @@ let analyze ?(debug = false) ?(verify = true) e =
   if verify then verify_result r;
 
   r
-
-(* TODO: stub at Appl e and/or Var Non-Local then check the logs *)
-(* TODO: stub everywhere? *)
