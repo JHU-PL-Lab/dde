@@ -27,6 +27,7 @@ type expr =
       * int [@quickcheck.weight 0.3]
   | Plus of expr * expr [@quickcheck.weight 0.05]
   | Minus of expr * expr [@quickcheck.weight 0.05]
+  | Mult of expr * expr [@quickcheck.weight 0.05]
   | Equal of expr * expr [@quickcheck.weight 0.05]
   | And of expr * expr [@quickcheck.weight 0.05]
   | Or of expr * expr [@quickcheck.weight 0.05]
@@ -49,6 +50,7 @@ type sigma = int list
 type op_result_value =
   | PlusOp of result_value * result_value
   | MinusOp of result_value * result_value
+  | MultOp of result_value * result_value
   | EqOp of result_value * result_value
   | AndOp of result_value * result_value
   | OrOp of result_value * result_value
@@ -64,8 +66,7 @@ and result_value =
   | FunResult of { f : expr; l : int; sigma : int list }
   | OpResult of op_result_value
   | RecordResult of (ident * result_value) list
-  | ProjectionResult of result_value * ident
-  | InspectionResult of ident * result_value
+[@@deriving show { with_path = false }]
 
 type op_result_value_fv =
   | PlusOpFv of result_value_fv * result_value_fv
@@ -123,6 +124,7 @@ let rec build_myfun e outer =
       build_myfun e2 outer
   | Plus (e1, e2)
   | Minus (e1, e2)
+  | Mult (e1, e2)
   | Equal (e1, e2)
   | And (e1, e2)
   | Or (e1, e2)
@@ -147,18 +149,6 @@ let rec build_myfun e outer =
   | Let (_, e1, e2, _) ->
       build_myfun e1 outer;
       build_myfun e2 outer
-
-let print_myexpr tbl =
-  Hashtbl.to_alist tbl
-  |> List.sort ~compare:(fun (k1, v1) (k2, v2) -> compare k1 k2)
-  |> List.iter ~f:(fun (k, v) -> Format.printf "%d -> %s\n" k (show_expr v))
-  [@@coverage off]
-
-let print_myfun tbl =
-  Hashtbl.iteri
-    ~f:(fun ~key ~data -> Format.printf "%d -> %s\n" key (show_expr data))
-    tbl
-  [@@coverage off]
 
 let next_label = ref 0
 
@@ -191,6 +181,7 @@ let build_var ident =
 
 let build_plus e1 e2 = Plus (e1, e2)
 let build_minus e1 e2 = Minus (e1, e2)
+let build_mult e1 e2 = Mult (e1, e2)
 let build_equal e1 e2 = Equal (e1, e2)
 let build_and e1 e2 = And (e1, e2)
 let build_or e1 e2 = Or (e1, e2)
@@ -246,6 +237,7 @@ let rec trans_let x e' e =
       If (trans_let x e' e1, trans_let x e' e2, trans_let x e' e3, l)
   | Plus (e1, e2) -> Plus (trans_let x e' e1, trans_let x e' e2)
   | Minus (e1, e2) -> Minus (trans_let x e' e1, trans_let x e' e2)
+  | Mult (e1, e2) -> Mult (trans_let x e' e1, trans_let x e' e2)
   | Equal (e1, e2) -> Equal (trans_let x e' e1, trans_let x e' e2)
   | And (e1, e2) -> And (trans_let x e' e1, trans_let x e' e2)
   | Or (e1, e2) -> Or (trans_let x e' e1, trans_let x e' e2)
@@ -260,3 +252,38 @@ let rec trans_let x e' e =
   | Inspection (id, e1) -> Inspection (id, trans_let x e' e1)
   | LetAssert (id, e1, e2) -> LetAssert (id, trans_let x e' e1, e2)
   | Int _ | Bool _ -> e
+
+let rec transform_let e =
+  (* TODO: more cases *)
+  match e with
+  | Int _ | Bool _ -> e
+  | Function (ident, e, l) ->
+      let e' = transform_let e in
+      let f = Function (ident, e', l) in
+      add_myexpr l f;
+      f
+  | Let (ident, e1, e2, let_l) ->
+      let fun_l = get_next_label () in
+      let e2' = transform_let e2 in
+      let f = Function (ident, e2', fun_l) in
+      add_myexpr fun_l f;
+      let e1' = transform_let e1 in
+      let appl = Appl (f, e1', let_l) in
+      add_myexpr let_l appl;
+      appl
+  | Appl (e1, e2, l) ->
+      let e1' = transform_let e1 in
+      let e2' = transform_let e2 in
+      let appl = Appl (e1', e2', l) in
+      add_myexpr l appl;
+      appl
+  | LetAssert (id, e1, e2) ->
+      let e1' = transform_let e1 in
+      let e2' = transform_let e2 in
+      LetAssert (id, e1', e2')
+  | If (e1, e2, e3, l) ->
+      let e1' = transform_let e1 in
+      let e2' = transform_let e2 in
+      let e3' = transform_let e3 in
+      If (e1', e2', e3', l)
+  | _ -> e

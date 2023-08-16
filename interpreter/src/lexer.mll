@@ -32,6 +32,7 @@ rule token = parse
 | ";;"                 { EOEX }
 | '+'                  { PLUS }
 | '-'                  { MINUS }
+| '*'                  { MULT }
 | '='                  { EQUAL }
 | "<="                 { LE }
 | '('                  { LPAREN }

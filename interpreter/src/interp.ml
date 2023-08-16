@@ -4,28 +4,23 @@ exception TypeMismatch
 exception Unreachable
 
 let rec eval_int = function
-  | BoolResult _ | FunResult _ | RecordResult _ | InspectionResult _ ->
-      raise TypeMismatch
+  | BoolResult _ | FunResult _ | RecordResult _ -> raise TypeMismatch
   | IntResult i -> i
   | OpResult op -> (
       match op with
       | PlusOp (r1, r2) -> eval_int r1 + eval_int r2
       | MinusOp (r1, r2) -> eval_int r1 - eval_int r2
+      | MultOp (r1, r2) -> eval_int r1 * eval_int r2
       | EqOp _ | AndOp _ | OrOp _ | GeOp _ | GtOp _ | LeOp _ | LtOp _ | NotOp _
         ->
           raise TypeMismatch)
-  | ProjectionResult (r, x) -> (
-      match r with
-      | RecordResult entries ->
-          eval_int ((* get leftmost *) List.assoc x entries)
-      | _ -> raise TypeMismatch)
 
 let rec eval_bool = function
   | IntResult _ | FunResult _ | RecordResult _ -> raise TypeMismatch
   | BoolResult b -> b
   | OpResult op_r -> (
       match op_r with
-      | PlusOp _ | MinusOp _ -> raise TypeMismatch
+      | PlusOp _ | MinusOp _ | MultOp _ -> raise TypeMismatch
       | EqOp (r1, r2) -> eval_int r1 = eval_int r2
       | AndOp (r1, r2) -> eval_bool r1 && eval_bool r2
       | OrOp (r1, r2) -> eval_bool r1 || eval_bool r2
@@ -34,15 +29,6 @@ let rec eval_bool = function
       | LeOp (r1, r2) -> eval_int r1 <= eval_int r2
       | LtOp (r1, r2) -> eval_int r1 < eval_int r2
       | NotOp r -> not (eval_bool r))
-  | ProjectionResult (r, x) -> (
-      match r with
-      | RecordResult entries ->
-          eval_bool ((* get leftmost *) List.assoc x entries)
-      | _ -> raise TypeMismatch)
-  | InspectionResult (x, r) -> (
-      match r with
-      | RecordResult entries -> List.exists (fun (x', _) -> x = x') entries
-      | _ -> raise TypeMismatch)
 
 let memo_cache = Hashtbl.create 10000
 
@@ -88,6 +74,7 @@ let rec eval_aux e sigma =
             | _ -> raise Unreachable [@coverage off])
         | Plus (e1, e2)
         | Minus (e1, e2)
+        | Mult (e1, e2)
         | Equal (e1, e2)
         | And (e1, e2)
         | Or (e1, e2)
@@ -101,6 +88,7 @@ let rec eval_aux e sigma =
               (match e with
               | Plus _ -> PlusOp (r1, r2)
               | Minus _ -> MinusOp (r1, r2)
+              | Mult _ -> MultOp (r1, r2)
               | Equal _ -> EqOp (r1, r2)
               | And _ -> AndOp (r1, r2)
               | Or _ -> OrOp (r1, r2)
@@ -116,8 +104,16 @@ let rec eval_aux e sigma =
         | Record entries ->
             RecordResult
               (List.map (fun (x, e) -> (x, eval_aux e sigma)) entries)
-        | Projection (e, x) -> ProjectionResult (eval_aux e sigma, x)
-        | Inspection (x, e) -> InspectionResult (x, eval_aux e sigma)
+        | Projection (e, x) -> (
+            match eval_aux e sigma with
+            | RecordResult entries ->
+                snd (List.find (fun (x', _) -> x = x') entries)
+            | _ -> raise TypeMismatch)
+        | Inspection (x, e) -> (
+            match eval_aux e sigma with
+            | RecordResult entries ->
+                BoolResult (List.exists (fun (x', _) -> x = x') entries)
+            | _ -> raise TypeMismatch)
         | LetAssert (_, e, _) ->
             (* TODO: still assert *)
             eval_aux e sigma
@@ -137,6 +133,7 @@ let rec result_value_to_expr (r : result_value) : expr =
       match op with
       | PlusOp (r1, r2)
       | MinusOp (r1, r2)
+      | MultOp (r1, r2)
       | EqOp (r1, r2)
       | AndOp (r1, r2)
       | OrOp (r1, r2)
@@ -149,6 +146,7 @@ let rec result_value_to_expr (r : result_value) : expr =
           match op with
           | PlusOp _ -> Plus (e1, e2)
           | MinusOp _ -> Minus (e1, e2)
+          | MultOp _ -> Mult (e1, e2)
           | EqOp _ -> Equal (e1, e2)
           | AndOp _ -> And (e1, e2)
           | OrOp _ -> Or (e1, e2)
@@ -160,8 +158,6 @@ let rec result_value_to_expr (r : result_value) : expr =
       | NotOp r -> Not (result_value_to_expr r))
   | RecordResult entries ->
       Record (List.map (fun (x, v) -> (x, result_value_to_expr v)) entries)
-  | ProjectionResult (r, x) -> Projection (result_value_to_expr r, x)
-  | InspectionResult (x, r) -> Inspection (x, result_value_to_expr r)
 
 let rec subst_free_vars e target_l sigma seen =
   match e with
@@ -183,6 +179,7 @@ let rec subst_free_vars e target_l sigma seen =
           l )
   | Plus (e1, e2)
   | Minus (e1, e2)
+  | Mult (e1, e2)
   | Equal (e1, e2)
   | And (e1, e2)
   | Or (e1, e2)
@@ -195,6 +192,7 @@ let rec subst_free_vars e target_l sigma seen =
       match e with
       | Plus _ -> Plus (e1, e2)
       | Minus _ -> Minus (e1, e2)
+      | Mult _ -> Mult (e1, e2)
       | Equal _ -> Equal (e1, e2)
       | And _ -> And (e1, e2)
       | Or _ -> Or (e1, e2)
@@ -241,6 +239,7 @@ and eval_result_value (r : result_value) : result_value =
       match op with
       | PlusOp (r1, r2)
       | MinusOp (r1, r2)
+      | MultOp (r1, r2)
       | EqOp (r1, r2)
       | GeOp (r1, r2)
       | GtOp (r1, r2)
@@ -253,6 +252,7 @@ and eval_result_value (r : result_value) : result_value =
               match op with
               | PlusOp _ -> IntResult (i1 + i2)
               | MinusOp _ -> IntResult (i1 - i2)
+              | MultOp _ -> IntResult (i1 * i2)
               | EqOp _ -> BoolResult (i1 = i2)
               | GeOp _ -> BoolResult (i1 >= i2)
               | GtOp _ -> BoolResult (i1 > i2)
@@ -277,18 +277,18 @@ and eval_result_value (r : result_value) : result_value =
           | _ -> raise TypeMismatch [@coverage off]))
   | RecordResult entries ->
       RecordResult (List.map (fun (x, r) -> (x, eval_result_value r)) entries)
-  | ProjectionResult (r, Ident x) -> (
-      match eval_result_value r with
-      | RecordResult entries -> (
-          match List.find_opt (fun (Ident x', _) -> x = x') entries with
-          | Some (_, r) -> eval_result_value r
-          | None -> raise TypeMismatch)
-      | _ -> raise TypeMismatch)
-  | InspectionResult (Ident x, r) -> (
-      match eval_result_value r with
-      | RecordResult entries ->
-          BoolResult (List.exists (fun (Ident x', _) -> x = x') entries)
-      | _ -> raise TypeMismatch)
+
+let print_myexpr tbl =
+  Core.Hashtbl.to_alist tbl
+  |> Core.List.sort ~compare:(fun (k1, v1) (k2, v2) -> compare k1 k2)
+  |> Core.List.iter ~f:(fun (k, v) -> Format.printf "%d -> %a\n" k Pp.pp_expr v)
+  [@@coverage off]
+
+let print_myfun tbl =
+  Core.Hashtbl.iteri
+    ~f:(fun ~key ~data -> Format.printf "%d -> %s\n" key (show_expr data))
+    tbl
+  [@@coverage off]
 
 let eval e ~is_debug_mode ~should_simplify =
   build_myfun e None;
