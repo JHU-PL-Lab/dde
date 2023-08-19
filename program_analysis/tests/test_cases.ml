@@ -118,8 +118,8 @@ let recursion =
     (* "let fib = (fun n -> if n < 2 then 1 else let go = (fun self -> fun i -> \
        fun prev -> fun prevprev -> let res = (prev + prevprev) in if i = 0 then \
        res else self self (i - 1) res prev) in go go (n - 2) 1 1) in fib 4"; *)
-    "let fib = fun self -> fun n -> if n <= 1 then n else self self (n - 1) + \
-     self self (n - 2) in fib fib 4";
+    "letassert x = let fib = fun self -> fun n -> if n <= 1 then n else self \
+     self (n - 1) + self self (n - 2) in fib fib 4 in x = 0";
     "let fib = fun n -> fun self -> if n <= 1 then n else self (n - 1) self + \
      self (n - 2) self in fib 4 fib";
     (* "let nonsense = fun self -> fun n -> if (self self n) = 0 then 1 else 0 in \

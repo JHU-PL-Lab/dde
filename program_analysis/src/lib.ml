@@ -334,7 +334,7 @@ let rec analyze_aux d expr s pi v_set =
         | Bool b -> Some [ BoolAtom b ]
         | Function (_, _, l) -> Some [ FunAtom (expr, l, s) ]
         | Appl (e, _, l) -> (
-            Logs.info (fun m ->
+            info (fun m ->
                 m "=========== Appl (%a) ============" Interpreter.Pp.pp_expr
                   expr);
             info (fun m -> m "%a" Interpreter.Ast.pp_expr expr);
@@ -708,7 +708,98 @@ let rec analyze_aux d expr s pi v_set =
       Hashtbl.add_exn cache ~key:cache_entry ~data:r;
       r
 
-let analyze ?(debug = false) ?(verify = true) e =
+let rec simplify_result =
+  List.map ~f:(fun a ->
+      match a with
+      | IntAtom _ | BoolAtom _ -> a
+      | OpAtom op -> (
+          match op with
+          | PlusOp (r1, r2) | MinusOp (r1, r2) | MultOp (r1, r2) -> (
+              let int_op =
+                match op with
+                | PlusOp _ -> ( + )
+                | MinusOp _ -> ( - )
+                | MultOp _ -> ( * )
+                | _ -> raise Unreachable
+              in
+              let r1' = simplify_result r1 in
+              let r2' = simplify_result r2 in
+              match (r1', r2') with
+              | [ IntAtom i1 ], [ IntAtom i2 ] -> IntAtom (int_op i1 i2)
+              | ( [ PathCondAtom (pc1, [ IntAtom i1 ]) ],
+                  [ PathCondAtom (pc2, [ IntAtom i2 ]) ] )
+                when Stdlib.(pc1 = pc2) ->
+                  PathCondAtom (pc1, [ IntAtom (int_op i1 i2) ])
+              | _ ->
+                  OpAtom
+                    (match op with
+                    | PlusOp _ -> PlusOp (r1', r2')
+                    | MinusOp _ -> MinusOp (r1', r2')
+                    | MultOp _ -> MultOp (r1', r2')
+                    | _ -> raise Unreachable))
+          | EqualOp (r1, r2)
+          | GeOp (r1, r2)
+          | GtOp (r1, r2)
+          | LeOp (r1, r2)
+          | LtOp (r1, r2) -> (
+              let int_op =
+                match op with
+                | EqualOp _ -> ( = )
+                | GeOp _ -> ( >= )
+                | GtOp _ -> ( > )
+                | LeOp _ -> ( <= )
+                | LtOp _ -> ( < )
+                | _ -> raise Unreachable
+              in
+              let r1' = simplify_result r1 in
+              let r2' = simplify_result r2 in
+              match (r1', r2') with
+              | [ IntAtom i1 ], [ IntAtom i2 ] -> BoolAtom (int_op i1 i2)
+              | ( [ PathCondAtom (pc1, [ IntAtom i1 ]) ],
+                  [ PathCondAtom (pc2, [ IntAtom i2 ]) ] )
+                when Stdlib.(pc1 = pc2) ->
+                  PathCondAtom (pc1, [ BoolAtom (int_op i1 i2) ])
+              | _ ->
+                  OpAtom
+                    (match op with
+                    | EqualOp _ -> EqualOp (r1', r2')
+                    | GeOp _ -> GeOp (r1', r2')
+                    | GtOp _ -> GtOp (r1', r2')
+                    | LeOp _ -> LeOp (r1', r2')
+                    | LtOp _ -> LtOp (r1', r2')
+                    | _ -> raise Unreachable))
+          | AndOp (r1, r2) | OrOp (r1, r2) -> (
+              let bool_op =
+                match op with
+                | AndOp _ -> ( && )
+                | OrOp _ -> ( || )
+                | _ -> raise Unreachable
+              in
+              let r1' = simplify_result r1 in
+              let r2' = simplify_result r2 in
+              match (r1', r2') with
+              | [ BoolAtom b1 ], [ BoolAtom b2 ] -> BoolAtom (bool_op b1 b2)
+              | _ ->
+                  OpAtom
+                    (match op with
+                    | AndOp _ -> AndOp (r1', r2')
+                    | OrOp _ -> OrOp (r1', r2')
+                    | _ -> raise Unreachable))
+          | _ ->
+              Format.printf "%a\n" pp_op op;
+              failwith "unimplemented")
+      | LabelResAtom (r, st) -> (
+          let r' = simplify_result r in
+          match r' with [ a ] -> a | _ -> LabelResAtom (r', st))
+      | ExprResAtom (r, st) -> (
+          let r' = simplify_result r in
+          match r' with [ a ] -> a | _ -> ExprResAtom (r', st))
+      | AssertAtom (id, r, rv) -> AssertAtom (id, simplify_result r, rv)
+      | PathCondAtom ((r, b), r0) ->
+          PathCondAtom ((simplify_result r, b), simplify_result r0)
+      | _ -> a)
+
+let analyze ?(debug = false) ?(verify = true) ?(test_num = 0) e =
   is_debug_mode := debug;
 
   (* let e = transform_let e in *)
@@ -719,8 +810,13 @@ let analyze ?(debug = false) ?(verify = true) e =
   let r =
     Option.value_exn (analyze_aux 0 e [] None (Set.empty (module State)))
   in
+  let simplified_r = simplify_result r in
 
-  (* Format.printf "result: %a\n" Grammar.pp_res (Option.value_exn r); *)
+  dot_of_result test_num simplified_r;
+
+  (* Logs.info (fun m -> m "result: %a" Utils.pp_res r); *)
+  Logs.info (fun m ->
+      m "simplified result: %a" Grammar.pp_res (simplify_result r));
   (if !is_debug_mode then (
      Format.printf "\n%s\n\n" @@ show_expr e;
      Format.printf "****** Label Table ******\n";
@@ -732,6 +828,6 @@ let analyze ?(debug = false) ?(verify = true) e =
   clean_up ();
   Hashset.clear s_set;
 
-  if verify then verify_result r;
+  if verify then verify_result simplified_r;
 
-  r
+  simplified_r
