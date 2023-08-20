@@ -83,13 +83,15 @@ let recursion_thunked =
           (fun _ -> ("true", pau ~test_num:25 recursion.(8)));
           (fun _ -> ("1", pau ~test_num:26 recursion.(9)));
           (fun _ -> ("1", pau ~test_num:27 recursion.(10)));
-          (fun _ -> ("1", pau ~test_num:28 recursion.(11)));
-       (fun _ ->
-         ( "(((((stub + ((2 | ((2 | (stub - 1)) - 1)) - 2)) | (2 | ((2 | (stub - \
-            1)) - 1))) + ((2 | ((2 | (stub - 1)) - 1)) - 2)) + (1 | ((2 | ((2 | \
-            (stub - 1)) - 1)) - 2))) + 1)",
-           pau ~verify:false ~test_num:29 recursion.(12) )); *)
+          (fun _ -> ("1", pau ~test_num:28 recursion.(11))); *)
+    (fun _ ->
+      ( "(((((stub + ((2 | ((2 | (stub - 1)) - 1)) - 2)) | (2 | ((2 | (stub - \
+         1)) - 1))) + ((2 | ((2 | (stub - 1)) - 1)) - 2)) + (1 | ((2 | ((2 | \
+         (stub - 1)) - 1)) - 2))) + 1)",
+        pau ~verify:false ~test_num:29 recursion.(12) ));
   ]
+
+(* (((((stub + ((2 | ((2 | (stub - 1)) - 1)) - 2)) | (2 | ((2 | (stub - 1)) - 1))) + ((2 | ((2 | (stub - 1)) - 1)) - 2)) + (1 | ((2 | ((2 | (stub - 1)) - 1)) - 2))) + 1) *)
 
 let test_recursion _ = gen_test recursion_thunked
 

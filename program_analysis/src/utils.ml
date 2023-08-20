@@ -78,7 +78,6 @@ let res_to_id = Hashtbl.create (module ResKey)
 let atom_to_id = Hashtbl.create (module AtomKey)
 let node_set = Hashset.create 100
 let edge_map = Hashtbl.create (module String)
-let parent_atom = Hashtbl.create (module String)
 let st_to_node = Hashtbl.create (module State)
 let edge_label = Hashtbl.create (module String)
 let fresh_id = ref (-1)
@@ -112,15 +111,10 @@ let remove_edge hd tl =
       Hashtbl.remove edge_map hd;
       Hashtbl.add_exn edge_map ~key:hd ~data:(Set.remove tls tl)
 
-let dot_of_result test_num r =
+let dot_of_result ?(display_path_cond = true) test_num r =
+  (* p is the parent *atom* of a *)
   let rec dot_of_atom a p =
     let aid = ida a in
-    (match p with
-    | None -> ()
-    | Some p ->
-        ignore
-          (Hashtbl.add parent_atom ~key:aid
-             ~data:(Hashtbl.find_exn parent_atom (idr p))));
     match a with
     | IntAtom i -> add_node (Format.sprintf "%s [label=\"%i\"];" aid i)
     | BoolAtom b -> add_node (Format.sprintf "%s [label=\"%b\"];" aid b)
@@ -168,7 +162,7 @@ let dot_of_result test_num r =
         add_edge aid rid;
         dot_of_res r (Some a)
     | PathCondAtom ((r, b), r0) -> (
-        match Hashtbl.find_exn parent_atom aid with
+        match p with
         | None ->
             (* incr fresh_id;
                let parent_aid = Format.sprintf "P%d" !fresh_id in *)
@@ -188,19 +182,16 @@ let dot_of_result test_num r =
         raise Unreachable
   and dot_of_res r p =
     let rid = idr r in
-    let new_p = Some r in
     match p with
     | None ->
-        ignore (Hashtbl.add parent_atom ~key:rid ~data:None);
-        if List.length r = 1 then dot_of_atom (List.hd_exn r) new_p
+        if List.length r = 1 then dot_of_atom (List.hd_exn r) None
         else
           List.iter r ~f:(fun a ->
-              dot_of_atom a new_p;
+              dot_of_atom a None;
               add_node (Format.sprintf "%s [label=\"|\"];" rid);
               add_edge rid (ida a))
     | Some p -> (
         let pid = ida p in
-        ignore (Hashtbl.add parent_atom ~key:rid ~data:(Some p));
         match p with
         | LabelResAtom _ | ExprResAtom _ ->
             remove_edge pid rid;
@@ -221,7 +212,7 @@ let dot_of_result test_num r =
                          ~key:(Format.sprintf "%s_%s" pid aid)
                          ~data:label)
                 | None -> ());
-                dot_of_atom a new_p)
+                dot_of_atom a (Some p))
         | _ ->
             if List.length r = 1 then (
               let a = List.hd_exn r in
@@ -232,20 +223,16 @@ let dot_of_result test_num r =
                  Hashtbl.find edge_label (Format.sprintf "%s_%s" pid rid)
                with
               | Some label ->
-                  (* Format.printf "pid: %s | aid: %s | rid: %s\n" pid aid rid;
-                     Format.printf "edges labels:\n";
-                     Hashtbl.iteri edge_label ~f:(fun ~key ~data ->
-                         Format.printf "%s: %s\n" key data); *)
                   ignore
                     (Hashtbl.add edge_label
                        ~key:(Format.sprintf "%s_%s" pid aid)
                        ~data:label)
               | None -> ());
               (* needs to be called last to remove edges to PathCondAtoms *)
-              dot_of_atom a new_p)
+              dot_of_atom a (Some p))
             else
               List.iter r ~f:(fun a ->
-                  dot_of_atom a new_p;
+                  dot_of_atom a (Some p);
                   add_node (Format.sprintf "%s [label=\"|\"];" rid);
                   add_edge rid (ida a)))
   in
@@ -257,13 +244,11 @@ let dot_of_result test_num r =
             let edge_id = Format.sprintf "%s_%s" key n in
             let label =
               match Hashtbl.find edge_label edge_id with
-              | None -> ""
-              | Some l ->
-                  (* Format.printf "yo\n"; *)
-                  l
+              | Some label when display_path_cond ->
+                  Format.sprintf "label=\"%s\", decorate=true, " label
+              | _ -> ""
             in
-            Format.sprintf "%s\n%s -> %s [label=\"%s\", fontsize=\"8\"]" acc key
-              n label))
+            Format.sprintf "%s\n%s -> %s [%sfontsize=\"8\"]" acc key n label))
   in
   let dot_file = Format.sprintf "graph%d.dot" test_num in
   Out_channel.write_all dot_file
@@ -279,7 +264,6 @@ let dot_of_result test_num r =
   Hashtbl.clear atom_to_id;
   Hashset.clear node_set;
   Hashtbl.clear edge_map;
-  Hashtbl.clear parent_atom;
   Hashtbl.clear st_to_node;
   Hashtbl.clear edge_label;
   fresh_id := -1
