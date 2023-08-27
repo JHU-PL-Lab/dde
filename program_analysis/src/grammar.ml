@@ -53,7 +53,8 @@ and res = atom list
 and path_cond = res * bool
 [@@deriving hash, sexp, compare, show { with_path = false }]
 
-type pi = (atom list * bool) option [@@deriving hash, sexp, compare]
+type pi = (atom list * bool) option
+[@@deriving hash, sexp, compare, show { with_path = false }]
 
 module CacheKey = struct
   module T = struct
@@ -77,15 +78,6 @@ end
 module PathChoice = struct
   module T = struct
     type t = path_cond * atom [@@deriving compare, sexp]
-  end
-
-  include T
-  include Comparable.Make (T)
-end
-
-module Maybe_prim = struct
-  module T = struct
-    type t = DefInt of int | DefBool of bool | Any [@@deriving compare, sexp]
   end
 
   include T
