@@ -53,7 +53,8 @@ and res = atom list
 and path_cond = res * bool
 [@@deriving hash, sexp, compare, show { with_path = false }]
 
-type pi = (atom list * bool) option [@@deriving hash, sexp, compare]
+type pi = (atom list * bool) option
+[@@deriving hash, sexp, compare, show { with_path = false }]
 
 module CacheKey = struct
   module T = struct
@@ -83,9 +84,34 @@ module PathChoice = struct
   include Comparable.Make (T)
 end
 
-module Maybe_prim = struct
+module AtomKey = struct
   module T = struct
-    type t = DefInt of int | DefBool of bool | Any [@@deriving compare, sexp]
+    type t = atom [@@deriving hash, sexp, compare]
+  end
+
+  include T
+  include Comparable.Make (T)
+end
+
+module ResKey = struct
+  module T = struct
+    type t = res [@@deriving hash, sexp, compare]
+  end
+
+  include T
+  include Comparable.Make (T)
+end
+
+module E = struct
+  module T = struct
+    open Z3
+
+    type t = Expr.expr
+
+    let compare = Expr.compare
+    let sexp_of_t e = e |> Expr.ast_of_expr |> AST.to_sexpr |> Sexp.of_string
+    let t_of_sexp s = failwith "unimplemented"
+    let hash e = e |> Expr.ast_of_expr |> AST.hash
   end
 
   include T

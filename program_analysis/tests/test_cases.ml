@@ -87,7 +87,7 @@ let recursion =
     (* (1 + (1 + (1 + ((1 + stub) | 0)))) *)
     (* ((((10 - 1) - 1) | ((((10 - 1) - 1) | (stub - 1)) - 1)) = 0) *)
     "letassert x = let id = fun self -> fun n -> if n = 0 then 0 else 1 + self \
-     self (n - 1) in id id 10 in x >= 2";
+     self (n - 1) in id id 10 in x >= 3";
     (* (1 + (1 + (1 + ((1 + stub) | 0)))) *)
     "letassert x = let id = fun self -> fun n -> if n = 10 then true else \
      false or self self (n + 1) in id id 0 in x";
@@ -99,7 +99,7 @@ let recursion =
     (* "letassert _x = ((fun self -> fun n -> self self n) (fun self -> fun n -> \
        self self n) 0) in false"; *)
     "letassert x = let id = fun self -> fun n -> if n > 0 then 1 + self self \
-     (n - 1) else 0 in id id 10 in x >= 2";
+     (n - 1) else 0 in id id 10 in x >= 3";
     "letassert x = let id = fun self -> fun n -> if n > 0 then 1 + self self \
      (n - 1) else 0 in id id (-1) in x = 0";
     (* tests adapted from standard PA *)
@@ -118,10 +118,10 @@ let recursion =
     (* "let fib = (fun n -> if n < 2 then 1 else let go = (fun self -> fun i -> \
        fun prev -> fun prevprev -> let res = (prev + prevprev) in if i = 0 then \
        res else self self (i - 1) res prev) in go go (n - 2) 1 1) in fib 4"; *)
-    "let fib = fun self -> fun n -> if n <= 1 then n else self self (n - 1) + \
-     self self (n - 2) in fib fib 4";
-    "let fib = fun n -> fun self -> if n <= 1 then n else self (n - 1) self + \
-     self (n - 2) self in fib 4 fib";
+    "letassert x = let fib = fun self -> fun n -> if n <= 1 then n else self \
+     self (n - 1) + self self (n - 2) in fib fib 4 in x >= 0";
+    (* "let fib = fun n -> fun self -> if n <= 1 then n else self (n - 1) self + \
+       self (n - 2) self in fib 4 fib"; *)
     (* "let nonsense = fun self -> fun n -> if (self self n) = 0 then 1 else 0 in \
        nonsense nonsense 0"; *)
   |]

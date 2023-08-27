@@ -30,7 +30,7 @@ let ( |>-> ) v f = Option.bind v f
 (** General *)
 
 (*? can't use Debugutils.parse_analyze *)
-let pau ?(verify = true) s =
+let pau ?(verify = true) ?(test_num = 0) s =
   s |> Core.Fn.flip ( ^ ) ";;" |> Lexing.from_string |> Parser.main Lexer.token
-  |> Lib.analyze ~verify
+  |> Lib.analyze ~verify ~test_num
   |> Format.asprintf "%a" Utils.pp_res

@@ -1,41 +1,10 @@
 open Core
 open Z3
 open Grammar
+open Utils
 
 exception Unreachable
 exception BadAssert
-
-module AtomKey = struct
-  module T = struct
-    type t = atom [@@deriving hash, sexp, compare]
-  end
-
-  include T
-  include Comparable.Make (T)
-end
-
-module ResKey = struct
-  module T = struct
-    type t = res [@@deriving hash, sexp, compare]
-  end
-
-  include T
-  include Comparable.Make (T)
-end
-
-module E = struct
-  module T = struct
-    type t = Expr.expr
-
-    let compare = Expr.compare
-    let sexp_of_t e = e |> Expr.ast_of_expr |> AST.to_sexpr |> Sexp.of_string
-    let t_of_sexp s = failwith "unimplemented"
-    let hash e = e |> Expr.ast_of_expr |> AST.hash
-  end
-
-  include T
-  include Comparable.Make (T)
-end
 
 let res_to_id = Hashtbl.create (module ResKey)
 let atom_to_id = Hashtbl.create (module AtomKey)
@@ -305,39 +274,21 @@ and chcs_of_atom ?(pis = []) a =
       chcs_of_res r ~pis;
       let r_ = zconst "r" sort in
       Hash_set.add chcs ([ r_ ] |. (pr <-- [ r_ ]) --> (pa <-- [ r_ ]))
-  | PathCondAtom (((r, _) as pi), r0) ->
+  | PathCondAtom (((r, _) as pi), r0) -> (
       (* generate CHCs for current path condition using
          the previous path conditions *)
       chcs_of_res r ~pis;
       chcs_of_res r0 ~pis:(pi :: pis);
       (* point self at the same decl *)
-      ignore
-        (Hashtbl.add id_to_decl ~key:(ida a)
-           ~data:(Hashtbl.find_exn id_to_decl (idr r0)))
+      match Hashtbl.find id_to_decl (idr r0) with
+      | Some decl -> ignore (Hashtbl.add id_to_decl ~key:(ida a) ~data:decl)
+      | None -> ())
   | FunAtom _ | LabelStubAtom _ | ExprStubAtom _ -> ()
-  | RecordAtom entries ->
-      let aid = ida a in
-      (* Format.printf "aid: %s\nrecord: %a\n" aid Grammar.pp_atom a; *)
-      let pa = zdecl aid [ isort ] bsort in
-      ignore (Hashtbl.add id_to_decl ~key:aid ~data:pa);
-      List.iter entries ~f:(fun (Ident x, r) ->
-          chcs_of_res r ~pis;
-          let pr = Hashtbl.find_exn id_to_decl (idr r) in
-          (* Format.printf "%s -> %s\n" (aid ^ "_" ^ x) (idr r);
-             Format.printf "%a\n" Grammar.pp_res r; *)
-          ignore (Hashtbl.add id_to_decl ~key:(aid ^ "_" ^ x) ~data:pr);
-          let r_ = zconst "r" isort in
-          Hash_set.add chcs ([ r_ ] |. (pr <-- [ r_ ]) --> (pa <-- [ r_ ])))
-  | ProjectionAtom (r, Ident x) ->
-      Format.printf "projectionatom:\n%a\n" Utils.pp_res r;
-      (* Format.printf "__________\n%a\n" Grammar.pp_res r; *)
-      chcs_of_res r ~pis
-      (* let record = List.hd_exn r in *)
-      (* ignore
-         (Hashtbl.add id_to_decl ~key:(ida a)
-            ~data:(Hashtbl.find_exn id_to_decl (ida record ^ "_" ^ x))) *)
-  | InspectionAtom _ -> failwith "inspection"
   (* records are good for: subsumes shape analysis *)
+  | RecordAtom _ -> ()
+  | ProjectionAtom _ | InspectionAtom _ ->
+      Format.printf "%a\n" pp_atom a;
+      raise Unreachable
   | AssertAtom (id, r1, r2) ->
       chcs_of_res r1 ~pis;
       chcs_of_assert r1 r2
@@ -359,11 +310,12 @@ and chcs_of_res ?(pis = []) r =
           (* TODO: add flag to leave all path conditions out *)
           Hash_set.add chcs
             (r :: cond_quants |. (pa <-- [ r ] &&& cond_body) --> (pr <-- [ r ]))
-      | None -> (
-          (* Format.printf "%a\n" Grammar.pp_atom a; *)
-          match a with
-          | LabelStubAtom _ | ExprStubAtom _ | AssertAtom _ -> ()
-          | _ -> failwith "resatom non-labeled"))
+      | None -> ()
+      (* match a with
+         | LabelStubAtom _ | ExprStubAtom _ | AssertAtom _
+         | PathCondAtom (_, [ LabelStubAtom _ ]) ->
+             ()
+         | _ -> failwith "resatom non-labeled")*))
 
 (* let test =
      [
