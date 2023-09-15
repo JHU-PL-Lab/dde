@@ -15,7 +15,7 @@ let parse s =
   e
 
 let unparse = Format.asprintf "%a" pp_res
-let parse_analyze s = s |> parse |> analyze ~debug:!is_debug_mode
+let parse_analyze s = s |> parse |> analyze ~debug_mode:!is_debug_mode
 let parse_analyze_unparse s = s |> parse_analyze |> unparse
 let pau = parse_analyze_unparse
 

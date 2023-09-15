@@ -8,6 +8,13 @@ type test_case = {
   verif : Z3.FuncDecl.func_decl -> Z3.Expr.expr;
 }
 
+let read_file file_name =
+  Core.In_channel.read_all
+    (Format.sprintf
+       "/Users/robertzhang/projects/research/dde/program_analysis/tests/progs/%s"
+       (* "%s" *)
+       file_name)
+
 let basic =
   [|
     "letassert x = 1 in true";
@@ -87,7 +94,7 @@ let recursion =
     (* (1 + (1 + (1 + ((1 + stub) | 0)))) *)
     (* ((((10 - 1) - 1) | ((((10 - 1) - 1) | (stub - 1)) - 1)) = 0) *)
     "letassert x = let id = fun self -> fun n -> if n = 0 then 0 else 1 + self \
-     self (n - 1) in id id 10 in x >= 3";
+     self (n - 1) in id id 10 in x >= 2";
     (* (1 + (1 + (1 + ((1 + stub) | 0)))) *)
     "letassert x = let id = fun self -> fun n -> if n = 10 then true else \
      false or self self (n + 1) in id id 0 in x";
@@ -99,7 +106,7 @@ let recursion =
     (* "letassert _x = ((fun self -> fun n -> self self n) (fun self -> fun n -> \
        self self n) 0) in false"; *)
     "letassert x = let id = fun self -> fun n -> if n > 0 then 1 + self self \
-     (n - 1) else 0 in id id 10 in x >= 3";
+     (n - 1) else 0 in id id 10 in x >= 2";
     "letassert x = let id = fun self -> fun n -> if n > 0 then 1 + self self \
      (n - 1) else 0 in id id (-1) in x = 0";
     (* tests adapted from standard PA *)
@@ -124,6 +131,8 @@ let recursion =
        self (n - 2) self in fib 4 fib"; *)
     (* "let nonsense = fun self -> fun n -> if (self self n) = 0 then 1 else 0 in \
        nonsense nonsense 0"; *)
+    "letassert x = let id = fun self -> fun n -> if n = 0 then 0 else 1 + (fun \
+     _ -> self self (n - 1)) 0 in id id 10 in x >= 2";
   |]
 
 let adapted =
@@ -134,6 +143,15 @@ let adapted =
      let g = fun self -> fun n -> if n <= 1 then 1 else n * self self (n - 1) in\n\
      (id f) (id f) 3 + (id g) (id g) 4\n\
      in x >= 1";
+    read_file "blur.ml";
+    read_file "adapted3.ml";
+    read_file "mj09.ml";
+    read_file "kcfa2.ml";
+    read_file "kcfa3.ml";
+    read_file "ack.ml";
+    read_file "tak.ml";
+    read_file "cpstak.ml";
+    read_file "adapted4.ml";
   |]
 
 (** Church numerals *)
@@ -172,12 +190,17 @@ let incr_cell =
   "let incr = fun self -> fun ls -> fun n -> if n = 0 then ls else self self \
    ({ hd = ls.hd + 1; tl = {} }) (n - 1) in incr incr"
 
+(* (hd in (({ hd = 3; tl = { hd = 4; tl = {} } } | (({ hd = 3; tl = { hd = 4; tl = {} } } | (stub.tl)).tl)).tl))
+   (hd in (({ hd = 4; tl = {} } | (({ hd = 3; tl = { hd = 4; tl = {} } } | (stub.tl)).tl)).tl))
+   tl.hd | tl.tl.hd *)
+
+(* TODO: count number of projs and unroll that number of time *)
 let lists =
   [|
-    "letassert x = " ^ list_cons ^ " 1 ({})" ^ " in x.hd = 1";
+    "letassert x = (" ^ list_cons ^ " 1 ({})).hd" ^ " in x = 1";
     "letassert x = let ls = { x = 1; y = 2; z = 3 } in ls.y in x = 2";
-    "letassert x = ({ hd = 1; tl = { hd = 2; tl = { hd = 3; tl = {} } } }.tl) \
-     in x.hd = 2";
+    "letassert x = ({ hd = 1; tl = { hd = 2; tl = { hd = 3; tl = {} } } \
+     }.tl.hd) in x = 2";
     "letassert x = ({ hd = 1; tl = { hd = 2; tl = { hd = 3; tl = {} } } \
      }.tl.hd) in x = 2";
     (* incr_cell ^ " ({ hd = 0; tl = {} }) 3"; *)

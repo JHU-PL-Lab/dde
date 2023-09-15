@@ -13,15 +13,7 @@ let rec starts_with sigma_parent sigma_child =
   | l_parent :: ls_parent, l_child :: ls_child ->
       l_parent = l_child && starts_with ls_parent ls_child
 
-let rec fold_res r ~init ~f =
-  match r with
-  | LabelResAtom (r, _) :: rs | ExprResAtom (r, _) :: rs ->
-      fold_res (r @ rs) ~init ~f
-  | r :: rs -> fold_res rs ~init:(f init r) ~f
-  | [] -> init
-
-let s_set = Hashset.create 1000
-let show_set () = Hashset.fold (fun s acc -> show_sigma s ^ "\n" ^ acc) s_set ""
+let show_set = Set.fold ~init:"" ~f:(fun acc s -> show_sigma s ^ "\n" ^ acc)
 let pp_pair fmt (l, s) = Format.fprintf fmt "(%d, %s)" l @@ show_sigma s
 let pp_pair_list fmt ls = Format.pp_print_list pp_pair fmt ls
 let is_debug_mode = ref false
@@ -54,13 +46,19 @@ let rec pp_atom fmt = function
       | NotOp r1 -> ff fmt "(not %a)" pp_res r1)
   | LabelStubAtom _ | ExprStubAtom _ -> ff fmt "stub"
   (* | PathCondAtom ((r, b), r') -> ff fmt "(%a = %b ⊩ %a)" pp_res r b pp_res r' *)
+  (* | EquivStubAtom (s, l) ->
+      ff fmt "{%s}[%d]"
+        (s |> Set.to_list
+        |> List.map ~f:(fun st -> Format.sprintf "%s" (St.show st))
+        |> String.concat ~sep:", ")
+        l *)
   | PathCondAtom (_, r) -> ff fmt "%a" pp_res r
   | RecordAtom entries ->
       ff fmt
         (if List.length entries = 0 then "{%a}" else "{ %a }")
         pp_record_atom entries
-  | ProjectionAtom (r, Ident s) -> ff fmt "%a.%s" pp_res r s
-  | InspectionAtom (Ident s, r) -> ff fmt "%s in %a" s pp_res r
+  | ProjectionAtom (r, Ident s) -> ff fmt "(%a.%s)" pp_res r s
+  | InspectionAtom (Ident s, r) -> ff fmt "(%s in %a)" s pp_res r
   | AssertAtom (_, r, _) -> ff fmt "%a" pp_res r
 
 and pp_record_atom fmt = function
@@ -92,10 +90,10 @@ and latom =
   | LBoolAtom of bool * int
   | LFunAtom of expr * int * sigma
   | LOpAtom of lop * int
-  | LLabelResAtom of lres * State.lstate * int
-  | LExprResAtom of lres * State.estate * int
-  | LLabelStubAtom of State.lstate * int
-  | LExprStubAtom of State.estate * int
+  | LLabelResAtom of lres * St.lstate * int
+  | LExprResAtom of lres * St.estate * int
+  | LLabelStubAtom of St.lstate * int
+  | LExprStubAtom of St.estate * int
   | LPathCondAtom of lpath_cond * lres
   | LRecordAtom of (ident * lres) list
   | LProjectionAtom of lres * ident
@@ -106,15 +104,6 @@ and lres = latom list
 
 and lpath_cond = lres * bool
 [@@deriving hash, sexp, compare, show { with_path = false }]
-
-(* module StateKey = struct
-     module T = struct
-       type t = State.t * int [@@deriving hash, sexp, compare]
-     end
-
-     include T
-     include Comparable.Make (T)
-   end *)
 
 module LAtomKey = struct
   module T = struct
@@ -194,7 +183,6 @@ let res_to_id = Hashtbl.create (module LResKey)
 let atom_to_id = Hashtbl.create (module LAtomKey)
 let nodes = Hashset.create 100
 let edges = Hashtbl.create (module String)
-let edge_labels = Hashtbl.create (module String)
 let edge_props = Hashtbl.create (module String)
 let siblings = Hashtbl.create (module String)
 let fresh_id = ref (-1)
@@ -271,6 +259,7 @@ let rec label_prim =
   List.map ~f:(function
     | IntAtom i -> LIntAtom (i, get_next_label ())
     | BoolAtom b -> LBoolAtom (b, get_next_label ())
+    | FunAtom (e, l, s) -> LFunAtom (e, l, s)
     | OpAtom op ->
         LOpAtom
           ( (match op with
@@ -293,6 +282,9 @@ let rec label_prim =
         LPathCondAtom ((label_prim r_cond, b), label_prim r)
     | LabelStubAtom st -> LLabelStubAtom (st, get_next_label ())
     | ExprStubAtom st -> LExprStubAtom (st, get_next_label ())
+    | RecordAtom entries ->
+        LRecordAtom (List.map entries ~f:(fun (id, r) -> (id, label_prim r)))
+    | ProjectionAtom (r, id) -> LProjectionAtom (label_prim r, id)
     | _ as a ->
         Format.printf "%a" Grammar.pp_atom a;
         failwith "unimplemented:290")
@@ -302,6 +294,8 @@ let dot_of_result ?(display_path_cond = true) test_num r =
   (* Logs.info (fun m -> m "AST: %a" pp_lres r); *)
   (* p is the parent *atom* of a *)
   (* l is the label of the enclosing labeled result, if any *)
+  (* any cycle (particularly its start) should be unique in
+     each path condition subtree *)
   let rec dot_of_atom a p cycles =
     let aid = ida a in
     match a with
@@ -332,31 +326,31 @@ let dot_of_result ?(display_path_cond = true) test_num r =
         (* always point to the lowest instance of such a disjunction *)
         add_node (Format.sprintf "%s [label=\"|\", shape=\"diamond\"];" aid);
         add_edge aid (idr r);
-        let lst = (State.Lstate st, 0) in
+        let lst = St.Lstate st in
         dot_of_res r (Some a)
           (Map.add_exn (Map.remove cycles lst) ~key:lst ~data:aid)
     | LExprResAtom (r, st, l) ->
         add_node (Format.sprintf "%s [label=\"|\", shape=\"diamond\"];" aid);
         add_edge aid (idr r);
-        let est = (State.Estate st, 0) in
+        let est = St.Estate st in
         dot_of_res r (Some a)
           (Map.add_exn (Map.remove cycles est) ~key:est ~data:aid)
     | LLabelStubAtom (st, _) ->
         add_node (Format.sprintf "%s [label=\"stub\", shape=\"box\"];" aid);
-        let dom_node = Map.find_exn cycles (State.Lstate st, 0) in
+        let dom_node = Map.find_exn cycles (St.Lstate st) in
         let aid = Format.sprintf "%s:n" aid in
         let edge_id = Format.sprintf "%s_%s" dom_node aid in
         add_edge dom_node aid;
         add_edge_prop edge_id ("dir", "back")
     | LExprStubAtom (st, l) -> (
         add_node (Format.sprintf "%s [label=\"stub\", shape=\"box\"];" aid);
-        match Map.find cycles (State.Estate st, 0) with
+        match Map.find cycles (St.Estate st) with
         | Some dom_node ->
             let aid = Format.sprintf "%s:sw" aid in
             let edge_id = Format.sprintf "%s_%s" dom_node aid in
             add_edge dom_node aid;
             add_edge_prop edge_id ("dir", "back")
-        | None -> failwith "ayo")
+        | None -> failwith "Lone stub!")
     | LAssertAtom (_, r, _) ->
         add_node (Format.sprintf "%s [label=\"Assert\"];" aid);
         let rid = idr r in
@@ -447,24 +441,10 @@ let dot_of_result ?(display_path_cond = true) test_num r =
         | LLabelResAtom _ | LExprResAtom _ ->
             remove_edge pid rid;
             remove_sibling pid rid;
-            let label =
-              Hashtbl.find edge_labels (Format.sprintf "%s_%s" pid rid)
-            in
             List.iter r ~f:(fun a ->
                 let aid = ida a in
                 add_edge pid aid;
                 add_sibling pid aid;
-                (match label with
-                | Some label ->
-                    (* Format.printf "pid: %s | aid: %s | rid: %s\n" pid aid rid;
-                       Format.printf "edges labels:\n";
-                       Hashtbl.iteri edge_label ~f:(fun ~key ~data ->
-                           Format.printf "%s: %s\n" key data); *)
-                    ignore
-                      (Hashtbl.add edge_labels
-                         ~key:(Format.sprintf "%s_%s" pid aid)
-                         ~data:label)
-                | None -> ());
                 dot_of_atom a (Some p) pl)
         | _ ->
             if List.length r = 1 then (
@@ -474,15 +454,6 @@ let dot_of_result ?(display_path_cond = true) test_num r =
               remove_sibling pid rid;
               add_edge pid aid;
               add_sibling pid aid;
-              (match
-                 Hashtbl.find edge_labels (Format.sprintf "%s_%s" pid rid)
-               with
-              | Some label ->
-                  ignore
-                    (Hashtbl.add edge_labels
-                       ~key:(Format.sprintf "%s_%s" pid aid)
-                       ~data:label)
-              | None -> ());
               (* needs to be called last to remove edges to PathCondAtoms *)
               dot_of_atom a (Some p) pl)
             else
@@ -491,7 +462,7 @@ let dot_of_result ?(display_path_cond = true) test_num r =
                   add_node (Format.sprintf "%s [label=\"|\"];" rid);
                   add_edge rid (ida a)))
   in
-  dot_of_res r None (Map.empty (module State));
+  dot_of_res r None (Map.empty (module St));
   let nodes_str = Hashset.fold (Format.sprintf "%s\n%s") nodes "" in
   let ranks_str =
     Hashtbl.fold siblings ~init:"" ~f:(fun ~key ~data acc ->
@@ -512,19 +483,11 @@ let dot_of_result ?(display_path_cond = true) test_num r =
             let props =
               match Hashtbl.find edge_props id with
               | None -> ""
-              | Some ps -> String.concat ~sep:"," (Set.to_list ps)
+              | Some ps ->
+                  Format.sprintf "[%s]"
+                    (String.concat ~sep:"," (Set.to_list ps))
             in
-            let label =
-              match Hashtbl.find edge_labels id with
-              | Some label when display_path_cond ->
-                  Format.sprintf "label=\"%s\", decorate=false, fontsize=\"8\""
-                    label
-              | _ -> ""
-            in
-            Format.sprintf "%s\n%s -> %s [%s%s]" acc key n label
-              (if String.(label <> "" && props <> "") then
-                 Format.sprintf ",%s" props
-               else props)))
+            Format.sprintf "%s\n%s -> %s %s" acc key n props))
   in
   let dot_file = Format.sprintf "graph%d.dot" test_num in
   Out_channel.write_all dot_file
@@ -541,7 +504,6 @@ let dot_of_result ?(display_path_cond = true) test_num r =
   Hashtbl.clear atom_to_id;
   Hashset.clear nodes;
   Hashtbl.clear edges;
-  Hashtbl.clear edge_labels;
   Hashtbl.clear edge_props;
   Hashtbl.clear siblings;
   fresh_id := -1

@@ -87,6 +87,7 @@ and result_value_fv =
   | BoolResultFv of bool
   | VarResultFv of ident
   | OpResultFv of op_result_value_fv
+  (* TODO: not even needed? *)
   | FunResultFv
   | RecordResultFv of (ident * result_value_fv) list
   | ProjectionResultFv of result_value_fv * ident
@@ -105,10 +106,6 @@ let get_myfun label = Hashtbl.find myfun label
 let add_myfun label outer =
   if Option.is_some outer then
     Hashtbl.set myfun ~key:label ~data:(Option.value_exn outer)
-
-let clean_up () =
-  Hashtbl.clear myexpr;
-  Hashtbl.clear myfun
 
 let rec build_myfun e outer =
   match e with
@@ -158,6 +155,12 @@ let get_next_label () =
   l
 
 let reset_label () = next_label := 0
+
+let clean_up () =
+  Hashtbl.clear myexpr;
+  Hashtbl.clear myfun;
+  next_label := 0
+
 let build_int i = Int i
 let build_bool b = Bool b
 
