@@ -9,3 +9,12 @@
   dde.program_analysis
   fbdk.fb
   ounit2))
+
+; (rule
+;  ;  (alias test)
+;  (target adapted2.ml)
+;  (deps progs/adapted2.ml)
+;  (action
+;   (copy# %{deps} %{target})))
+
+(data_only_dirs progs)

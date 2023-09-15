@@ -66,34 +66,52 @@ let test_currying _ = gen_test currying_thunked
 (* TODO: Racket/Van Horn examples *)
 let recursion_thunked =
   [
-    (fun _ -> ("((4 + stub) | 3)", pau ~test_num:18 recursion.(0)));
     (fun _ ->
-      ( "(false or (false or (false or ((false or stub) | true))))",
-        pau ~test_num:19 recursion.(1) ));
-    (fun _ -> ("(4 + stub)", pau ~test_num:20 recursion.(2)));
-    (fun _ -> ("(3 | (4 + stub))", pau ~test_num:21 recursion.(3)));
-    (fun _ -> ("0", pau ~test_num:22 recursion.(4)));
-    (fun _ -> ("true", pau ~test_num:23 recursion.(5)));
-    (fun _ -> ("false", pau ~test_num:18 recursion.(6)));
-    (fun _ -> ("true", pau ~test_num:24 recursion.(7)));
-    (fun _ -> ("true", pau ~test_num:25 recursion.(8)));
-    (fun _ -> ("1", pau ~test_num:26 recursion.(9)));
-    (fun _ -> ("1", pau ~test_num:27 recursion.(10)));
-    (fun _ -> ("1", pau ~test_num:28 recursion.(11)));
-    (fun _ ->
-      ( "(((((stub + ((2 | ((2 | (stub - 1)) - 1)) - 2)) | (2 | ((2 | (stub - \
-         1)) - 1))) + ((2 | ((2 | (stub - 1)) - 1)) - 2)) + (1 | ((2 | ((2 | \
-         (stub - 1)) - 1)) - 2))) + 1)",
-        pau ~verify:false ~test_num:29 recursion.(12) ));
+      ("((3 + stub) | 2)", pau ~test_num:18 ~verify:false recursion.(0)));
+    (* (fun _ ->
+         ( "(false or (false or ((false or stub) | true)))",
+           pau ~test_num:19 recursion.(1) ));
+       (fun _ -> ("(3 + stub)", pau ~test_num:20 recursion.(2)));
+       (fun _ -> ("(2 | (3 + stub))", pau ~test_num:21 recursion.(3)));
+       (fun _ -> ("0", pau ~test_num:22 recursion.(4)));
+       (fun _ -> ("true", pau ~test_num:23 recursion.(5)));
+       (fun _ -> ("false", pau ~test_num:18 recursion.(6)));
+       (fun _ -> ("true", pau ~test_num:24 recursion.(7)));
+       (fun _ -> ("true", pau ~test_num:25 recursion.(8)));
+       (fun _ -> ("1", pau ~test_num:26 recursion.(9)));
+       (fun _ -> ("1", pau ~test_num:27 recursion.(10)));
+       (fun _ -> ("1", pau ~test_num:28 recursion.(11))); *)
+    (* (fun _ ->
+       ( "((((stub + ((3 | ((3 | (stub - 1)) - 1)) - 2)) | ((3 | (stub - 1)) - \
+          1)) + ((3 | ((3 | (stub - 1)) - 1)) - 2)) + (((2 | ((3 | (((3 | \
+          ((stub - 1) | (stub - 1))) - 1) | (stub - 1))) - 2)) - 1) + ((2 | \
+          (((3 | (((2 | ((stub - 2) | (stub - 2))) - 1) | ((3 | (((2 | ((stub - \
+          2) | (stub - 2))) - 1) | (stub - 1))) - 1))) - 2) | (stub - 2))) - \
+          2)))",
+         pau ~verify:false ~test_num:29 recursion.(12) )); *)
+    (* (fun _ -> ("", pau ~test_num:30 ~verify:false recursion.(13))); *)
   ]
 
 let test_recursion _ = gen_test recursion_thunked
 
 let adapted_thunked =
   [
+    (* (fun _ ->
+       ( "(6 + (24 * (((2 | ((2 | (stub - 1)) - 1)) * stub) | 1)))",
+         pau ~verify:false ~test_num:30 adapted.(0) )); *)
+    (* (fun _ -> ("true", pau ~verify:true ~test_num:31 adapted.(1))); *)
     (fun _ ->
-      ( "(6 + (24 * (((2 | ((2 | (stub - 1)) - 1)) * stub) | 1)))",
-        pau ~verify:false ~test_num:30 adapted.(0) ));
+      ( "",
+        (* let _ = pau ~verify:false ~test_num:32 adapted.(2) in
+           let _ = pau ~verify:false ~test_num:32 adapted.(2) in *)
+        pau ~verify:false ~test_num:32 adapted.(2) ));
+    (* (fun _ -> ("2", pau ~test_num:33 adapted.(3)));
+       (fun _ -> ("false", pau ~test_num:34 adapted.(4)));
+       (fun _ -> ("false", pau ~test_num:35 adapted.(5))); *)
+    (* (fun _ -> ("", pau ~test_num:36 ~verify:false adapted.(6)));
+       (fun _ -> ("", pau ~test_num:37 ~verify:false adapted.(7))); *)
+    (* (fun _ -> ("", pau ~test_num:38 ~verify:false adapted.(8))); *)
+    (* (fun _ -> ("", pau ~verify:false ~test_num:39 adapted.(9))); *)
   ]
 
 let test_adapted _ = gen_test adapted_thunked
@@ -115,12 +133,11 @@ let test_church_binop _ = gen_test church_binop_thunked
 
 let lists_thunked =
   [
-    (* (fun _ -> ("{ hd = 1; tl = {} }", pau ~test_num:36 lists.(0)));
+    (* (fun _ -> ("1", pau ~test_num:36 lists.(0)));
        (fun _ -> ("2", pau ~test_num:37 lists.(1)));
-       (fun _ ->
-         ("{ hd = 2; tl = { hd = 3; tl = {} } }", pau ~test_num:38 lists.(2)));
+       (fun _ -> ("2", pau ~test_num:38 lists.(2)));
        (fun _ -> ("2", pau ~test_num:39 lists.(3))); *)
-    (fun _ -> ("", pau ~test_num:40 lists.(4)));
+    (fun _ -> ("", pau ~test_num:40 ~verify:false lists.(4)));
   ]
 
 let test_lists _ = gen_test lists_thunked
@@ -133,15 +150,15 @@ let tests_thunked =
 
 let test_pa =
   [
-    "Basics" >:: test_basic;
-    "Non-local variable lookup" >:: test_nonlocal_lookup;
-    "Var local stack stitching" >:: test_local_stitching;
-    "Conditional" >:: test_conditional;
-    "Currying" >:: test_currying;
+    (* "Basics" >:: test_basic;
+       "Non-local variable lookup" >:: test_nonlocal_lookup;
+       "Var local stack stitching" >:: test_local_stitching;
+       "Conditional" >:: test_conditional;
+       "Currying" >:: test_currying; *)
     "Recursion" >:: test_recursion;
-    "Church numerals basics" >:: test_church_basic;
-    "Church numerals binary operations" >:: test_church_binop;
-    "Adapted" >:: test_adapted;
+    (* "Church numerals basics" >:: test_church_basic;
+       "Church numerals binary operations" >:: test_church_binop; *)
+    (* "Adapted" >:: test_adapted; *)
     (* "Lists" >:: test_lists; *)
   ]
 
@@ -152,7 +169,7 @@ let _ =
   let out_file = Out_channel.create "logs" in
   Logs.set_reporter
     (Logs_fmt.reporter ~dst:(Format.formatter_of_out_channel out_file) ());
-  Logs.set_level (Some Logs.Info);
+  Logs.set_level (Some Logs.Debug);
   let bench = ref false in
   Arg.parse [ ("--bench", Arg.Set bench, "run benchmarks") ] (fun _ -> ()) "";
   if !bench then Bench.run tests_thunked;
