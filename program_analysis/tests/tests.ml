@@ -119,26 +119,26 @@ let test_adapted _ = gen_test adapted_thunked
 
 let church_basic_thunked =
   [
-    (fun _ -> ("1", pau ~test_num:31 church_basic.(0)));
-    (fun _ -> ("2", pau ~test_num:32 church_basic.(1)));
-    (fun _ -> ("3", pau ~test_num:33 church_basic.(2)));
-    (fun _ -> ("4", pau ~test_num:34 church_basic.(3)));
+    (fun _ -> ("1", pau ~test_num:41 church_basic.(0)));
+    (fun _ -> ("2", pau ~test_num:42 church_basic.(1)));
+    (fun _ -> ("3", pau ~test_num:43 church_basic.(2)));
+    (fun _ -> ("4", pau ~test_num:44 church_basic.(3)));
   ]
 
 let test_church_basic _ = gen_test church_basic_thunked
 
 let church_binop_thunked =
-  [ (fun _ -> ("1", pau ~test_num:35 church_binop.(0))) ]
+  [ (fun _ -> ("1", pau ~test_num:45 church_binop.(0))) ]
 
 let test_church_binop _ = gen_test church_binop_thunked
 
 let lists_thunked =
   [
-    (* (fun _ -> ("1", pau ~test_num:36 lists.(0)));
-       (fun _ -> ("2", pau ~test_num:37 lists.(1)));
-       (fun _ -> ("2", pau ~test_num:38 lists.(2)));
-       (fun _ -> ("2", pau ~test_num:39 lists.(3))); *)
-    (fun _ -> ("", pau ~test_num:40 ~verify:false lists.(4)));
+    (* (fun _ -> ("1", pau ~test_num:46 lists.(0)));
+       (fun _ -> ("2", pau ~test_num:47 lists.(1)));
+       (fun _ -> ("2", pau ~test_num:48 lists.(2)));
+       (fun _ -> ("2", pau ~test_num:49 lists.(3))); *)
+    (fun _ -> ("", pau ~test_num:50 ~verify:false lists.(4)));
   ]
 
 let test_lists _ = gen_test lists_thunked
