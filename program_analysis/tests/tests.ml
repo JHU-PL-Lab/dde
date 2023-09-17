@@ -100,11 +100,11 @@ let adapted_thunked =
        ( "(6 + (24 * (((2 | ((2 | (stub - 1)) - 1)) * stub) | 1)))",
          pau ~verify:false ~test_num:30 adapted.(0) )); *)
     (* (fun _ -> ("true", pau ~verify:true ~test_num:31 adapted.(1))); *)
-    (* (fun _ ->
-       ( "",
-         (* let _ = pau ~verify:false ~test_num:32 adapted.(2) in
-            let _ = pau ~verify:false ~test_num:32 adapted.(2) in *)
-         pau ~verify:false ~test_num:32 adapted.(2) )); *)
+    (fun _ ->
+      ( "",
+        (* let _ = pau ~verify:false ~test_num:32 adapted.(2) in
+           let _ = pau ~verify:false ~test_num:32 adapted.(2) in *)
+        pau ~verify:false ~test_num:32 adapted.(2) ));
     (* (fun _ -> ("2", pau ~test_num:33 adapted.(3)));
        (fun _ -> ("false", pau ~test_num:34 adapted.(4)));
        (fun _ -> ("false", pau ~test_num:35 adapted.(5))); *)
@@ -112,7 +112,7 @@ let adapted_thunked =
        (fun _ -> ("", pau ~test_num:37 ~verify:false adapted.(7))); *)
     (* (fun _ -> ("", pau ~test_num:38 ~verify:false adapted.(8))); *)
     (* (fun _ -> ("", pau ~verify:false ~test_num:39 adapted.(9))); *)
-    (fun _ -> ("", pau ~verify:false ~test_num:40 adapted.(10)));
+    (* (fun _ -> ("", pau ~verify:false ~test_num:40 adapted.(10))); *)
   ]
 
 let test_adapted _ = gen_test adapted_thunked
