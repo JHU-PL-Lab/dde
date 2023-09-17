@@ -171,7 +171,6 @@ let rec analyze_aux d expr sigma pi s v =
         debug_plain "v_set:";
         log_v_set v;
         if Set.mem v lst then (
-          (* Application Stub - only actually stub on second pass *)
           info (fun m -> m "Stubbed: %a" Interpreter.Pp.pp_expr expr);
           debug (fun m -> m "Stubbed: %a" Interpreter.Ast.pp_expr expr);
           info (fun m ->
@@ -188,15 +187,18 @@ let rec analyze_aux d expr sigma pi s v =
               m "Evaluating function being applied: %a" Interpreter.Ast.pp_expr
                 e);
           let new_v = Set.add v lst in
-          let r1, s1 = analyze_aux d e sigma pi s v in
-          let r1 = simplify ~configs:{ dedup_fun = false } r1 in
+          let r1, s1 = analyze_aux d e sigma pi s new_v in
+          let r1 = simplify r1 in
           debug (fun m -> m "r1 length: %d" (List.length r1));
           let new_s = Set.add s1 pruned_sigma' in
           (* let new_s = Set.add s1 sigma' in *)
           let r2, s2 =
             List.fold r1 ~init:(empty_choice_set, s) ~f:(fun (acc_r, acc_s) a ->
-                debug_plain
-                  "[Appl] Evaluating 1 possible function being applied:";
+                debug (fun m ->
+                    m
+                      "[Level %d] [Appl] Evaluating 1 possible function being \
+                       applied:"
+                      d);
                 match a with
                 | FunAtom (Function (_, e1, _), _, _) ->
                     debug (fun m ->
@@ -206,29 +208,25 @@ let rec analyze_aux d expr sigma pi s v =
                       analyze_aux d e1 pruned_sigma' pi new_s new_v
                     in
                     (List.fold ri ~init:acc_r ~f:Set.add, acc_s)
-                | LabelStubAtom _ | ExprStubAtom _ ->
-                    (* debug (fun m ->
-                           m "[Appl] Relabeling stub: %a" Grammar.pp_atom a);
-                       let a = LabelStubAtom (l, pruned_sigma') in
-                       debug (fun m -> m "into %a" Grammar.pp_atom a); *)
-                    debug (fun m -> m "%a" Grammar.pp_atom a);
-                    (Set.add acc_r a, acc_s)
-                    (* | LabelStubAtom st ->
-                           debug (fun m ->
-                               m "[Appl] Adding stub to equiv class: %a"
-                                 Grammar.pp_atom a);
-                           ( Set.add acc_r
-                               (EquivStubAtom
-                                  (Set.singleton (module St) (St.Lstate st), 0)),
-                             acc_s )
-                       | ExprStubAtom st ->
-                           debug (fun m ->
-                               m "[Appl] Adding stub to equiv class: %a"
-                                 Grammar.pp_atom a);
-                           ( Set.add acc_r
-                               (EquivStubAtom
-                                  (Set.singleton (module St) (St.Estate st), 0)),
-                             acc_s ) *)
+                (* TODO: may need to consider the ExprResAtom case too *)
+                | LabelResAtom (r, st) ->
+                    (* debug (fun m -> m "[Appl] st: %s" (St.show_lstate st)); *)
+                    (* debug (fun m -> m "[Appl] l: %d" l); *)
+                    List.fold r ~init:(acc_r, acc_s) ~f:(fun (acc_r, acc_s) ->
+                      function
+                      | FunAtom (Function (_, e1, _), _, _) ->
+                          debug (fun m ->
+                              m
+                                "[Appl] Evaluating body of function being \
+                                 applied: %a"
+                                Interpreter.Pp.pp_expr e1);
+                          let%bind ri, _ =
+                            analyze_aux d e1 pruned_sigma' pi new_s new_v
+                          in
+                          (List.fold ri ~init:acc_r ~f:Set.add, acc_s)
+                      | _ as a ->
+                          (Set.add acc_r (LabelResAtom ([ a ], st)), acc_s))
+                | LabelStubAtom _ | ExprStubAtom _ -> (Set.add acc_r a, acc_s)
                 | _ ->
                     debug (fun m ->
                         m "[Appl] reached a funky result, skipping: %a"
@@ -238,19 +236,13 @@ let rec analyze_aux d expr sigma pi s v =
                           Grammar.pp_atom a);
                     (acc_r, s))
           in
+          let r2 = [ LabelResAtom (Set.elements r2, (l, pruned_sigma')) ] in
+          debug (fun m -> m "[Appl] Result: %a" pp_res r2);
+          debug (fun m -> m "[Appl] Result: %a" Grammar.pp_res r2);
           info (fun m ->
               m "[Level %d] *********** Appl (%a) ************" d
                 Interpreter.Pp.pp_expr expr);
-          let r2 = Set.elements r2 in
-          let r2_stub, r2_nonstub = partition_stubs r2 in
-          let nonstub = LabelResAtom (r2_nonstub, (l, pruned_sigma')) in
-          ( (match (r2_stub, r2_nonstub) with
-            | [ r2_stub ], [] -> [ r2_stub ]
-            | [ r2_stub ], _ -> [ r2_stub; nonstub ]
-            | [], [] -> [] (* raise Unreachable *)
-            | [], _ -> [ nonstub ]
-            | _ -> raise Unreachable),
-            s2 ))
+          (r2, s2))
     | Var (Ident x, l) -> (
         info (fun m ->
             m "[Level %d] =========== Var (%s, %d) ============" d x l);
@@ -321,15 +313,16 @@ let rec analyze_aux d expr sigma pi s v =
                         m "[Level %d] *********** Var (%s, %d) ************" d x
                           l);
                     let r1 = Set.elements r1 in
-                    let r1_stub, r1_nonstub = partition_stubs r1 in
-                    let nonstub = ExprResAtom (r1_nonstub, (expr, sigma)) in
-                    ( (match (r1_stub, r1_nonstub) with
-                      | [ r1_stub ], [] -> [ r1_stub ]
-                      | [ r1_stub ], _ -> [ r1_stub; nonstub ]
-                      | [], [] -> raise Unreachable
-                      | [], _ -> [ nonstub ]
-                      | _ -> raise Unreachable),
-                      s1 )
+                    (* let r1_stub, r1_nonstub = partition_stubs r1 in
+                       let nonstub = ExprResAtom (r1_nonstub, (expr, sigma)) in
+                       ( (match (r1_stub, r1_nonstub) with
+                         | [ r1_stub ], [] -> [ r1_stub ]
+                         | [ r1_stub ], _ -> [ r1_stub; nonstub ]
+                         | [], [] -> raise Unreachable
+                         | [], _ -> [ nonstub ]
+                         | _ -> raise Unreachable),
+                         s1 ) *)
+                    (r1, s1)
                 | _ -> raise Unreachable [@coverage off])
               else (
                 (* Var Non-Local *)
@@ -342,107 +335,124 @@ let rec analyze_aux d expr sigma pi s v =
                 debug_plain "Reading Appl at front of sigma";
                 match get_myexpr (List.hd_exn sigma) with
                 | Appl (e1, _, l2) ->
-                    let est = NewSt.Estate (e1, sigma, s) in
-                    debug (fun m -> m "State: %s" (Grammar.NewSt.show est));
-                    debug_plain "v_set:";
-                    log_v_set v;
-                    if Set.mem v est then (
-                      debug_plain "[Var Non-Local] Stubbed e1";
-                      ([ ExprStubAtom (expr, sigma) ], s))
-                    else (
-                      debug_plain "Function being applied at front of sigma:";
-                      debug (fun m -> m "%a" Interpreter.Pp.pp_expr e1);
-                      debug (fun m -> m "%a" Interpreter.Ast.pp_expr e1);
-                      let s_tl = List.tl_exn sigma in
-                      debug_plain "Begin stitching stacks";
-                      debug_plain "S set:";
-                      debug (fun m -> m "%s" (show_set s));
-                      debug (fun m ->
-                          m "Head of candidate fragments must be: %d" l2);
-                      debug (fun m ->
-                          m "Tail of candidate fragments must start with: %s"
-                            (show_sigma s_tl));
-                      (* enumerate all matching stacks in the set *)
-                      let r1, s1 =
-                        Set.fold s ~init:(empty_choice_set, s)
-                          ~f:(fun (acc_r, acc_s) si ->
-                            let si_hd, si_tl =
-                              (List.hd_exn si, List.tl_exn si)
-                            in
-                            if
-                              Stdlib.(si_hd = l2) && starts_with si_tl s_tl
-                              (* && Stdlib.(si <> [ 11; 11 ]) *)
-                            then (
-                              debug (fun m ->
-                                  m
-                                    "[Level %d] Stitched! Evaluating function \
-                                     being applied at front of sigma, using \
-                                     stitched stack %s"
-                                    d (show_sigma si_tl));
-                              (* stitch the stack to gain more precision *)
-                              let new_v =
-                                Set.add v (NewSt.Estate (e1, si_tl, s))
-                              in
-                              let%bind r0, _ =
-                                analyze_aux d e1 si_tl pi s new_v
-                              in
-                              (List.fold r0 ~init:acc_r ~f:Set.add, acc_s))
-                            else (acc_r, acc_s))
-                      in
-                      let r1 = Set.elements r1 in
-                      let r1 = simplify ~configs:{ dedup_fun = false } r1 in
-                      let new_st = (expr, sigma, s1) in
-                      let new_v = Set.add v (NewSt.Estate new_st) in
-                      debug_plain
-                        "Found all stitched stacks and evaluated e1, begin \
-                         relabeling variables";
-                      let r2, s2 =
-                        List.fold r1 ~init:(empty_choice_set, s1)
-                          ~f:(fun (acc_r, acc_s) fun_atom ->
+                    (* let est = NewSt.Estate (e1, sigma, s) in
+                       debug (fun m ->
+                           m "[Var Non-Local] Trying to stub e1: %a"
+                             Interpreter.Ast.pp_expr e1);
+                       debug (fun m -> m "State: %s" (Grammar.NewSt.show est));
+                       debug_plain "v_set:";
+                       log_v_set v;
+                       if Set.mem v est then (
+                         debug_plain "[Var Non-Local] Stubbed e1";
+                         ([ ExprStubAtom (expr, sigma) ], s))
+                       else ( *)
+                    debug_plain "[Var Non-Local] Didn't stub e1";
+                    debug_plain "Function being applied at front of sigma:";
+                    debug (fun m -> m "%a" Interpreter.Pp.pp_expr e1);
+                    debug (fun m -> m "%a" Interpreter.Ast.pp_expr e1);
+                    let s_tl = List.tl_exn sigma in
+                    debug_plain "Begin stitching stacks";
+                    debug_plain "S set:";
+                    debug (fun m -> m "%s" (show_set s));
+                    debug (fun m ->
+                        m "Head of candidate fragments must be: %d" l2);
+                    debug (fun m ->
+                        m "Tail of candidate fragments must start with: %s"
+                          (show_sigma s_tl));
+                    (* enumerate all matching stacks in the set *)
+                    let r1, s1 =
+                      Set.fold s ~init:(empty_choice_set, s)
+                        ~f:(fun (acc_r, acc_s) si ->
+                          let si_hd, si_tl = (List.hd_exn si, List.tl_exn si) in
+                          if Stdlib.(si_hd = l2) && starts_with si_tl s_tl then (
                             debug (fun m ->
                                 m
-                                  "[Level %d] Visiting 1 possible function for \
-                                   e1:"
-                                  d);
-                            debug (fun m -> m "%a" pp_atom fun_atom);
-                            debug (fun m -> m "%a" Grammar.pp_atom fun_atom);
-                            match fun_atom with
-                            | FunAtom (Function (Ident x1', _, l1), _, sig1) ->
-                                if Stdlib.(x1 = x1') && l_myfun = l1 then (
-                                  debug (fun m ->
-                                      m "Re-label %s with label %d and evaluate"
-                                        x l1);
-                                  let%bind r0', _ =
-                                    analyze_aux d
-                                      (Var (Ident x, l1))
-                                      sig1 pi s1 new_v
-                                  in
-                                  (List.fold r0' ~init:acc_r ~f:Set.add, acc_s))
-                                else (acc_r, acc_s)
-                            | LabelStubAtom _ | ExprStubAtom _ ->
-                                (* debug (fun m ->
-                                       m "[Var Non-Local] Relabeling stub: %a"
-                                         Grammar.pp_atom fun_atom);
-                                   let a = ExprStubAtom (expr, sigma) in
-                                   debug (fun m -> m "into %a" Grammar.pp_atom a); *)
-                                (Set.add acc_r fun_atom, acc_s)
-                            | _ ->
+                                  "[Level %d] Stitched! Evaluating function \
+                                   being applied at front of sigma, using \
+                                   stitched stack %s"
+                                  d (show_sigma si_tl));
+                            (* stitch the stack to gain more precision *)
+                            (* let new_v =
+                                 Set.add v (NewSt.Estate (e1, si_tl, s))
+                               in *)
+                            let%bind r0, _ = analyze_aux d e1 si_tl pi s v in
+                            (List.fold r0 ~init:acc_r ~f:Set.add, acc_s))
+                          else (acc_r, acc_s))
+                    in
+                    let r1 = Set.elements r1 in
+                    let r1 = simplify r1 in
+                    let new_st = (expr, sigma, s1) in
+                    let new_v = Set.add v (NewSt.Estate new_st) in
+                    debug_plain
+                      "Found all stitched stacks and evaluated e1, begin \
+                       relabeling variables";
+                    let r2, s2 =
+                      List.fold r1 ~init:(empty_choice_set, s1)
+                        ~f:(fun (acc_r, acc_s) fun_atom ->
+                          debug (fun m -> m "r1 length: %d" (List.length r1));
+                          debug (fun m ->
+                              m
+                                "[Level %d] Visiting 1 possible function for \
+                                 e1:"
+                                d);
+                          debug (fun m -> m "%a" pp_atom fun_atom);
+                          debug (fun m -> m "%a" Grammar.pp_atom fun_atom);
+                          match fun_atom with
+                          | FunAtom (Function (Ident x1', _, l1), _, sig1) ->
+                              if Stdlib.(x1 = x1') && l_myfun = l1 then (
                                 debug (fun m ->
-                                    m
-                                      "[Var Non-Local] reached a funky result, \
-                                       skipping: %a"
-                                      Grammar.pp_atom fun_atom);
-                                (acc_r, acc_s))
-                      in
-                      info (fun m ->
-                          m
-                            "[Level %d] *********** Var Non-Local (%s, %d) \
-                             ************"
-                            d x l);
-                      info (fun m ->
-                          m "[Level %d] *********** Var (%s, %d) ************" d
-                            x l);
-                      (Set.elements r2, s2))
+                                    m "Re-label %s with label %d and evaluate" x
+                                      l1);
+                                let%bind r0', _ =
+                                  analyze_aux d
+                                    (Var (Ident x, l1))
+                                    sig1 pi s1 new_v
+                                in
+                                (List.fold r0' ~init:acc_r ~f:Set.add, acc_s))
+                              else (acc_r, acc_s)
+                          (* TODO: may need to consider the ExprResAtom case too *)
+                          | LabelResAtom (r, st) ->
+                              List.fold r ~init:(acc_r, acc_s)
+                                ~f:(fun (acc_r, acc_s) -> function
+                                | FunAtom (Function (Ident x1', _, l1), _, sig1)
+                                  ->
+                                    if Stdlib.(x1 = x1') && l_myfun = l1 then (
+                                      debug (fun m ->
+                                          m
+                                            "Re-label %s with label %d and \
+                                             evaluate"
+                                            x l1);
+                                      let%bind r0', _ =
+                                        analyze_aux d
+                                          (Var (Ident x, l1))
+                                          sig1 pi s1 new_v
+                                      in
+                                      ( List.fold r0' ~init:acc_r ~f:Set.add,
+                                        acc_s ))
+                                    else (acc_r, acc_s)
+                                | _ as a ->
+                                    ( Set.add acc_r (LabelResAtom ([ a ], st)),
+                                      acc_s ))
+                          | LabelStubAtom _ | ExprStubAtom _ ->
+                              (Set.add acc_r fun_atom, acc_s)
+                          | _ ->
+                              debug (fun m ->
+                                  m
+                                    "[Var Non-Local] reached a funky result, \
+                                     skipping: %a"
+                                    Grammar.pp_atom fun_atom);
+                              (acc_r, acc_s))
+                    in
+                    info (fun m ->
+                        m
+                          "[Level %d] *********** Var Non-Local (%s, %d) \
+                           ************"
+                          d x l);
+                    info (fun m ->
+                        m "[Level %d] *********** Var (%s, %d) ************" d x
+                          l);
+                    (Set.elements r2, s2)
+                    (* ) *)
                 | _ -> raise Unreachable [@coverage off])
           | _ -> raise Unreachable [@coverage off])
     | If (e, e_true, e_false, l) -> (
@@ -457,7 +467,7 @@ let rec analyze_aux d expr sigma pi s v =
         (* Logs.info (fun m -> m "r_cond: %a" Utils.pp_res r_cond); *)
         (* Format.printf "e: %a\n" Interpreter.Pp.pp_expr e;
            Format.printf "r_cond: %a\n" Utils.pp_res r_cond; *)
-        let r_cond = simplify ~configs:{ dedup_fun = true } r_cond in
+        (* let r_cond = simplify r_cond in *)
         debug (fun m -> m "r_cond: %a" Utils.pp_res r_cond);
         debug (fun m -> m "r_cond: %a" Grammar.pp_res r_cond);
         (* ! Issue 1: infinite loop when w/o simplication on identity example *)
@@ -586,8 +596,8 @@ let rec analyze_aux d expr sigma pi s v =
     | Let _ -> raise Unreachable [@coverage off]
     | _ -> failwith "temp"
   in
-  (simplify ~configs:{ dedup_fun = true } r, s_set)
-(* (r, s_set) *)
+  (* (simplify r, s_set) *)
+  (r, s_set)
 
 let analyze ?(debug_mode = false) ?(verify = true) ?(test_num = 0) e =
   is_debug_mode := debug_mode;

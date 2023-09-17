@@ -152,6 +152,7 @@ let adapted =
     read_file "tak.ml";
     read_file "cpstak.ml";
     read_file "adapted4.ml";
+    read_file "adapted2.ml";
   |]
 
 (** Church numerals *)
