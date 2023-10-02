@@ -89,6 +89,9 @@ let rec_eg_6 =
    = f x in if x = 1 then r 1 else if x = 0 then self self 1 else self self 0 \
    in loop loop "
 
+(* (((1 + ((1 + (((1 + ((stub@3)^3)^5) | 0))^5))^5))^12)^13
+   (((1 + ((1 + (((1 + stub@5) | 0))^5))^5))^12)^13 *)
+
 let recursion =
   [|
     (* (1 + (1 + (1 + ((1 + stub) | 0)))) *)
@@ -153,6 +156,7 @@ let adapted =
     read_file "cpstak.ml";
     read_file "adapted4.ml";
     read_file "adapted2.ml";
+    read_file "sat.ml";
   |]
 
 (** Church numerals *)

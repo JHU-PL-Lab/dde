@@ -5,6 +5,7 @@ open Grammar
 let pf = Format.printf
 let pfl = pf "%s\n"
 let prune_sigma ?(k = 2) s = List.filteri s ~f:(fun i _ -> i < k)
+let take_sigma ?(k = 2) = Fn.flip List.take (k - 1)
 
 let rec starts_with sigma_parent sigma_child =
   match (sigma_parent, sigma_child) with
@@ -29,11 +30,14 @@ let rec pp_atom fmt = function
   | BoolAtom b -> ff fmt "%b" b
   | FunAtom (f, _, _) -> Interpreter.Pp.pp_expr fmt f
   | LabelResAtom (choices, _) -> ff fmt "%a" pp_res choices
-  (* | LabelResAtom (choices, (l, _)) -> ff fmt "(%a)^%d" pp_res choices l *)
   | ExprResAtom (choices, _) -> ff fmt "%a" pp_res choices
-  (* | ExprResAtom (choices, (e, _)) ->
-      ff fmt "(%a)^%a" pp_res choices Interpreter.Pp.pp_expr e *)
-  (* ff fmt "(%a, %a, %a)" pp_res choices Interpreter.Pp.pp_expr e pp_sigma s *)
+  | LabelStubAtom _ -> ff fmt "stub"
+  | ExprStubAtom _ -> ff fmt "stub"
+  (* | LabelResAtom (choices, (l, _)) -> ff fmt "(%a)^%d" pp_res choices l
+     | ExprResAtom (choices, (e, _)) ->
+         ff fmt "(%a)^%a" pp_res choices Interpreter.Pp.pp_expr e
+     | LabelStubAtom (l, _) -> ff fmt "stub@%d" l
+     | ExprStubAtom (e, _) -> ff fmt "(stub@%a)" Interpreter.Pp.pp_expr e *)
   | OpAtom op -> (
       match op with
       | PlusOp (r1, r2) -> ff fmt "(%a + %a)" pp_res r1 pp_res r2
@@ -47,10 +51,6 @@ let rec pp_atom fmt = function
       | LeOp (r1, r2) -> ff fmt "(%a <= %a)" pp_res r1 pp_res r2
       | LtOp (r1, r2) -> ff fmt "(%a < %a)" pp_res r1 pp_res r2
       | NotOp r1 -> ff fmt "(not %a)" pp_res r1)
-  | LabelStubAtom _ -> ff fmt "stub"
-  (* | LabelStubAtom (l, _) -> ff fmt "stub@%d" l *)
-  | ExprStubAtom _ -> ff fmt "stub"
-  (* | ExprStubAtom (e, _) -> ff fmt "(stub@%a)" Interpreter.Pp.pp_expr e *)
   (* | EquivStubAtom (s, l) ->
       ff fmt "{%s}[%d]"
         (s |> Set.to_list
@@ -349,9 +349,9 @@ let dot_of_result ?(display_path_cond = true) test_num r =
             let edge_id = Format.sprintf "%s_%s" dom_node aid in
             add_edge dom_node aid;
             add_edge_prop edge_id ("dir", "back")
-        | None ->
-            Format.printf "%s\n" (St.show_lstate st);
-            failwith "Lone stub!")
+        | None -> Logs.debug (fun m -> m "Lone stub: %s" (St.show_lstate st))
+        (* Format.printf "Lone stub: %s\n" (St.show_lstate st) *)
+        (* failwith "Lone stub!" *))
     | LExprStubAtom (st, l) -> (
         add_node (Format.sprintf "%s [label=\"stub\", shape=\"box\"];" aid);
         match Map.find cycles (St.Estate st) with
@@ -360,9 +360,9 @@ let dot_of_result ?(display_path_cond = true) test_num r =
             let edge_id = Format.sprintf "%s_%s" dom_node aid in
             add_edge dom_node aid;
             add_edge_prop edge_id ("dir", "back")
-        | None ->
-            Format.printf "%s\n" (St.show_estate st);
-            failwith "Lone stub!")
+        | None -> Logs.debug (fun m -> m "Lone stub: %s" (St.show_estate st))
+        (* Format.printf "Lone stub: %s\n" (St.show_estate st) *)
+        (* failwith "Lone stub!" *))
     | LAssertAtom (_, r, _) ->
         add_node (Format.sprintf "%s [label=\"Assert\"];" aid);
         let rid = idr r in

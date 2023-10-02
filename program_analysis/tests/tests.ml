@@ -66,30 +66,44 @@ let test_currying _ = gen_test currying_thunked
 (* TODO: Racket/Van Horn examples *)
 let recursion_thunked =
   [
+    (* (fun _ ->
+       ( "(2 + ((stub | ((2 + stub) | 1)) | 0))",
+         pau ~test_num:18 ~verify:false recursion.(0) )); *)
+    (* (fun _ ->
+         ( "(false or (false or ((false or (stub | ((false or stub) | true))) | \
+            true)))",
+           pau ~test_num:19 ~verify:false recursion.(1) ));
+       (* TODO: shouldn't have base case *)
+       (fun _ ->
+         ( "(2 + ((stub | ((2 + stub) | 1)) | 0))",
+           pau ~test_num:20 ~verify:false recursion.(2) ));
+       (fun _ ->
+         ( "(2 + (0 | (stub | (1 | (2 + stub)))))",
+           pau ~test_num:21 ~verify:false recursion.(3) ));
+       (fun _ -> ("0", pau ~test_num:22 ~verify:false recursion.(4)));
+       (fun _ -> ("true", pau ~test_num:23 ~verify:false recursion.(5)));
+       (* (fun _ -> ("false", pau ~test_num:18 ~verify:false recursion.(6))); *)
+       (fun _ -> ("true", pau ~test_num:24 ~verify:false recursion.(7)));
+       (fun _ ->
+         ( "((false | (true | stub)) | stub)",
+           pau ~test_num:25 ~verify:false recursion.(8) ));
+       (fun _ ->
+         ("((0 | (1 | stub)) | stub)", pau ~test_num:26 ~verify:false recursion.(9)));
+       (fun _ -> ("1", pau ~test_num:27 ~verify:false recursion.(10)));
+       (fun _ ->
+         ( "(((0 | (1 | (-1 | stub))) | stub) | stub)",
+           pau ~test_num:28 ~verify:false recursion.(11) )); *)
     (fun _ ->
-      ("((3 + stub) | 2)", pau ~test_num:18 ~verify:false recursion.(0)));
+      ( "((((stub + ((3 | ((3 | (stub - 1)) - 1)) - 2)) | ((3 | (stub - 1)) - \
+         1)) + ((3 | ((3 | (stub - 1)) - 1)) - 2)) + (((2 | ((3 | (((3 | \
+         ((stub - 1) | (stub - 1))) - 1) | (stub - 1))) - 2)) - 1) + ((2 | \
+         (((3 | (((2 | ((stub - 2) | (stub - 2))) - 1) | ((3 | (((2 | ((stub - \
+         2) | (stub - 2))) - 1) | (stub - 1))) - 1))) - 2) | (stub - 2))) - \
+         2)))",
+        pau ~verify:false ~test_num:29 recursion.(12) ));
     (* (fun _ ->
-         ( "(false or (false or ((false or stub) | true)))",
-           pau ~test_num:19 recursion.(1) ));
-       (fun _ -> ("(3 + stub)", pau ~test_num:20 recursion.(2)));
-       (fun _ -> ("(2 | (3 + stub))", pau ~test_num:21 recursion.(3)));
-       (fun _ -> ("0", pau ~test_num:22 recursion.(4)));
-       (fun _ -> ("true", pau ~test_num:23 recursion.(5)));
-       (fun _ -> ("false", pau ~test_num:18 recursion.(6)));
-       (fun _ -> ("true", pau ~test_num:24 recursion.(7)));
-       (fun _ -> ("true", pau ~test_num:25 recursion.(8)));
-       (fun _ -> ("1", pau ~test_num:26 recursion.(9)));
-       (fun _ -> ("1", pau ~test_num:27 recursion.(10)));
-       (fun _ -> ("1", pau ~test_num:28 recursion.(11))); *)
-    (* (fun _ ->
-       ( "((((stub + ((3 | ((3 | (stub - 1)) - 1)) - 2)) | ((3 | (stub - 1)) - \
-          1)) + ((3 | ((3 | (stub - 1)) - 1)) - 2)) + (((2 | ((3 | (((3 | \
-          ((stub - 1) | (stub - 1))) - 1) | (stub - 1))) - 2)) - 1) + ((2 | \
-          (((3 | (((2 | ((stub - 2) | (stub - 2))) - 1) | ((3 | (((2 | ((stub - \
-          2) | (stub - 2))) - 1) | (stub - 1))) - 1))) - 2) | (stub - 2))) - \
-          2)))",
-         pau ~verify:false ~test_num:29 recursion.(12) )); *)
-    (* (fun _ -> ("", pau ~test_num:30 ~verify:false recursion.(13))); *)
+       ( "((stub | ((1 + stub) | 0)) | 0)",
+         pau ~test_num:30 ~verify:false recursion.(13) )); *)
   ]
 
 let test_recursion _ = gen_test recursion_thunked
@@ -97,22 +111,30 @@ let test_recursion _ = gen_test recursion_thunked
 let adapted_thunked =
   [
     (* (fun _ ->
-       ( "(6 + (24 * (((2 | ((2 | (stub - 1)) - 1)) * stub) | 1)))",
-         pau ~verify:false ~test_num:30 adapted.(0) )); *)
-    (* (fun _ -> ("true", pau ~verify:true ~test_num:31 adapted.(1))); *)
-    (fun _ ->
-      ( "",
-        (* let _ = pau ~verify:false ~test_num:32 adapted.(2) in
-           let _ = pau ~verify:false ~test_num:32 adapted.(2) in *)
-        pau ~verify:false ~test_num:32 adapted.(2) ));
-    (* (fun _ -> ("2", pau ~test_num:33 adapted.(3)));
+         ( "((6 * ((((2 | (stub - 1)) - 1) * (stub | ((((2 | (stub - 1)) - 1) * \
+            stub) | 1))) | 1)) + (12 * ((((3 | (stub - 1)) - 1) * (stub | ((((3 | \
+            (stub - 1)) - 1) * stub) | 1))) | 1)))",
+           pau ~verify:false ~test_num:30 adapted.(0) ));
+       (fun _ -> ("true", pau ~verify:true ~test_num:31 adapted.(1)));
+       (fun _ ->
+         ( "(stub | (stub | 5))",
+           (* let _ = pau ~verify:false ~test_num:32 adapted.(2) in
+              let _ = pau ~verify:false ~test_num:32 adapted.(2) in *)
+           pau ~verify:false ~test_num:32 adapted.(2) ));
+       (fun _ -> ("2", pau ~test_num:33 adapted.(3)));
        (fun _ -> ("false", pau ~test_num:34 adapted.(4)));
-       (fun _ -> ("false", pau ~test_num:35 adapted.(5))); *)
-    (* (fun _ -> ("", pau ~test_num:36 ~verify:false adapted.(6)));
-       (fun _ -> ("", pau ~test_num:37 ~verify:false adapted.(7))); *)
-    (* (fun _ -> ("", pau ~test_num:38 ~verify:false adapted.(8))); *)
-    (* (fun _ -> ("", pau ~verify:false ~test_num:39 adapted.(9))); *)
-    (* (fun _ -> ("", pau ~verify:false ~test_num:40 adapted.(10))); *)
+       (fun _ -> ("false", pau ~test_num:35 adapted.(5)));
+       (* (fun _ -> ("", pau ~test_num:36 ~verify:false adapted.(6))); *)
+       (* (fun _ -> ("", pau ~test_num:37 ~verify:false adapted.(7))); *)
+       (* (fun _ -> ("", pau ~test_num:38 ~verify:false adapted.(8))); *)
+       (fun _ ->
+         ("((stub | (stub | 5)) | 5)", pau ~verify:false ~test_num:39 adapted.(9)));
+       (fun _ ->
+         ( "((stub | (stub | (stub | (((stub | (stub | (stub | (stub | 5)))) | \
+            (stub | (stub | 5))) | 5)))) | (stub | (((stub | (stub | (stub | \
+            (stub | 5)))) | (stub | (stub | 5))) | 5)))",
+           pau ~verify:false ~test_num:40 adapted.(10) )); *)
+    (fun _ -> ("", pau ~verify:false ~test_num:41 adapted.(11)));
   ]
 
 let test_adapted _ = gen_test adapted_thunked
@@ -156,10 +178,10 @@ let test_pa =
        "Var local stack stitching" >:: test_local_stitching;
        "Conditional" >:: test_conditional;
        "Currying" >:: test_currying; *)
-    (* "Recursion" >:: test_recursion; *)
+    "Recursion" >:: test_recursion;
     (* "Church numerals basics" >:: test_church_basic;
        "Church numerals binary operations" >:: test_church_binop; *)
-    "Adapted" >:: test_adapted;
+    (* "Adapted" >:: test_adapted; *)
     (* "Lists" >:: test_lists; *)
   ]
 

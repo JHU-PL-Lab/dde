@@ -12,9 +12,9 @@ exception BadAssert
 
 let empty_choice_set = Set.empty (module Choice)
 
-(* controls whether to generate logs;
-   log file is "logs" in _build/default/program_analysis/tests directory *)
-let gen_logs = ref true
+(* controls whether to generate logs:
+   "logs" in _build/default/program_analysis/tests *)
+let gen_logs = ref false
 let debug_plain msg = if !gen_logs then debug (fun m -> m msg)
 let debug msg = if !gen_logs then debug msg
 let info_plain msg = if !gen_logs then info msg
@@ -30,7 +30,15 @@ let solve_cond ?(v = Set.empty (module NewSt)) r b =
   let chcs = Hash_set.to_list Solver.chcs in
   let rb = zconst "r" bsort in
   let manual = [ rb ] |. (p <-- [ rb ]) --> (rb === zbool b) in
-  Z3.Solver.add solver (manual :: chcs);
+  let chcs = manual :: chcs in
+  Z3.Solver.add solver chcs;
+
+  (* if b then (
+     (* Format.printf "CHCs:\n";
+        List.iter chcs ~f:(fun chc -> Format.printf "%s\n" (Z3.Expr.to_string chc)); *)
+     debug_plain "CHCs:";
+     List.iter chcs ~f:(fun chc ->
+         debug (fun m -> m "%s" (Z3.Expr.to_string chc)))); *)
 
   (* let start = Stdlib.Sys.time () in *)
   let status = Z3.Solver.check solver [] in
@@ -46,7 +54,7 @@ let solve_cond ?(v = Set.empty (module NewSt)) r b =
            Format.printf "if condition: %s\n" prog; *)
         true
     | UNSATISFIABLE -> false
-    | UNKNOWN -> failwith "unknown"
+    | UNKNOWN -> false
   in
   (* let start = Stdlib.Sys.time () in *)
   Solver.reset ();
@@ -143,14 +151,98 @@ let partition_stubs =
     | LabelStubAtom _ | ExprStubAtom _ -> true
     | _ -> false)
 
-(* TODO: run multiple times to cache *)
-let rec analyze_aux d expr sigma pi s v =
+let rec fold_res_app ~init ~f l sigma d =
+  List.fold ~init ~f:(fun ((acc_r, acc_s) as acc) a ->
+      debug (fun m ->
+          m "[Level %d] [Appl] Evaluating 1 possible function being applied:" d);
+      debug (fun m -> m "%a" pp_atom a);
+      debug (fun m -> m "%a" Grammar.pp_atom a);
+      match a with
+      | FunAtom (Function (_, e1, _), _, _) -> f acc e1
+      | LabelStubAtom _ | ExprStubAtom _ ->
+          let relabeled_stub = LabelStubAtom (l, sigma) in
+          debug (fun m ->
+              m "[Appl] Relabel %a as %a" pp_atom a pp_atom relabeled_stub);
+          (Set.add acc_r relabeled_stub, acc_s)
+      | LabelResAtom (r, _) | ExprResAtom (r, _) ->
+          fold_res_app ~init:acc ~f l sigma d r
+      | _ ->
+          Format.printf "%a\n" Grammar.pp_atom a;
+          failwith "unimplemented")
+
+let rec fold_res_var ~init ~f expr sigma d r =
+  List.fold r ~init ~f:(fun ((acc_r, acc_s) as acc) a ->
+      debug (fun m -> m "r1 length: %d" (List.length r));
+      debug (fun m -> m "[Level %d] Visiting 1 possible function for e1:" d);
+      debug (fun m -> m "%a" pp_atom a);
+      debug (fun m -> m "%a" Grammar.pp_atom a);
+      match a with
+      | FunAtom (Function (Ident x1, _, l1), _, sigma1) -> f acc x1 l1 sigma1
+      | LabelStubAtom _ | ExprStubAtom _ ->
+          let relabeled_stub = ExprStubAtom (expr, sigma) in
+          debug (fun m ->
+              m "[Var Non-Local] Relabel %a as %a" pp_atom a pp_atom
+                relabeled_stub);
+          (Set.add acc_r relabeled_stub, acc_s)
+      | LabelResAtom (r, _) | ExprResAtom (r, _) ->
+          fold_res_var ~init:acc ~f expr sigma d r
+      | _ ->
+          Format.printf "%a\n" Grammar.pp_atom a;
+          failwith "unimplemented")
+
+let rec exists_lone_stub v v' =
+  List.exists ~f:(function
+    | LabelStubAtom ((l, sigma) as st) ->
+        (not
+           (Set.exists v ~f:(function
+             | NewSt.Lstate (l', sigma', _) ->
+                 Stdlib.(l = l' && sigma = take_sigma sigma')
+             | _ -> false)))
+        && not (Set.mem v' (St.Lstate st))
+    | ExprStubAtom ((e, sigma) as st) ->
+        (not
+           (Set.exists v ~f:(function
+             | NewSt.Estate (e', sigma', _) ->
+                 Stdlib.(e = e' && sigma = take_sigma sigma')
+             | _ -> false)))
+        && not (Set.mem v' (St.Estate st))
+    | LabelResAtom (r, st) -> exists_lone_stub v (Set.add v' (St.Lstate st)) r
+    | ExprResAtom (r, st) -> exists_lone_stub v (Set.add v' (St.Estate st)) r
+    | OpAtom op -> (
+        match op with
+        | PlusOp (r1, r2)
+        | MinusOp (r1, r2)
+        | MultOp (r1, r2)
+        | EqualOp (r1, r2)
+        | GeOp (r1, r2)
+        | GtOp (r1, r2)
+        | LeOp (r1, r2)
+        | LtOp (r1, r2)
+        | AndOp (r1, r2)
+        | OrOp (r1, r2) ->
+            exists_lone_stub v v' r1 || exists_lone_stub v v' r2
+        | NotOp r -> exists_lone_stub v v' r)
+    | _ -> false)
+
+(* let cache = Hashtbl.create (module Cache_key) *)
+
+let rec analyze_aux_step d expr sigma pi s v =
+  (* TODO: prepass to do record simplifications *)
+  (* let cache_key = (expr, sigma, s) in
+     let found = Hashtbl.find cache cache_key in
+     match found with
+     | Some r when not (exists_lone_stub v (Set.empty (module St)) r) ->
+         debug (fun m -> m "cache hit: %a" pp_res r);
+         (* debug (fun m -> m "cache hit: %a" Grammar.pp_res r); *)
+         (r, s)
+     | _ ->
+         if Option.is_some found then debug (fun m -> m "[Level %d] yo" d); *)
   if d > !max_d then max_d := d;
   debug_plain "Began recursive call to execution";
   debug (fun m -> m "Max depth so far is: %d" !max_d);
   debug (fun m -> m "expr: %a" Interpreter.Pp.pp_expr expr);
   debug (fun m -> m "sigma: %s" (show_sigma sigma));
-  let r, s_set =
+  let r, s' =
     match expr with
     | Int i -> ([ IntAtom i ], s)
     | Bool b -> ([ BoolAtom b ], s)
@@ -165,85 +257,137 @@ let rec analyze_aux d expr sigma pi s v =
         let sigma' = l :: sigma in
         let pruned_sigma' = prune_sigma sigma' in
         debug (fun m -> m "sigma_pruned': %s" (show_sigma pruned_sigma'));
-        let st = (l, pruned_sigma', s) in
+        let st = (l, sigma, s) in
+        (* let st = (l, pruned_sigma', s) in *)
         let lst = NewSt.Lstate st in
         debug (fun m -> m "State: %s" (NewSt.show lst));
         debug_plain "v_set:";
         log_v_set v;
+        (* TODO: try two-pass mechanism again *)
         if Set.mem v lst then (
-          info (fun m -> m "Stubbed: %a" Interpreter.Pp.pp_expr expr);
-          debug (fun m -> m "Stubbed: %a" Interpreter.Ast.pp_expr expr);
+          debug_plain "Stubbed";
+          (* debug (fun m ->
+              m "sigma: %s | take: %s" (show_sigma sigma)
+                (show_sigma (take_sigma sigma))); *)
           info (fun m ->
               m "[Level %d] *********** Appl (%a) ************" d
                 Interpreter.Pp.pp_expr expr);
-          ([ LabelStubAtom (l, pruned_sigma') ], s))
+          ([ LabelStubAtom (l, take_sigma sigma) ], s))
         else (
           (* Application *)
-          debug (fun m -> m "Didn't stub: %a" Interpreter.Pp.pp_expr expr);
-          debug (fun m -> m "Didn't stub: %a" Interpreter.Ast.pp_expr expr);
+          debug_plain "Didn't stub";
           debug (fun m ->
               m "Evaluating function being applied: %a" Interpreter.Pp.pp_expr e);
           debug (fun m ->
               m "Evaluating function being applied: %a" Interpreter.Ast.pp_expr
                 e);
           let new_v = Set.add v lst in
-          let r1, s1 = analyze_aux d e sigma pi s new_v in
+          (* we don't remember whatever this subtree visited *)
+          (* TODO *)
+          let r1, s1 = analyze_aux_step d e sigma pi s new_v in
+          (* debug (fun m -> m "[Appl] Before simpl.: %a" Grammar.pp_res r1); *)
           let r1 = simplify r1 in
+          (* debug (fun m -> m "[Appl] After simpl.: %a" Grammar.pp_res r1); *)
           debug (fun m -> m "r1 length: %d" (List.length r1));
           let new_s = Set.add s1 pruned_sigma' in
           (* let new_s = Set.add s1 sigma' in *)
           let r2, s2 =
-            List.fold r1 ~init:(empty_choice_set, s) ~f:(fun (acc_r, acc_s) a ->
+            fold_res_app ~init:(empty_choice_set, new_s) l (take_sigma sigma) d
+              r1 ~f:(fun (acc_r, acc_s) e1 ->
                 debug (fun m ->
-                    m
-                      "[Level %d] [Appl] Evaluating 1 possible function being \
-                       applied:"
-                      d);
-                match a with
-                | FunAtom (Function (_, e1, _), _, _) ->
-                    debug (fun m ->
-                        m "[Appl] Evaluating body of function being applied: %a"
-                          Interpreter.Pp.pp_expr e1);
-                    let%bind ri, _ =
-                      analyze_aux d e1 pruned_sigma' pi new_s new_v
-                    in
-                    (List.fold ri ~init:acc_r ~f:Set.add, acc_s)
-                (* TODO: may need to consider the ExprResAtom case too *)
-                | LabelResAtom (r, st) ->
-                    (* debug (fun m -> m "[Appl] st: %s" (St.show_lstate st)); *)
-                    (* debug (fun m -> m "[Appl] l: %d" l); *)
-                    List.fold r ~init:(acc_r, acc_s) ~f:(fun (acc_r, acc_s) ->
-                      function
-                      | FunAtom (Function (_, e1, _), _, _) ->
-                          debug (fun m ->
-                              m
-                                "[Appl] Evaluating body of function being \
-                                 applied: %a"
-                                Interpreter.Pp.pp_expr e1);
-                          let%bind ri, _ =
-                            analyze_aux d e1 pruned_sigma' pi new_s new_v
-                          in
-                          (List.fold ri ~init:acc_r ~f:Set.add, acc_s)
-                      | _ as a ->
-                          (Set.add acc_r (LabelResAtom ([ a ], st)), acc_s))
-                | LabelStubAtom _ | ExprStubAtom _ -> (Set.add acc_r a, acc_s)
-                | _ ->
-                    debug (fun m ->
-                        m "[Appl] reached a funky result, skipping: %a"
-                          Utils.pp_atom a);
-                    debug (fun m ->
-                        m "[Appl] reached a funky result, skipping: %a"
-                          Grammar.pp_atom a);
-                    (acc_r, s))
+                    m "[Appl] Evaluating body of function being applied: %a"
+                      Interpreter.Pp.pp_expr e1);
+                let ri, si =
+                  analyze_aux_step d e1 pruned_sigma' pi new_s new_v
+                in
+                (List.fold ri ~init:acc_r ~f:Set.add, Set.union acc_s si))
           in
-          let r2 = [ LabelResAtom (Set.elements r2, (l, pruned_sigma')) ] in
-          debug (fun m -> m "[Appl] Result: %a" pp_res r2);
-          debug (fun m -> m "[Appl] Result: %a" Grammar.pp_res r2);
+          (* let r2, s2 =
+               List.fold r1 ~init:(empty_choice_set, new_s)
+                 ~f:(fun (acc_r, acc_s) a ->
+                   debug (fun m ->
+                       m
+                         "[Level %d] [Appl] Evaluating 1 possible function \
+                          being applied:"
+                         d);
+                   debug (fun m -> m "%a" pp_atom a);
+                   debug (fun m -> m "%a" Grammar.pp_atom a);
+                   match a with
+                   | FunAtom (Function (_, e1, _), _, _) ->
+                       debug (fun m ->
+                           m
+                             "[Appl] Evaluating body of function being \
+                              applied: %a"
+                             Interpreter.Pp.pp_expr e1);
+                       let ri, si =
+                         analyze_aux_step d e1 pruned_sigma' pi new_s
+                           new_v
+                       in
+                       (List.fold ri ~init:acc_r ~f:Set.add, Set.union acc_s si)
+                   | LabelResAtom (r, _) | ExprResAtom (r, _) ->
+                       List.fold r ~init:(acc_r, acc_s)
+                         ~f:(fun (acc_r, acc_s) -> function
+                         | FunAtom (Function (_, e1, _), _, _) ->
+                             debug (fun m ->
+                                 m
+                                   "[Level %d] [Appl] Evaluating body of \
+                                    function being applied: %a"
+                                   d Interpreter.Pp.pp_expr e1);
+                             let ri, si =
+                               analyze_aux_step d e1 pruned_sigma' pi
+                                 new_s new_v
+                             in
+                             ( List.fold ri ~init:acc_r ~f:Set.add,
+                               Set.union acc_s si )
+                         | (LabelStubAtom _ | ExprStubAtom _) as stub ->
+                             (* let a' = LabelStubAtom (l, pruned_sigma') in
+                                Format.printf "a': %a\n" pp_atom a';
+                                (Set.add acc_r a', acc_s) *)
+                             (Set.add acc_r stub, acc_s)
+                             (* (Set.add acc_r (LabelResAtom ([ a ], st)), acc_s) *)
+                         | _ as a ->
+                             (* Format.printf "wtf: %a\n" pp_atom a; *)
+                             (* Format.printf "%a\n" Grammar.pp_atom a; *)
+                             debug (fun m -> m "Funky: %a" Grammar.pp_atom a);
+                             (* TODO *)
+                             (Set.add acc_r a, acc_s)
+                         (* raise Unreachable [@coverage off] *))
+                   | (LabelStubAtom _ | ExprStubAtom _) as stub ->
+                       (* relabel with Appl label *)
+                       let relabeled_stub =
+                         LabelStubAtom (l, take_sigma sigma)
+                       in
+                       debug (fun m ->
+                           m "[Appl] Relabel %a as %a" pp_atom stub pp_atom
+                             relabeled_stub);
+                       (Set.add acc_r relabeled_stub, acc_s)
+                       (* (Set.add acc_r a, acc_s) *)
+                   | _ ->
+                       debug (fun m ->
+                           m "[Appl] reached a funky result, skipping: %a"
+                             Utils.pp_atom a);
+                       debug (fun m ->
+                           m "[Appl] reached a funky result, skipping: %a"
+                             Grammar.pp_atom a);
+                       (acc_r, acc_s))
+             in *)
+          let r2 = Set.elements r2 in
+          (* TODO: this is needed for id to work *)
+          (* TODO: label sets instead *)
+          (* let r2 =
+               r2 |> partition_stubs |> fun (stubs, nonstubs) ->
+               if List.is_empty nonstubs then stubs
+               else LabelResAtom (nonstubs, (l, take_sigma sigma)) :: stubs
+             in *)
+          let r2 = [ LabelResAtom (r2, (l, take_sigma sigma)) ] in
+          (* debug (fun m -> m "[Appl] Result: %a" pp_res r2);
+             debug (fun m -> m "[Appl] Result: %a" Grammar.pp_res r2); *)
           info (fun m ->
               m "[Level %d] *********** Appl (%a) ************" d
                 Interpreter.Pp.pp_expr expr);
           (r2, s2))
-    | Var (Ident x, l) -> (
+    | Var (Ident x, l) ->
+        let d = d + 1 in
         info (fun m ->
             m "[Level %d] =========== Var (%s, %d) ============" d x l);
         let st = (expr, sigma, s) in
@@ -256,10 +400,9 @@ let rec analyze_aux d expr sigma pi s v =
           debug (fun m -> m "Stubbed: %s" x);
           info (fun m ->
               m "[Level %d] *********** Var (%s, %d) ************" d x l);
-          ([ ExprStubAtom (expr, sigma) ], s))
-        else
-          let d = d + 1 in
-          debug (fun m -> m "Didn't stub: %s" x);
+          ([ ExprStubAtom (expr, take_sigma sigma) ], s))
+        else (
+          debug_plain "Didn't stub";
           match get_myfun l with
           | Some (Function (Ident x1, _, l_myfun)) ->
               if String.(x = x1) then (
@@ -298,10 +441,11 @@ let rec analyze_aux d expr sigma pi s v =
                             debug (fun m -> m "%a" Interpreter.Pp.pp_expr e2);
                             debug (fun m -> m "%a" Interpreter.Ast.pp_expr e2);
                             (* stitch the stack to gain more precision *)
-                            let%bind ri, _ =
-                              analyze_aux d e2 sigma_i_tl pi s new_v
+                            let ri, si =
+                              analyze_aux_step d e2 sigma_i_tl pi s new_v
                             in
-                            (List.fold ri ~init:acc_r ~f:Set.add, acc_s))
+                            ( List.fold ri ~init:acc_r ~f:Set.add,
+                              Set.union acc_s si ))
                           else (acc_r, acc_s))
                     in
                     info (fun m ->
@@ -313,15 +457,16 @@ let rec analyze_aux d expr sigma pi s v =
                         m "[Level %d] *********** Var (%s, %d) ************" d x
                           l);
                     let r1 = Set.elements r1 in
-                    (* let r1_stub, r1_nonstub = partition_stubs r1 in
-                       let nonstub = ExprResAtom (r1_nonstub, (expr, sigma)) in
-                       ( (match (r1_stub, r1_nonstub) with
-                         | [ r1_stub ], [] -> [ r1_stub ]
-                         | [ r1_stub ], _ -> [ r1_stub; nonstub ]
-                         | [], [] -> raise Unreachable
-                         | [], _ -> [ nonstub ]
-                         | _ -> raise Unreachable),
-                         s1 ) *)
+                    let r1 =
+                      r1 |> partition_stubs |> fun (stubs, nonstubs) ->
+                      if List.is_empty nonstubs then stubs
+                      else
+                        ExprResAtom (nonstubs, (expr, take_sigma sigma))
+                        :: stubs
+                    in
+                    (* let r1 =
+                         [ ExprResAtom (r1, (expr, take_sigma sigma)) ]
+                       in *)
                     (r1, s1)
                 | _ -> raise Unreachable [@coverage off])
               else (
@@ -375,74 +520,102 @@ let rec analyze_aux d expr sigma pi s v =
                             (* let new_v =
                                  Set.add v (NewSt.Estate (e1, si_tl, s))
                                in *)
-                            let%bind r0, _ = analyze_aux d e1 si_tl pi s v in
-                            (List.fold r0 ~init:acc_r ~f:Set.add, acc_s))
+                            let r0, s0 = analyze_aux_step d e1 si_tl pi s v in
+                            ( List.fold r0 ~init:acc_r ~f:Set.add,
+                              Set.union acc_s s0 ))
                           else (acc_r, acc_s))
                     in
                     let r1 = Set.elements r1 in
-                    let r1 = simplify r1 in
+                    (* let r1 = simplify r1 in *)
                     let new_st = (expr, sigma, s1) in
                     let new_v = Set.add v (NewSt.Estate new_st) in
                     debug_plain
                       "Found all stitched stacks and evaluated e1, begin \
                        relabeling variables";
                     let r2, s2 =
-                      List.fold r1 ~init:(empty_choice_set, s1)
-                        ~f:(fun (acc_r, acc_s) fun_atom ->
-                          debug (fun m -> m "r1 length: %d" (List.length r1));
-                          debug (fun m ->
-                              m
-                                "[Level %d] Visiting 1 possible function for \
-                                 e1:"
-                                d);
-                          debug (fun m -> m "%a" pp_atom fun_atom);
-                          debug (fun m -> m "%a" Grammar.pp_atom fun_atom);
-                          match fun_atom with
-                          | FunAtom (Function (Ident x1', _, l1), _, sig1) ->
-                              if Stdlib.(x1 = x1') && l_myfun = l1 then (
-                                debug (fun m ->
-                                    m "Re-label %s with label %d and evaluate" x
-                                      l1);
-                                let%bind r0', _ =
-                                  analyze_aux d
-                                    (Var (Ident x, l1))
-                                    sig1 pi s1 new_v
-                                in
-                                (List.fold r0' ~init:acc_r ~f:Set.add, acc_s))
-                              else (acc_r, acc_s)
-                          (* TODO: may need to consider the ExprResAtom case too *)
-                          | LabelResAtom (r, st) ->
-                              List.fold r ~init:(acc_r, acc_s)
-                                ~f:(fun (acc_r, acc_s) -> function
-                                | FunAtom (Function (Ident x1', _, l1), _, sig1)
-                                  ->
-                                    if Stdlib.(x1 = x1') && l_myfun = l1 then (
-                                      debug (fun m ->
-                                          m
-                                            "Re-label %s with label %d and \
-                                             evaluate"
-                                            x l1);
-                                      let%bind r0', _ =
-                                        analyze_aux d
-                                          (Var (Ident x, l1))
-                                          sig1 pi s1 new_v
-                                      in
-                                      ( List.fold r0' ~init:acc_r ~f:Set.add,
-                                        acc_s ))
-                                    else (acc_r, acc_s)
-                                | _ as a ->
-                                    ( Set.add acc_r (LabelResAtom ([ a ], st)),
-                                      acc_s ))
-                          | LabelStubAtom _ | ExprStubAtom _ ->
-                              (Set.add acc_r fun_atom, acc_s)
-                          | _ ->
-                              debug (fun m ->
-                                  m
-                                    "[Var Non-Local] reached a funky result, \
-                                     skipping: %a"
-                                    Grammar.pp_atom fun_atom);
-                              (acc_r, acc_s))
+                      fold_res_var ~init:(empty_choice_set, s1) expr
+                        (take_sigma sigma) d r1
+                        ~f:(fun (acc_r, acc_s) x1' l1 sigma1 ->
+                          if Stdlib.(x1 = x1') && l_myfun = l1 then (
+                            debug (fun m ->
+                                m
+                                  "[Var Non-Local] Relabel %s with label %d \
+                                   and evaluate"
+                                  x l1);
+                            let r0', s0' =
+                              analyze_aux_step d
+                                (Var (Ident x, l1))
+                                sigma1 pi s1 new_v
+                            in
+                            ( List.fold r0' ~init:acc_r ~f:Set.add,
+                              Set.union acc_s s0' ))
+                          else (acc_r, acc_s))
                     in
+                    (* let r2, s2 =
+                         List.fold r1 ~init:(empty_choice_set, s1)
+                           ~f:(fun (acc_r, acc_s) fun_atom ->
+                             debug (fun m ->
+                                 m "r1 length: %d" (List.length r1));
+                             debug (fun m ->
+                                 m
+                                   "[Level %d] Visiting 1 possible function \
+                                    for e1:"
+                                   d);
+                             debug (fun m -> m "%a" pp_atom fun_atom);
+                             debug (fun m -> m "%a" Grammar.pp_atom fun_atom);
+                             match fun_atom with
+                             | FunAtom (Function (Ident x1', _, l1), _, sig1)
+                               ->
+                                 if Stdlib.(x1 = x1') && l_myfun = l1 then (
+                                   debug (fun m ->
+                                       m
+                                         "Re-label %s with label %d and \
+                                          evaluate"
+                                         x l1);
+                                   let r0', s0' =
+                                     analyze_aux_step d
+                                       (Var (Ident x, l1))
+                                       sig1 pi s1 new_v
+                                   in
+                                   ( List.fold r0' ~init:acc_r ~f:Set.add,
+                                     Set.union acc_s s0' ))
+                                 else (acc_r, acc_s)
+                             | LabelResAtom (r, st) ->
+                                 List.fold r ~init:(acc_r, acc_s)
+                                   ~f:(fun (acc_r, acc_s) -> function
+                                   | FunAtom
+                                       (Function (Ident x1', _, l1), _, sig1)
+                                     ->
+                                       if Stdlib.(x1 = x1') && l_myfun = l1
+                                       then (
+                                         debug (fun m ->
+                                             m
+                                               "Re-label %s with label %d and \
+                                                evaluate"
+                                               x l1);
+                                         let r0', s0' =
+                                           analyze_aux_step d
+                                             (Var (Ident x, l1))
+                                             sig1 pi s1 new_v
+                                         in
+                                         ( List.fold r0' ~init:acc_r ~f:Set.add,
+                                           Set.union acc_s s0' ))
+                                       else (acc_r, acc_s)
+                                   | _ as a ->
+                                       debug (fun m -> m "Funky: %a" pp_atom a);
+                                       ( Set.add acc_r
+                                           (LabelResAtom ([ a ], st)),
+                                         acc_s ))
+                             | LabelStubAtom _ | ExprStubAtom _ ->
+                                 (Set.add acc_r fun_atom, acc_s)
+                             | _ ->
+                                 debug (fun m ->
+                                     m
+                                       "[Var Non-Local] reached a funky \
+                                        result, skipping: %a"
+                                       Grammar.pp_atom fun_atom);
+                                 (acc_r, acc_s))
+                       in *)
                     info (fun m ->
                         m
                           "[Level %d] *********** Var Non-Local (%s, %d) \
@@ -451,75 +624,80 @@ let rec analyze_aux d expr sigma pi s v =
                     info (fun m ->
                         m "[Level %d] *********** Var (%s, %d) ************" d x
                           l);
-                    (Set.elements r2, s2)
+                    let r2 = Set.elements r2 in
+                    (* let r2 =
+                         r2 |> partition_stubs |> fun (stubs, nonstubs) ->
+                         if List.is_empty nonstubs then stubs
+                         else
+                           ExprResAtom (nonstubs, (expr, take_sigma sigma))
+                           :: stubs
+                       in *)
+                    let r2 = [ ExprResAtom (r2, (expr, take_sigma sigma)) ] in
+                    (r2, s2)
                     (* ) *)
                 | _ -> raise Unreachable [@coverage off])
           | _ -> raise Unreachable [@coverage off])
     | If (e, e_true, e_false, l) -> (
         let d = d + 1 in
-        (* let%bind r_true, _ = analyze_aux d e_true sigma None s v in
+        (* let%bind r_true, _ = analyze_aux_step' n e_glob d e_true sigma None s v in
            info (fun m -> m "Evaluating: %a" Interpreter.Pp.pp_expr e_false);
-           let%bind r_false, _ = analyze_aux d e_false sigma None s v in
+           let%bind r_false, _ = analyze_aux_step' n e_glob d e_false sigma None s v in
            (r_true @ r_false, s) *)
         (* TODO: utilize full power of path conditions *)
         info (fun m -> m "[Level %d] =========== If (%d) ============" d l);
-        let%bind r_cond, s0 = analyze_aux d e sigma pi s v in
-        (* Logs.info (fun m -> m "r_cond: %a" Utils.pp_res r_cond); *)
-        (* Format.printf "e: %a\n" Interpreter.Pp.pp_expr e;
-           Format.printf "r_cond: %a\n" Utils.pp_res r_cond; *)
+        let r_cond, s0 = analyze_aux_step d e sigma pi s v in
         (* let r_cond = simplify r_cond in *)
         debug (fun m -> m "r_cond: %a" Utils.pp_res r_cond);
         debug (fun m -> m "r_cond: %a" Grammar.pp_res r_cond);
-        (* ! Issue 1: infinite loop when w/o simplication on identity example *)
-        (* ! Issue 2: bad cycle in condition *)
+        debug_plain "v_set:";
+        log_v_set v;
+        (* dot_of_result 0 r_cond; *)
         let true_sat = solve_cond r_cond true ~v in
         let pc_true = (r_cond, true) in
         let false_sat = solve_cond r_cond false ~v in
         let pc_false = (r_cond, false) in
         match (true_sat, false_sat) with
         | true, false ->
-            (* Format.printf "true\n"; *)
             info (fun m ->
                 m "[Level %d] =========== If True only ============" d);
             debug (fun m -> m "Evaluating: %a" Interpreter.Pp.pp_expr e_true);
-            let%map r_true, _ =
-              analyze_aux d e_true sigma (Some pc_true) s0 v
+            let r_true, s_true =
+              analyze_aux_step d e_true sigma (Some pc_true) s0 v
             in
             info (fun m ->
                 m "[Level %d] *********** If True only *************" d);
             debug (fun m -> m "[Level %d] *********** If (%d) ************" d l);
-            [ PathCondAtom (pc_true, r_true) ]
+            ([ PathCondAtom (pc_true, r_true) ], Set.union s0 s_true)
         | false, true ->
-            (* Format.printf "false\n"; *)
             info (fun m ->
                 m "[Level %d] =========== If False only ============" d);
             debug (fun m -> m "Evaluating: %a" Interpreter.Pp.pp_expr e_false);
-            let%map r_false, _ =
-              analyze_aux d e_false sigma (Some pc_false) s0 v
+            let r_false, s_false =
+              analyze_aux_step d e_false sigma (Some pc_false) s0 v
             in
             info (fun m ->
                 m "[Level %d] *********** If False only *************" d);
             info (fun m -> m "[Level %d] *********** If (%d) ************" d l);
-            [ PathCondAtom (pc_false, r_false) ]
+            ([ PathCondAtom (pc_false, r_false) ], Set.union s0 s_false)
         | false, false ->
             info (fun m -> m "[Level %d] =========== If both  ============" d);
             info (fun m -> m "[Level %d] =========== If True ============" d);
             debug (fun m -> m "Evaluating: %a" Interpreter.Pp.pp_expr e_true);
-            let%bind r_true, _ =
-              analyze_aux d e_true sigma (Some pc_true) s0 v
+            let r_true, s_true =
+              analyze_aux_step d e_true sigma (Some pc_true) s0 v
             in
             info (fun m -> m "[Level %d] *********** If True *************" d);
             info (fun m -> m "[Level %d] =========== If False ============" d);
             debug (fun m -> m "Evaluating: %a" Interpreter.Pp.pp_expr e_false);
-            let%map r_false, _ =
-              analyze_aux d e_false sigma (Some pc_false) s0 v
+            let r_false, s_false =
+              analyze_aux_step d e_false sigma (Some pc_false) s0 v
             in
             info (fun m -> m "[Level %d] *********** If False *************" d);
             info (fun m -> m "[Level %d] *********** If both  *************" d);
             info (fun m -> m "[Level %d] *********** If (%d) ************" d l);
             let pc_false = PathCondAtom (pc_false, r_false) in
             let pc_true = PathCondAtom (pc_true, r_true) in
-            [ pc_true; pc_false ]
+            ([ pc_true; pc_false ], Set.union s0 (Set.union s_true s_false))
         | _ ->
             debug (fun m -> m "r_cond: %a" Utils.pp_res r_cond);
             raise Unreachable [@coverage off])
@@ -537,13 +715,13 @@ let rec analyze_aux d expr sigma pi s v =
         info (fun m ->
             m "[Level %d] =========== Binop (%a) ============" d
               Interpreter.Pp.pp_expr expr);
-        let%bind r1, s1 = analyze_aux d e1 sigma pi s v in
-        let%bind r2, s2 = analyze_aux d e2 sigma pi s1 v in
+        let r1, s1 = analyze_aux_step d e1 sigma pi s v in
+        let r2, s2 = analyze_aux_step d e2 sigma pi s1 v in
         debug (fun m ->
-            m "[Level %d] Evaluated binop to (%a, %a)" d Utils.pp_res r1
+            m "[Level %d] Evaluated binop to (%a <op> %a)" d Utils.pp_res r1
               Utils.pp_res r2);
         debug (fun m ->
-            m "[Level %d] Evaluated binop to (%a, %a)" d Grammar.pp_res r1
+            m "[Level %d] Evaluated binop to (%a <op> %a)" d Grammar.pp_res r1
               Grammar.pp_res r2);
         info (fun m ->
             m "[Level %d] *********** Binop (%a) ************" d
@@ -563,10 +741,10 @@ let rec analyze_aux d expr sigma pi s v =
               | Lt _ -> LtOp (r1, r2)
               | _ -> raise Unreachable [@coverage off]);
           ],
-          s )
+          Set.union s (Set.union s1 s2) )
     | Not e ->
         let d = d + 1 in
-        let%bind r, _ = analyze_aux d e sigma pi s v in
+        let r, s = analyze_aux_step d e sigma pi s v in
         ([ OpAtom (NotOp r) ], s)
     (* | Record entries ->
            let d = d + 1 in
@@ -575,54 +753,75 @@ let rec analyze_aux d expr sigma pi s v =
                RecordAtom
                  (entries
                  |> List.map ~f:(fun (x, ei) ->
-                        (x, analyze_aux d ei s pi s_set v_set))
+                        (x, analyze_aux_step' n e_glob d ei s pi s_set v_set))
                  |> List.filter_map ~f:(function
                       | _, None -> None
                       | x, Some r -> Some (x, r)));
              ]
        | Projection (e, x) ->
            let d = d + 1 in
-           let%map r0 = analyze_aux d e s pi s_set v_set in
+           let%map r0 = analyze_aux_step' n e_glob d e s pi s_set v_set in
            [ ProjectionAtom (r0, x) ]
        | Inspection (x, e) ->
            let d = d + 1 in
-           let%map r0 = analyze_aux d e s pi s_set v_set in
+           let%map r0 = analyze_aux_step' n e_glob d e s pi s_set v_set in
            [ InspectionAtom (x, r0) ] *)
     | LetAssert (id, e1, e2) ->
         let d = d + 1 in
-        let%bind r1, _ = analyze_aux d e1 sigma pi s v in
+        let r1, s1 = analyze_aux_step d e1 sigma pi s v in
         let r2 = eval_assert e2 id in
-        ([ AssertAtom (id, r1, r2) ], s)
+        ([ AssertAtom (id, r1, r2) ], s1)
     | Let _ -> raise Unreachable [@coverage off]
     | _ -> failwith "temp"
   in
-  (* (simplify r, s_set) *)
-  (r, s_set)
+  (* Hashtbl.remove cache cache_key;
+     Hashtbl.add_exn cache ~key:cache_key ~data:r; *)
+  (* (simplify r, s') *)
+  (* if exists_lone_stub v (Set.empty (module St)) r then
+     Logs.debug (fun m -> m "Lone stub in: %a" Grammar.pp_res r); *)
+  (r, s')
+
+and analyze_aux n e_glob d expr sigma pi s v =
+  debug (fun m -> m "[Level %d] [n = %d] Entered analyze_aux" d n);
+  let r, s' = analyze_aux_step d expr sigma pi s v in
+  debug (fun m -> m "[Level %d] After analyze_aux_step" d);
+  if Set.compare_direct s s' = 0 then (
+    debug_plain "S didn't change, finishing...";
+    (r, s') (* if n = 1 then (r, s') *))
+  else (
+    debug (fun m -> m "[Level %d] [n = %d] Restarting afresh" d n);
+    debug (fun m ->
+        m "[Level %d] S before evaluating e_glob:\n%s" d (show_set s'));
+    (* Hashtbl.clear cache; *)
+    let r, s' =
+      analyze_aux (n + 1) e_glob 0 e_glob [] None s' (Set.empty (module NewSt))
+    in
+    debug (fun m ->
+        m "[Level %d] S after evaluating e_glob:\n%s" d (show_set s'));
+    (* (simplify r, s') *)
+    (r, s'))
 
 let analyze ?(debug_mode = false) ?(verify = true) ?(test_num = 0) e =
   is_debug_mode := debug_mode;
 
   let e = transform_let e in
-  (* let e = trans_let None None e in *)
-  (* Format.printf "e: %a\n" Interpreter.Ast.pp_expr e; *)
   build_myfun e None;
   debug_plain "Program after subst";
-  (* Logs.info (fun m -> m "%a" Interpreter.Ast.pp_expr e); *)
-  let r, _ =
-    analyze_aux 0 e [] None (Set.empty (module SKey)) (Set.empty (module NewSt))
+
+  (* let r, s =
+       analyze_aux 0 e 0 e [] None
+         (Set.empty (module SKey))
+         (Set.empty (module NewSt))
+     in *)
+  let r, s =
+    analyze_aux_step 0 e [] None
+      (Set.empty (module SKey))
+      (Set.empty (module NewSt))
   in
-
-  (* Logs.info (fun m -> m "result: %a" Utils.pp_res r);
-     Logs.info (fun m -> m "result: %a" Grammar.pp_res r); *)
-  (* let r = simplify r in *)
-
-  (* Format.printf "result: %a\n" Utils.pp_res r; *)
-  (* Format.printf "result: %a\n" Grammar.pp_res r; *)
-  (* dot_of_result test_num r; *)
-
-  (* Format.printf "simplifiedresult: %a\n" Grammar.pp_res simplified_r; *)
-  debug (fun m -> m "simplified result: %a" Utils.pp_res r);
-  debug (fun m -> m "simplified result: %a" Grammar.pp_res r);
+  let r = simplify r in
+  dot_of_result test_num r;
+  debug (fun m -> m "Result: %a" Utils.pp_res r);
+  debug (fun m -> m "Result: %a" Grammar.pp_res r);
   (if !is_debug_mode then (
      Format.printf "\n%s\n\n" @@ show_expr e;
      Format.printf "****** Label Table ******\n";
@@ -636,9 +835,9 @@ let analyze ?(debug_mode = false) ?(verify = true) ?(test_num = 0) e =
 
   r
 
-(* TODO: DDE kinda similar to mCFA *)
-(* TODO: performance bottleneck with checking if two sets are same if we were to cache with S set. Zack's library to give unique id for a set *)
-(* TODO: fancy caching scheme to tell how to catch up (timestamped cache entries) *)
+(* DDE kinda similar to mCFA *)
+(* performance bottleneck with checking if two sets are same if we were to cache with S set. Zach's library to give unique id for a set *)
+(* fancy caching scheme to tell how to catch up (timestamped cache entries) *)
 
-(* TODO: make rules more clear *)
-(* TODO: what's the relationship between judgements holding: e and e1, x twice deep in e1 in Var Non-Local *)
+(* make rules more clear *)
+(* what's the relationship between judgements holding: e and e1, x twice deep in e1 in Var Non-Local *)
