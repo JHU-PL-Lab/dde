@@ -398,7 +398,13 @@ let dot_of_result ?(display_path_cond = true) test_num r =
                    add_edge aid (ida a');
                    dot_of_atom a' (Some a) cycles
                | _ -> failwith "unimplemented:395")
-           | _ -> raise Unreachable);
+           | [ LBoolAtom (b, _) ] ->
+               let a' = LBoolAtom (not b, get_next_label ()) in
+               add_edge aid (ida a');
+               dot_of_atom a' (Some a) cycles
+           | _ ->
+               Format.printf "%a\n" pp_lres r;
+               raise Unreachable);
         add_edge aid (idr r0);
         dot_of_res r0 (Some a) cycles;
         ( (* match p with

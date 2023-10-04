@@ -1,0 +1,27 @@
+(library
+ (name al_interp)
+ (public_name dde.al_interp)
+ (preprocess
+  (pps ppx_deriving.show ppx_jane))
+ (modules debugutils ast interp lexer parser pp)
+ (libraries core logs logs.fmt))
+
+(ocamllex
+ (modules lexer))
+
+(menhir
+ (modules parser))
+
+; (executable
+;  (name main)
+;  (modes byte)
+;  (modules main)
+;  (libraries interp))
+
+(toplevel
+ (name toplevel)
+ (libraries utop al_interp))
+
+; (alias
+;  (name distributables)
+;  (deps main.bc toplevel.exe))

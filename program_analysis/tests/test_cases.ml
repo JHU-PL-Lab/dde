@@ -1,3 +1,4 @@
+open Core
 open Program_analysis.Solver
 
 let ri = zconst "r" isort
@@ -8,11 +9,16 @@ type test_case = {
   verif : Z3.FuncDecl.func_decl -> Z3.Expr.expr;
 }
 
-let read_file file_name =
-  Core.In_channel.read_all
+let read_input file_name =
+  In_channel.read_all
     (Format.sprintf
-       "/Users/robertzhang/projects/research/dde/program_analysis/tests/progs/%s"
-       (* "%s" *)
+       "/Users/robertzhang/projects/research/dde/program_analysis/tests/inputs/%s"
+       file_name)
+
+let read_output file_name =
+  In_channel.read_all
+    (Format.sprintf
+       "/Users/robertzhang/projects/research/dde/program_analysis/tests/outputs/%s"
        file_name)
 
 let basic =
@@ -146,17 +152,17 @@ let adapted =
      let g = fun self -> fun n -> if n <= 1 then 1 else n * self self (n - 1) in\n\
      (id f) (id f) 3 + (id g) (id g) 4\n\
      in x >= 1";
-    read_file "blur.ml";
-    read_file "adapted3.ml";
-    read_file "mj09.ml";
-    read_file "kcfa2.ml";
-    read_file "kcfa3.ml";
-    read_file "ack.ml";
-    read_file "tak.ml";
-    read_file "cpstak.ml";
-    read_file "adapted4.ml";
-    read_file "adapted2.ml";
-    read_file "sat.ml";
+    read_input "blur.ml";
+    read_input "adapted3.ml";
+    read_input "mj09.ml";
+    read_input "kcfa2.ml";
+    read_input "kcfa3.ml";
+    read_input "ack.ml";
+    read_input "tak.ml";
+    read_input "cpstak.ml";
+    read_input "adapted4.ml";
+    read_input "adapted2.ml";
+    read_input "sat.ml";
   |]
 
 (** Church numerals *)

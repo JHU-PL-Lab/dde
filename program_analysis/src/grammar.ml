@@ -32,8 +32,8 @@ module NewSt = struct
       int
       * sigma
       * ((SKey.t, (SKey.comparator_witness[@compare.ignore])) Set.t
-        [@sexp.opaque] [@show.opaque])
-    [@@deriving compare, sexp]
+        [@sexp.opaque] [@show.opaque] [@hash.ignore])
+    [@@deriving compare, sexp, hash]
 
     let show_set s =
       s |> Set.to_list |> List.map ~f:show_sigma |> String.concat ~sep:", "
@@ -47,8 +47,8 @@ module NewSt = struct
       expr
       * sigma
       * ((SKey.t, (SKey.comparator_witness[@compare.ignore])) Set.t
-        [@sexp.opaque] [@show.opaque])
-    [@@deriving compare, sexp]
+        [@sexp.opaque] [@show.opaque] [@hash.ignore])
+    [@@deriving compare, sexp, hash]
 
     let show_estate (e, sigma, s) =
       Format.asprintf "(%a, %s, {%s})" Interpreter.Ast.pp_expr e
@@ -57,7 +57,7 @@ module NewSt = struct
     let pp_estate fmt est = Format.fprintf fmt "%s" (show_estate est)
 
     type t = Lstate of lstate | Estate of estate
-    [@@deriving compare, sexp, show { with_path = false }]
+    [@@deriving compare, sexp, show { with_path = false }, hash]
   end
 
   include T
@@ -66,13 +66,13 @@ end
 
 module Cache_key = struct
   module T = struct
-    (* type t = expr * sigma [@@deriving hash, sexp, compare] *)
-    type t =
-      expr
-      * sigma
-      * ((SKey.t, (SKey.comparator_witness[@compare.ignore])) Set.t
-        [@sexp.opaque])
-    [@@deriving compare, sexp]
+    type t = expr * sigma [@@deriving hash, sexp, compare]
+    (* type t =
+         expr
+         * sigma
+         * ((SKey.t, (SKey.comparator_witness[@compare.ignore])) Set.t
+           [@sexp.opaque])
+       [@@deriving compare, sexp] *)
 
     let hash = Hashtbl.hash
   end
