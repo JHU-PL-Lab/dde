@@ -183,21 +183,20 @@ let rec fold_res_var ~init ~f expr sigma d r =
 
 let rec exists_lone_stub v v' =
   List.exists ~f:(function
-    | LabelStubAtom st ->
+    | LabelStubAtom ((l, sigma) as st) ->
         (not
            (Set.exists v ~f:(function
              (* TODO: remove sigma *)
-             | St.Lstate st' -> St.compare_lstate st st' = 0
+             | NewSt.Lstate (l', sigma', _) -> Stdlib.(l = l' && sigma = sigma')
              | _ -> false)))
         && not (Set.mem v' (St.Lstate st))
-    | ExprStubAtom st ->
+    | ExprStubAtom ((e, sigma) as st) ->
         (not
            (Set.exists v ~f:(function
-             | St.Estate st' -> St.compare_estate st st' = 0
+             | NewSt.Estate (e', sigma', _) -> Stdlib.(e = e' && sigma = sigma')
              | _ -> false)))
         && not (Set.mem v' (St.Estate st))
-    | LabelResAtom (r, st) ->
-        exists_lone_stub v (Set.add v' (St.Lstate st)) r
+    | LabelResAtom (r, st) -> exists_lone_stub v (Set.add v' (St.Lstate st)) r
     | ExprResAtom (r, st) -> exists_lone_stub v (Set.add v' (St.Estate st)) r
     | OpAtom op -> (
         match op with
@@ -215,19 +214,19 @@ let rec exists_lone_stub v v' =
         | NotOp r -> exists_lone_stub v v' r)
     | _ -> false)
 
-(* let cache = Hashtbl.create (module Cache_key) *)
+let cache = Hashtbl.create (module Cache_key)
 
 let rec analyze_aux_step d expr sigma pi s v =
   (* TODO: prepass to do record simplifications *)
-  (* let cache_key = (expr, sigma) in
+  let cache_key = (expr, sigma) in
   let found = Hashtbl.find cache cache_key in
   match found with
-  | Some r when not (exists_lone_stub v (Set.empty (module NewSt)) r) ->
+  | Some r when not (exists_lone_stub v (Set.empty (module St)) r) ->
       debug (fun m -> m "cache hit: %a" pp_res r);
       (* debug (fun m -> m "cache hit: %a" Grammar.pp_res r); *)
       (r, s)
   | _ ->
-      if Option.is_some found then debug (fun m -> m "[Level %d] yo" d); *)
+      if Option.is_some found then debug (fun m -> m "[Level %d] yo" d);
       if d > !max_d then max_d := d;
       debug_plain "Began recursive call to execution";
       debug (fun m -> m "Max depth so far is: %d" !max_d);
@@ -368,6 +367,7 @@ let rec analyze_aux_step d expr sigma pi s v =
                    if List.is_empty nonstubs then stubs
                    else LabelResAtom (nonstubs, (l, sigma)) :: stubs
                  in *)
+              (* TODO: return nothing *)
               let r2 = [ LabelResAtom (r2, (l, sigma)) ] in
               (* debug (fun m -> m "[Appl] Result: %a" pp_res r2);
                  debug (fun m -> m "[Appl] Result: %a" Grammar.pp_res r2); *)
@@ -456,8 +456,7 @@ let rec analyze_aux_step d expr sigma pi s v =
                         let r1 =
                           r1 |> partition_stubs |> fun (stubs, nonstubs) ->
                           if List.is_empty nonstubs then stubs
-                          else
-                            ExprResAtom (nonstubs, (expr, sigma)) :: stubs
+                          else ExprResAtom (nonstubs, (expr, sigma)) :: stubs
                         in
                         (* let r1 =
                              [ ExprResAtom (r1, (expr, sigma)) ]
@@ -638,10 +637,10 @@ let rec analyze_aux_step d expr sigma pi s v =
               | _ -> raise Unreachable [@coverage off])
         | If (e, e_true, e_false, l) -> (
             let d = d + 1 in
-            (* let%bind r_true, _ = analyze_aux_step' n e_glob d e_true sigma None s v in
+            (* let r_true, s_true = analyze_aux_step d e_true sigma None s v in
                info (fun m -> m "Evaluating: %a" Interpreter.Pp.pp_expr e_false);
-               let%bind r_false, _ = analyze_aux_step' n e_glob d e_false sigma None s v in
-               (r_true @ r_false, s) *)
+               let r_false, s_false = analyze_aux_step d e_false sigma None s v in
+               (r_true @ r_false, Set.union s (Set.union s_true s_false)) *)
             (* TODO: utilize full power of path conditions *)
             info (fun m -> m "[Level %d] =========== If (%d) ============" d l);
             let r_cond, s0 = analyze_aux_step d e sigma pi s v in
@@ -682,7 +681,7 @@ let rec analyze_aux_step d expr sigma pi s v =
                 info (fun m ->
                     m "[Level %d] *********** If (%d) ************" d l);
                 ([ PathCondAtom (pc_false, r_false) ], Set.union s0 s_false)
-            | false, false ->
+            | _ ->
                 info (fun m ->
                     m "[Level %d] =========== If both  ============" d);
                 info (fun m ->
@@ -710,9 +709,9 @@ let rec analyze_aux_step d expr sigma pi s v =
                 let pc_false = PathCondAtom (pc_false, r_false) in
                 let pc_true = PathCondAtom (pc_true, r_true) in
                 ([ pc_true; pc_false ], Set.union s0 (Set.union s_true s_false))
-            | _ ->
+            (* | _ ->
                 debug (fun m -> m "r_cond: %a" Utils.pp_res r_cond);
-                raise Unreachable [@coverage off])
+                raise Unreachable [@coverage off]) *))
         | Plus (e1, e2)
         | Minus (e1, e2)
         | Mult (e1, e2)
@@ -741,7 +740,9 @@ let rec analyze_aux_step d expr sigma pi s v =
             ( [
                 OpAtom
                   (match expr with
-                  | Plus _ -> PlusOp (r1, r2)
+                  | Plus _ ->
+                      (* TODO: return Int *)
+                      PlusOp (r1, r2)
                   | Minus _ -> MinusOp (r1, r2)
                   | Mult _ -> MultOp (r1, r2)
                   | Equal _ -> EqualOp (r1, r2)
@@ -786,8 +787,8 @@ let rec analyze_aux_step d expr sigma pi s v =
         | Let _ -> raise Unreachable [@coverage off]
         | _ -> failwith "temp"
       in
-      (* Hashtbl.remove cache cache_key;
-      Hashtbl.add_exn cache ~key:cache_key ~data:r; *)
+      Hashtbl.remove cache cache_key;
+      Hashtbl.add_exn cache ~key:cache_key ~data:r;
       (* (simplify r, s') *)
       (* if exists_lone_stub v (Set.empty (module St)) r then
          Logs.debug (fun m -> m "Lone stub in: %a" Grammar.pp_res r); *)
@@ -804,7 +805,7 @@ and analyze_aux n e_glob d expr sigma pi s v =
     debug (fun m -> m "[Level %d] [n = %d] Restarting afresh" d n);
     debug (fun m ->
         m "[Level %d] S before evaluating e_glob:\n%s" d (show_set s'));
-    (* Hashtbl.clear cache; *)
+    Hashtbl.clear cache;
     let r, s' =
       analyze_aux (n + 1) e_glob 0 e_glob [] None s' (Set.empty (module NewSt))
     in
@@ -820,16 +821,16 @@ let analyze ?(debug_mode = false) ?(verify = true) ?(test_num = 0) e =
   build_myfun e None;
   debug_plain "Program after subst";
 
-  (* let r, s =
+  let r, s =
     analyze_aux 0 e 0 e [] None
       (Set.empty (module SKey))
       (Set.empty (module NewSt))
-  in *)
-  let r, s =
+  in
+  (* let r, s =
        analyze_aux_step 0 e [] None
          (Set.empty (module SKey))
          (Set.empty (module NewSt))
-     in
+     in *)
   (* let r = simplify r in *)
   dot_of_result test_num r;
   debug (fun m -> m "Result: %a" Utils.pp_res r);

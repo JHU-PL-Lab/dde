@@ -14,7 +14,9 @@ rule token = parse
     {token lexbuf} (* Ignore comments *)
 | blank+               { token lexbuf }
 | "and"                { AND }
+| "&&"                 { AND }
 | "or"                 { OR }
+| "||"                 { OR }
 | "not"                { NOT }
 | "fun"                { FUNCTION }
 | "function"           { FUNCTION }

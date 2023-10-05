@@ -1,2 +1,9 @@
-let do_something = 10 in
-let id y = do_something y
+letassert x =
+let do_something = fun _ -> 10 in
+let id = (fun y ->
+  let _ = do_something (-1) in
+  y) in
+
+let _ = (id (fun a -> a)) true in
+(id (fun b -> b)) false
+in not x

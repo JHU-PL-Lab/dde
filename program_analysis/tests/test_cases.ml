@@ -146,23 +146,19 @@ let recursion =
 
 let adapted =
   [|
-    "letassert x =\n\
-     let id = (fun x -> x) in\n\
-     let f = fun self -> fun n -> if n <= 1 then 1 else n * self self (n - 1) in\n\
-     let g = fun self -> fun n -> if n <= 1 then 1 else n * self self (n - 1) in\n\
-     (id f) (id f) 3 + (id g) (id g) 4\n\
-     in x >= 1";
+    read_input "facehugger.ml";
     read_input "blur.ml";
-    read_input "adapted3.ml";
     read_input "mj09.ml";
     read_input "kcfa2.ml";
     read_input "kcfa3.ml";
     read_input "ack.ml";
     read_input "tak.ml";
     read_input "cpstak.ml";
-    read_input "adapted4.ml";
-    read_input "adapted2.ml";
+    read_input "loop2.ml";
+    read_input "loop2'.ml";
     read_input "sat.ml";
+    read_input "sat-3.ml";
+    read_input "eta.ml";
   |]
 
 (** Church numerals *)

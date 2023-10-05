@@ -108,3 +108,5 @@ let eval expr =
   let e = assign_depth expr in
   (* Format.printf "%a\n" pp_expr e; *)
   eval e ALNil
+
+(* TODO: compare performance of interpreters *)
