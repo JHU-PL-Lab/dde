@@ -1,0 +1,7 @@
+(library
+ (name pa_reworked)
+ (public_name dde.pa_reworked)
+ (preprocess
+  (pps ppx_deriving.show ppx_let ppx_jane))
+ (modules lib grammar solver simplifier utils debugutils)
+ (libraries dde.interpreter hashset core z3 logs logs.fmt))

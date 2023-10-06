@@ -13,7 +13,9 @@ Before building the project, opam install `fbdk` so that it is visible to this
 project:
 
 ```sh
-opam install <path-to-local-fbdk-dist>
+cd <path-to-fbdk-repo>
+git checkout fbenv # checkout to the fbenv branch
+opam install .
 ```
 
 Then `dune build`.

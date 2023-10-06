@@ -1,0 +1,9 @@
+digraph G {
+node [fontname="Monospace"]
+edge [fontname="Monospace"]
+P1 [label="Assert"];
+P3 [label="-1"];
+
+
+P1 -> P3 
+}

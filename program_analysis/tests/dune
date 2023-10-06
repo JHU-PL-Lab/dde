@@ -7,6 +7,7 @@
   core_unix.command_unix
   dde.interpreter
   dde.program_analysis
+  dde.pa_reworked
   fbdk.fb
   ounit2))
 
