@@ -226,7 +226,8 @@ let rec analyze_aux_step d expr sigma pi s v =
       (* debug (fun m -> m "cache hit: %a" Grammar.pp_res r); *)
       (r, s)
   | _ ->
-      if Option.is_some found then debug (fun m -> m "[Level %d] yo" d);
+      if Option.is_some found then
+        debug (fun m -> m "[Level %d] Cache hit but lone stub" d);
       if d > !max_d then max_d := d;
       debug_plain "Began recursive call to execution";
       debug (fun m -> m "Max depth so far is: %d" !max_d);

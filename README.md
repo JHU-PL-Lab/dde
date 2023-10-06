@@ -9,27 +9,27 @@ This repo contains a [concrete](./interpreter) and an
 
 ## Set up
 
-Before building the project, opam install `fbdk` so that it is visible to this
-project:
+Before building the project, install `fbdk` locally so that it is visible to
+this project:
 
 ```sh
-cd <path-to-fbdk-repo>
-git checkout fbenv # checkout to the fbenv branch
+cd PATH_TO_FbDK_REPO
+git checkout fbenv # checkout to the fbenv branch first
 opam install .
 ```
 
-Then `dune build`.
+Then `dune build` this project.
 
 ## Develop
 
 ### utop
 
 `dune utop` to start an interactive environment with all libraries loaded.
-Or, `dune utop <interpreter/program_analysis>` to load either the concrete or
-the abstract interpreter.
+Or, `dune utop interpreter`, `dune utop program_analysis`, `dune utop
+interpreter/access_links` to run each separately.
 
 ```ocaml
-open Program_analysis;; (* first if only working with program analysis *)
+open Interpreter;; (* first if only working with program analysis *)
 
 open Debugutils;; (* to simplify calling utility functions such as `peu` *)
 

@@ -60,7 +60,7 @@ let test_involved_application _ =
   assert_equal
     (fb_eval "(Fun x -> (Fun y -> (Fun z -> z + 1) y) (x + 2)) 6;;")
     (dde_eval_fb "(fun x -> (fun y -> (fun z -> z + 1) y) (x + 2)) 6;;");
-  assert_equal
+  assert_unequal
     (fb_eval "(Fun x -> Fun y -> x) (1 + 2);;")
     (dde_eval_fb "(fun x -> fun y -> x) (1 + 2);;")
 

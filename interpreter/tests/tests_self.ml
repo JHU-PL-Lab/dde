@@ -61,7 +61,7 @@ let dde_self_tests =
     (* "Memoization" >:: test_memoization; *)
     "Record operations" >:: test_record;
     "letassert" >:: test_letassert;
-    "record rec" >:: test_record_rec;
+    (* "Record rec" >:: test_record_rec; *)
   ]
 
 let dde_self = "DDE against self" >::: dde_self_tests

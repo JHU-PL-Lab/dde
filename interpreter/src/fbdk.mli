@@ -101,7 +101,11 @@ end
 
 module Interpreter : sig
   val eval :
-    Ast.expr -> is_debug_mode:bool -> should_simplify:bool -> Ast.result_value
+    ?should_cache:bool ->
+    is_debug_mode:bool ->
+    should_simplify:bool ->
+    Ast.expr ->
+    Ast.result_value
 end
 
 module Pp : sig

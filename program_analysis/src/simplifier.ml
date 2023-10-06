@@ -321,7 +321,7 @@ let rec simplify ?(cycles = Map.empty (module St)) r =
                     match r with
                     | [ RecordAtom entries; ExprStubAtom _ ] ->
                         Logs.info (fun m -> m "%a" pp_res r);
-                        failwith "yo"
+                        failwith "unimplemented"
                     | _ -> ProjectionAtom (simplify  r ~cycles, x))
                 | _ ->
                     (* Map.iteri cycles ~f:(fun ~key:(st, _) ~data ->

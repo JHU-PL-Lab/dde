@@ -23,7 +23,7 @@ let rec pp_expr fmt = function
         e1
         (paren_if is_compound_expr pp_expr)
         e2
-  | _ -> failwith "ayo"
+  | _ -> failwith "unimplemented"
 
 let rec pp_res fmt = function
   | ALIntRes i -> ff fmt "%d" i
