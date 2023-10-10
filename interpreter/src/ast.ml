@@ -289,4 +289,15 @@ let rec transform_let e =
       let e2' = transform_let e2 in
       let e3' = transform_let e3 in
       If (e1', e2', e3', l)
+  | Plus (e1, e2) -> Plus (transform_let e1, transform_let e2)
+  | Minus (e1, e2) -> Minus (transform_let e1, transform_let e2)
+  | Mult (e1, e2) -> Mult (transform_let e1, transform_let e2)
+  | Equal (e1, e2) -> Equal (transform_let e1, transform_let e2)
+  | Ge (e1, e2) -> Ge (transform_let e1, transform_let e2)
+  | Gt (e1, e2) -> Gt (transform_let e1, transform_let e2)
+  | Le (e1, e2) -> Le (transform_let e1, transform_let e2)
+  | Lt (e1, e2) -> Lt (transform_let e1, transform_let e2)
+  | And (e1, e2) -> And (transform_let e1, transform_let e2)
+  | Or (e1, e2) -> Or (transform_let e1, transform_let e2)
+  | Not e -> Not (transform_let e)
   | _ -> e

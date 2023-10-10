@@ -26,7 +26,7 @@ let all_combs l1 l2 =
 let ff = Format.fprintf
 
 let rec pp_atom fmt = function
-  | IntAll -> ff fmt "Int"
+  | IntAllAtom -> ff fmt "Int"
   | IntAtom i -> ff fmt "%d" i
   | BoolAtom b -> ff fmt "%b" b
   | FunAtom (f, _, _) -> Interpreter.Pp.pp_expr fmt f
@@ -60,6 +60,8 @@ let rec pp_atom fmt = function
         l *)
   (* | PathCondAtom (_, r) -> ff fmt "%a" pp_res r *)
   (* | PathCondAtom ((r, b), r') -> ff fmt "(%a = %b ⊩ %a)" pp_res r b pp_res r' *)
+  | LabelStubAtom _ -> ff fmt "stub"
+  | ExprStubAtom _ -> ff fmt "stub"
   | RecordAtom entries ->
       ff fmt
         (if List.length entries = 0 then "{%a}" else "{ %a }")
@@ -212,7 +214,7 @@ let add_edge hd tl =
   | None -> Hashtbl.add_exn edges ~key:hd ~data:(String.Set.singleton tl)
   | Some tls ->
       Hashtbl.remove edges hd;
-      Hashtbl.add_exn edges ~key:hd ~data:(String.Set.add tls tl)
+      Hashtbl.add_exn edges ~key:hd ~data:(Set.add tls tl)
 
 let remove_edge hd tl =
   match Hashtbl.find edges hd with
@@ -226,7 +228,7 @@ let add_sibling p n =
   | None -> Hashtbl.add_exn siblings ~key:p ~data:(String.Set.singleton n)
   | Some ns ->
       Hashtbl.remove siblings p;
-      Hashtbl.add_exn siblings ~key:p ~data:(String.Set.add ns n)
+      Hashtbl.add_exn siblings ~key:p ~data:(Set.add ns n)
 
 let remove_sibling p n =
   match Hashtbl.find siblings p with
@@ -241,7 +243,7 @@ let add_edge_prop e (k, v) =
   | None -> Hashtbl.add_exn edge_props ~key:e ~data:(String.Set.singleton p)
   | Some ps ->
       Hashtbl.remove edge_props e;
-      Hashtbl.add_exn edge_props ~key:e ~data:(String.Set.add ps p)
+      Hashtbl.add_exn edge_props ~key:e ~data:(Set.add ps p)
 
 let op_symbol = function
   | LPlusOp _ -> "+"
@@ -264,7 +266,7 @@ let get_next_label () =
 
 let rec label_prim =
   List.map ~f:(function
-    | IntAll -> LIntAtom (-1, get_next_label ())
+    | IntAllAtom -> LIntAtom (-1, get_next_label ())
     | IntAtom i -> LIntAtom (i, get_next_label ())
     | BoolAtom b -> LBoolAtom (b, get_next_label ())
     | FunAtom (e, l, s) -> LFunAtom (e, l, s)
@@ -498,7 +500,7 @@ let dot_of_result ?(display_path_cond = true) test_num r =
   in
   let edges_str =
     Hashtbl.fold edges ~init:"" ~f:(fun ~key ~data acc ->
-        String.Set.fold data ~init:acc ~f:(fun acc n ->
+        Set.fold data ~init:acc ~f:(fun acc n ->
             let id = Format.sprintf "%s_%s" key n in
             let props =
               match Hashtbl.find edge_props id with

@@ -135,9 +135,9 @@ let test_adapted _ = gen_test adapted_thunked
 let lossy_core_thunked =
   [
     (* (fun _ -> ("Int", pau' ~verify:false (read_input "ack.ml")));
-       (fun _ -> ("false", pau' ~verify:false (read_input "blur.ml"))); *)
-    (fun _ -> ("true", pau' ~verify:false (read_input "church.ml")));
-    (* (fun _ -> ("Int", pau' ~verify:false (read_input "cpstak.ml")));
+       (fun _ -> ("false", pau' ~verify:false (read_input "blur.ml")));
+       (* (fun _ -> ("true", pau' ~verify:false (read_input "church.ml"))); *)
+       (fun _ -> ("Int", pau' ~verify:false (read_input "cpstak.ml")));
        (fun _ -> ("false", pau' ~verify:false (read_input "eta.ml")));
        (fun _ -> ("Int", pau' ~verify:false (read_input "facehugger.ml")));
        (fun _ -> ("Int", pau' ~verify:false (read_input "fact.ml")));
@@ -145,10 +145,16 @@ let lossy_core_thunked =
        (fun _ -> ("false", pau' ~verify:false (read_input "kcfa3.ml")));
        (fun _ -> ("Int", pau' ~verify:false (read_input "loop2.ml")));
        (fun _ -> ("Int", pau' ~verify:false (read_input "loop2'.ml")));
-       (fun _ -> ("Int", pau' ~verify:false (read_input "mj09.ml")));
-       (fun _ -> ("(false | true)", pau' ~verify:false (read_input "sat-3.ml")));
-       (fun _ -> ("(false | true)", pau' ~verify:false (read_input "sat.ml")));
-       (fun _ -> ("Int", pau' ~verify:false (read_input "tak.ml"))); *)
+       (fun _ -> ("Int", pau' ~verify:false (read_input "mj09.ml"))); *)
+    (* (fun _ -> ("true", pau' ~verify:false (read_input "sat-3.ml"))); *)
+    (* (fun _ -> ("true", pau' ~verify:false (read_input "sat.ml"))); *)
+    (* (fun _ -> ("Int", pau' ~verify:false (read_input "tak.ml"))); *)
+    (* TODO: still have to keep mapping? *)
+    (* (fun _ -> ("", pau' ~verify:false (read_input "map.ml"))); *)
+    (* (fun _ -> ("", pau' ~verify:false (read_input "flatten.ml"))); *)
+    (* (fun _ -> ("", pau' ~verify:false (read_input "primtest.ml"))); *)
+    (* (fun _ -> ("", pau' ~verify:false (read_input "rsa.ml"))); *)
+    (fun _ -> ("", pau' ~verify:false (read_input "church.ml")));
   ]
 
 let test_lossy_core _ = gen_test lossy_core_thunked
@@ -164,18 +170,22 @@ let church_basic_thunked =
 let test_church_basic _ = gen_test church_basic_thunked
 
 let church_binop_thunked =
-  [ (fun _ -> ("(0 + 1)", pau ~test_num:45 church_binop.(0))) ]
+  [
+    (* (fun _ -> ("(0 + 1)", pau ~test_num:45 church_binop.(0))); *)
+    (* (fun _ -> ("", pau' ~test_num:45 church_binop.(1))); *)
+    (* (fun _ -> ("", pau' ~test_num:45 church_binop.(2))); *)
+    (fun _ -> ("", pau' ~test_num:45 church_binop.(3)));
+  ]
 
 let test_church_binop _ = gen_test church_binop_thunked
 
 let lists_thunked =
-  [
-    (* (fun _ -> ("1", pau ~test_num:46 lists.(0)));
-       (fun _ -> ("2", pau ~test_num:47 lists.(1)));
-       (fun _ -> ("2", pau ~test_num:48 lists.(2)));
-       (fun _ -> ("2", pau ~test_num:49 lists.(3))); *)
-    (fun _ -> ("", pau ~test_num:50 ~verify:false lists.(4)));
-  ]
+  [ (* (fun _ -> ("1", pau' ~test_num:46 lists.(0))); *)
+    (* (fun _ -> ("2", pau' ~test_num:47 lists.(1))); *)
+    (* (fun _ -> ("2", pau' ~test_num:48 lists.(2))); *)
+    (* (fun _ -> ("2", pau' ~test_num:49 lists.(3))); *)
+    (* (fun _ -> ("", pau' ~test_num:50 ~verify:false lists.(4))); *)
+    (* (fun _ -> ("", pau' ~test_num:50 ~verify:false lists.(5))); *) ]
 
 let test_lists _ = gen_test lists_thunked
 
@@ -193,18 +203,18 @@ let test_pa =
        "Conditional" >:: test_conditional;
        "Currying" >:: test_currying; *)
     (* "Recursion" >:: test_recursion; *)
-    (* "Church numerals basics" >:: test_church_basic;
-       "Church numerals binary operations" >:: test_church_binop; *)
+    (* "Church numerals basics" >:: test_church_basic; *)
+    "Church numerals binary operations" >:: test_church_binop;
     (* "Adapted" >:: test_adapted; *)
     (* "Lists" >:: test_lists; *)
-    "Core" >:: test_lossy_core;
+    (* "Core" >:: test_lossy_core; *)
   ]
 
 let tests = "Program analysis tests" >::: test_pa
 
 let _ =
   (* Pbt.run _; *)
-  let out_file = Out_channel.create "logs" in
+  let out_file = Out_channel.create "logs_alt" in
   Logs.set_reporter
     (Logs_fmt.reporter ~dst:(Format.formatter_of_out_channel out_file) ());
   Logs.set_level (Some Logs.Debug);

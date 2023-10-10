@@ -2,6 +2,8 @@ open Core
 open Interpreter.Ast
 open Grammar
 
+exception Unreachable
+
 let pf = Format.printf
 let pfl = pf "%s\n"
 let prune_sigma ?(k = 2) s = List.filteri s ~f:(fun i _ -> i < k)
@@ -211,7 +213,7 @@ let add_edge hd tl =
   | None -> Hashtbl.add_exn edges ~key:hd ~data:(String.Set.singleton tl)
   | Some tls ->
       Hashtbl.remove edges hd;
-      Hashtbl.add_exn edges ~key:hd ~data:(String.Set.add tls tl)
+      Hashtbl.add_exn edges ~key:hd ~data:(Set.add tls tl)
 
 let remove_edge hd tl =
   match Hashtbl.find edges hd with
@@ -225,7 +227,7 @@ let add_sibling p n =
   | None -> Hashtbl.add_exn siblings ~key:p ~data:(String.Set.singleton n)
   | Some ns ->
       Hashtbl.remove siblings p;
-      Hashtbl.add_exn siblings ~key:p ~data:(String.Set.add ns n)
+      Hashtbl.add_exn siblings ~key:p ~data:(Set.add ns n)
 
 let remove_sibling p n =
   match Hashtbl.find siblings p with
@@ -240,7 +242,7 @@ let add_edge_prop e (k, v) =
   | None -> Hashtbl.add_exn edge_props ~key:e ~data:(String.Set.singleton p)
   | Some ps ->
       Hashtbl.remove edge_props e;
-      Hashtbl.add_exn edge_props ~key:e ~data:(String.Set.add ps p)
+      Hashtbl.add_exn edge_props ~key:e ~data:(Set.add ps p)
 
 let op_symbol = function
   | LPlusOp _ -> "+"
@@ -496,7 +498,7 @@ let dot_of_result ?(display_path_cond = true) test_num r =
   in
   let edges_str =
     Hashtbl.fold edges ~init:"" ~f:(fun ~key ~data acc ->
-        String.Set.fold data ~init:acc ~f:(fun acc n ->
+        Set.fold data ~init:acc ~f:(fun acc n ->
             let id = Format.sprintf "%s_%s" key n in
             let props =
               match Hashtbl.find edge_props id with

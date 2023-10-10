@@ -49,13 +49,11 @@ let build_let id e1 e2 = ALApp (ALFun (id, e2), e1)
 let rec assign_depth ?(d = 0) ?(m = String.Map.empty) e =
   match e with
   | ALInt _ | ALBool _ -> e
-  | ALVar ((Ident x as id), _) -> ALVar (id, d - String.Map.find_exn m x)
+  | ALVar ((Ident x as id), _) -> ALVar (id, d - Map.find_exn m x)
   | ALFun ((Ident x as id), e) ->
       let d = d + 1 in
       ALFun
-        ( id,
-          assign_depth e ~d
-            ~m:(String.Map.add_exn (String.Map.remove m x) ~key:x ~data:d) )
+        (id, assign_depth e ~d ~m:(Map.add_exn (Map.remove m x) ~key:x ~data:d))
   | ALApp (e1, e2) -> ALApp (assign_depth e1 ~d ~m, assign_depth e2 ~d ~m)
   | ALPlus (e1, e2) -> ALPlus (assign_depth e1 ~d ~m, assign_depth e2 ~d ~m)
   | ALMinus (e1, e2) -> ALMinus (assign_depth e1 ~d ~m, assign_depth e2 ~d ~m)

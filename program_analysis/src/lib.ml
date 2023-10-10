@@ -759,33 +759,32 @@ let rec analyze_aux_step d expr sigma pi s v =
             let d = d + 1 in
             let r, s = analyze_aux_step d e sigma pi s v in
             ([ OpAtom (NotOp r) ], s)
-        (* | Record entries ->
-               let d = d + 1 in
-               Some
-                 [
-                   RecordAtom
-                     (entries
-                     |> List.map ~f:(fun (x, ei) ->
-                            (x, analyze_aux_step' n e_glob d ei s pi s_set v_set))
-                     |> List.filter_map ~f:(function
-                          | _, None -> None
-                          | x, Some r -> Some (x, r)));
-                 ]
-           | Projection (e, x) ->
-               let d = d + 1 in
-               let%map r0 = analyze_aux_step' n e_glob d e s pi s_set v_set in
-               [ ProjectionAtom (r0, x) ]
-           | Inspection (x, e) ->
-               let d = d + 1 in
-               let%map r0 = analyze_aux_step' n e_glob d e s pi s_set v_set in
-               [ InspectionAtom (x, r0) ] *)
+        | Record entries ->
+            let d = d + 1 in
+            ( [
+                RecordAtom
+                  (entries
+                  |> List.map ~f:(fun (x, ei) ->
+                         ( x,
+                           (* TODO *)
+                           let r, _ = analyze_aux_step d ei sigma pi s v in
+                           r )));
+              ],
+              s )
+        | Projection (e, x) ->
+            let d = d + 1 in
+            let r0, s0 = analyze_aux_step d e sigma pi s v in
+            ([ ProjectionAtom (r0, x) ], s0)
+        | Inspection (x, e) ->
+            let d = d + 1 in
+            let r0, s0 = analyze_aux_step d e sigma pi s v in
+            ([ InspectionAtom (x, r0) ], s0)
         | LetAssert (id, e1, e2) ->
             let d = d + 1 in
             let r1, s1 = analyze_aux_step d e1 sigma pi s v in
             let r2 = eval_assert e2 id in
             ([ AssertAtom (id, r1, r2) ], s1)
         | Let _ -> raise Unreachable [@coverage off]
-        | _ -> failwith "temp"
       in
       Hashtbl.remove cache cache_key;
       Hashtbl.add_exn cache ~key:cache_key ~data:r;
@@ -832,7 +831,7 @@ let analyze ?(debug_mode = false) ?(verify = true) ?(test_num = 0) e =
          (Set.empty (module NewSt))
      in *)
   (* let r = simplify r in *)
-  dot_of_result test_num r;
+  (* dot_of_result test_num r; *)
   debug (fun m -> m "Result: %a" Utils.pp_res r);
   debug (fun m -> m "Result: %a" Grammar.pp_res r);
   (if !is_debug_mode then (

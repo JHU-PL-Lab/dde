@@ -164,10 +164,14 @@ let adapted =
 (** Church numerals *)
 let zero = "(fun f -> fun x -> x)"
 
+let church0 = "(fun f0 -> fun x0 -> x0)"
+let church1 = "(fun f1 -> fun x1 -> f1 x1)"
+let church2 = "(fun f2 -> fun x2 -> f2 (f2 x2))"
+let church3 = "(fun f3 -> fun x3 -> f3 (f3 (f3 x3)))"
 let one = "(fun f -> f)"
 let succ = "(fun c -> fun f -> fun x -> f (c f x))"
-let add = "(fun m -> fun n -> fun f -> fun x -> m f (n f x))"
-let mul = "(fun m -> fun n -> fun f -> fun x -> m (n f) x)"
+let plus = "(fun m -> fun n -> fun f -> fun x -> m f (n f x))"
+let mult = "(fun m -> fun n -> fun f -> m (n f))"
 let unchurch = "(fun f -> f (function x -> x + 1) 0)"
 
 let church n =
@@ -185,13 +189,22 @@ let church_basic =
   |]
 
 let church_binop =
-  [| "letassert x = " ^ unchurch ^ "(" ^ add ^ zero ^ one ^ ") in x = 1" |]
+  [|
+    "letassert x = " ^ unchurch ^ "(" ^ plus ^ zero ^ one ^ ") in x = 1";
+    Format.sprintf "(%s (%s (%s %s %s) (%s %s %s))) = 9" unchurch mult succ succ
+      one succ succ one;
+    Format.sprintf "%s (%s %s (%s %s %s))" unchurch mult church2 plus church1
+      church3;
+    Format.sprintf "%s (%s %s (%s %s %s)) = %s (%s (%s %s %s) (%s %s %s))"
+      unchurch mult church2 plus church1 church3 unchurch plus mult church2
+      church1 mult church2 church3;
+  |]
 
 let list_cons = "(fun x -> fun ls -> { hd = x; tl = ls })"
 
 let list_incr =
-  "let incr = fun self -> fun ls -> { hd = ls.hd + 1; tl = if hd in ls.tl then \
-   self self (ls.tl) else {} } in incr incr"
+  "let incr = fun self -> fun ls -> { hd = (ls.hd) + 1; tl = if hd in (ls.tl) \
+   then self self (ls.tl) else {} } in incr incr"
 
 let incr_cell =
   "let incr = fun self -> fun ls -> fun n -> if n = 0 then ls else self self \
@@ -201,7 +214,7 @@ let incr_cell =
    (hd in (({ hd = 4; tl = {} } | (({ hd = 3; tl = { hd = 4; tl = {} } } | (stub.tl)).tl)).tl))
    tl.hd | tl.tl.hd *)
 
-(* TODO: count number of projs and unroll that number of time *)
+(* TODO: count number of projs and unroll that number of times *)
 let lists =
   [|
     "letassert x = (" ^ list_cons ^ " 1 ({})).hd" ^ " in x = 1";
@@ -217,9 +230,9 @@ let lists =
     list_incr
     ^ " ({ hd = 1; tl = { hd = 2; tl = { hd = 3; tl = { hd = 4; tl = {} } } } \
        })";
-    (* list_incr
-       ^ " ({ hd = 1; tl = { hd = 2; tl = { hd = 3; tl = { hd = 4; tl = { hd = 5; \
-          tl = {} } } } } })"; *)
+    list_incr
+    ^ " ({ hd = 1; tl = { hd = 2; tl = { hd = 3; tl = { hd = 4; tl = { hd = 5; \
+       tl = {} } } } } })";
   |]
 
 (* TODO: test runtime exceptions *)

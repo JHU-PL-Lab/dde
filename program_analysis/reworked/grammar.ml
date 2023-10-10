@@ -66,7 +66,7 @@ end
 
 module Cache_key = struct
   module T = struct
-    type t = expr * sigma [@@deriving hash, sexp, compare]
+    type t = expr * sigma * int [@@deriving hash, sexp, compare]
     (* type t =
          expr
          * sigma
@@ -85,10 +85,12 @@ open Core
 open Interpreter.Ast
 
 type atom =
-  | IntAll
+  | IntAllAtom
   | IntAtom of int
   | BoolAtom of bool
   | FunAtom of expr * int * sigma
+  | LabelStubAtom of (int * sigma)
+  | ExprStubAtom of (expr * sigma)
   | RecordAtom of (ident * res) list
   | ProjectionAtom of res * ident
   | InspectionAtom of ident * res
