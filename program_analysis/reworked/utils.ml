@@ -107,7 +107,7 @@ and latom =
   | LRecordAtom of (ident * lres) list
   | LProjectionAtom of lres * ident
   | LInspectionAtom of ident * lres
-  | LAssertAtom of ident * lres * Interpreter.Ast.result_value_fv
+  | LAssertAtom of ident * lres * Interpreter.Ast.res_val_fv
 
 and lres = latom list
 

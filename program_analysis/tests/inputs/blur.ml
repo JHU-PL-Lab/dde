@@ -7,7 +7,7 @@ letassert x =
     else
       let r = blur id true in
       let s = blur id false in
-      not (blur (self self) s (n - 1))
+      if (blur (self self) s (n - 1)) then false else true
   in
   lp lp false 2
 in x

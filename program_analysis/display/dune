@@ -1,0 +1,17 @@
+(library
+ (name display_pa)
+ (public_name dde.display_pa)
+ (preprocess
+  (pps bisect_ppx ppx_deriving.show ppx_let ppx_jane landmarks-ppx --auto))
+ (instrumentation
+  (backend bisect_ppx --bisect-file _build/bisect))
+ (instrumentation
+  (backend landmarks --auto))
+ (modules lib grammar debugutils utils simplifier)
+ (libraries dde.dinterp core logs logs.fmt core_unix))
+
+; (executable
+;  (name main)
+;  (modes byte)
+;  (modules main)
+;  (libraries program_analysis))

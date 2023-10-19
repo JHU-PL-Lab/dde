@@ -22,10 +22,10 @@ open Ast;;
 %token IN
 %token IF
 %token <int> INT
-// %token LBRACE
+%token LBRACE
 %token LE
 %token LET
-// %token LETASSERT
+%token LETASSERT
 %token LPAREN
 %token LT
 %token MINUS
@@ -33,10 +33,10 @@ open Ast;;
 %token NOT
 %token OR
 %token PLUS
-// %token PROJECT
-// %token RBRACE
+%token PROJECT
+%token RBRACE
 %token RPAREN
-// %token SEP
+%token SEP
 %token THEN
 
 /*
@@ -45,13 +45,13 @@ open Ast;;
 %right prec_let                         /* let x = ... in ... */
 %right prec_fun                         /* function declaration */
 %right prec_if                          /* if ... then ... else */
-// %right OR                               /* or */
-// %right AND                              /* and */
+%right OR                               /* or */
+%right AND                              /* and */
 %left EQUAL                             /* = */
-// %left GE GT LE LT                       /* >= > <= < */
+%left GE GT LE LT                       /* >= > <= < */
 %left PLUS MINUS                        /* + - */
-// %left MULT                              /* * */
-// %right NOT                              /* not e */
+%left MULT                              /* * */
+%right NOT                              /* not e */
 
 /*
  * The entry point.
@@ -69,66 +69,66 @@ expr:
   | appl_expr
       { $1 }
   | expr PLUS expr
-      { build_plus $1 $3 }
+      { mk_dplus $1 $3 }
   | expr MINUS expr
-      { build_minus $1 $3 }
+      { mk_dminus $1 $3 }
   | expr MULT expr
-      { build_mult $1 $3 }
+      { mk_dmult $1 $3 }
   | expr AND expr
-      { build_and $1 $3 }
+      { mk_dand $1 $3 }
   | expr OR expr
-      { build_or $1 $3 }
+      { mk_dor $1 $3 }
   | expr GE expr
-      { build_ge $1 $3 }
+      { mk_dge $1 $3 }
   | expr GT expr
-      { build_gt $1 $3 }
+      { mk_dgt $1 $3 }
   | expr LE expr
-      { build_le $1 $3 }
+      { mk_dle $1 $3 }
   | expr LT expr
-      { build_lt $1 $3 }
+      { mk_dlt $1 $3 }
   | NOT expr
-      { build_not $2 }
+      { mk_dnot $2 }
   | expr EQUAL expr
-      { build_eq $1 $3 }
+      { mk_deq $1 $3 }
   | FUNCTION ident_decl GOESTO expr %prec prec_fun
-      { build_fun $2 $4 }
+      { mk_dfun $2 $4 }
   | LET ident_decl EQUAL expr IN expr %prec prec_let
-      { build_let $2 $4 $6 }
-//   | LETASSERT ident_decl EQUAL expr IN expr %prec prec_let
-//      { build_letassert $2 $4 $6 }
+      { mk_dlet $2 $4 $6 }
+  | LETASSERT ident_decl EQUAL expr IN expr %prec prec_let
+     { mk_dletassert $2 $4 $6 }
   | IF expr THEN expr ELSE expr %prec prec_if
-      { build_if $2 $4 $6 }
-//   | LBRACE separated_list(SEP, record_entry) RBRACE
-//       { build_record $2 }
-//   | expr PROJECT IDENT
-//       { build_projection $1 $3 }
-//   | IDENT IN expr
-//       { build_inspection $1 $3 }
+      { mk_dif $2 $4 $6 }
+  | LBRACE separated_list(SEP, record_entry) RBRACE
+      { mk_drec $2 }
+  | expr PROJECT IDENT
+      { mk_dproj $1 (Ident $3) }
+  | IDENT IN expr
+      { mk_dinsp (Ident $1) $3 }
 ;
 
-// record_entry:
-//     ident_decl EQUAL expr
-//       { ($1, $3) }
+record_entry:
+    ident_decl EQUAL expr
+      { ($1, $3) }
 
 appl_expr:
   | negatable_expr
       { $1 }
   | appl_expr simple_expr
-      { build_app $1 $2 }
+      { mk_dapp $1 $2 }
 ;
 
 negatable_expr:
   | MINUS INT
-      { build_int (-$2) }
+      { mk_dint (-$2) }
   | simple_expr
       { $1 }
 ;
 
 simple_expr:
   | INT
-      { build_int $1 }
+      { mk_dint $1 }
   | BOOL
-      { build_bool $1 }
+      { mk_dbool $1 }
   | ident_usage
       { $1 }
   | LPAREN expr RPAREN
@@ -137,7 +137,7 @@ simple_expr:
 
 ident_usage:
     ident_decl
-      { build_var $1 }
+      { mk_dvar $1 }
 ;
 
 ident_decl:

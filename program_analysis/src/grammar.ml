@@ -1,7 +1,7 @@
 open Core
 open Interpreter.Ast
 
-module SKey = struct
+module S_key = struct
   module T = struct
     type t = sigma [@@deriving compare, sexp, show { with_path = false }, hash]
   end
@@ -28,10 +28,11 @@ end
 
 module NewSt = struct
   module T = struct
+    (* hashing is only needed for caching *)
     type lstate =
       int
       * sigma
-      * ((SKey.t, (SKey.comparator_witness[@compare.ignore])) Set.t
+      * ((S_key.t, (S_key.comparator_witness[@compare.ignore])) Set.t
         [@sexp.opaque] [@show.opaque] [@hash.ignore])
     [@@deriving compare, sexp, hash]
 
@@ -46,7 +47,7 @@ module NewSt = struct
     type estate =
       expr
       * sigma
-      * ((SKey.t, (SKey.comparator_witness[@compare.ignore])) Set.t
+      * ((S_key.t, (S_key.comparator_witness[@compare.ignore])) Set.t
         [@sexp.opaque] [@show.opaque] [@hash.ignore])
     [@@deriving compare, sexp, hash]
 
@@ -66,13 +67,13 @@ end
 
 module Cache_key = struct
   module T = struct
-    type t = expr * sigma [@@deriving hash, sexp, compare]
-    (* type t =
-         expr
-         * sigma
-         * ((SKey.t, (SKey.comparator_witness[@compare.ignore])) Set.t
-           [@sexp.opaque])
-       [@@deriving compare, sexp] *)
+    (* type t = expr * sigma [@@deriving hash, sexp, compare] *)
+    type t =
+      expr
+      * sigma
+      * ((NewSt.t, (NewSt.comparator_witness[@compare.ignore])) Set.t
+        [@sexp.opaque])
+    [@@deriving compare, sexp]
 
     let hash = Hashtbl.hash
   end
@@ -81,37 +82,30 @@ module Cache_key = struct
   include Comparable.Make (T)
 end
 
-type op =
-  | PlusOp of res * res
-  | MinusOp of res * res
-  | MultOp of res * res
-  | EqualOp of res * res
-  | AndOp of res * res
-  | OrOp of res * res
-  | GeOp of res * res
-  | GtOp of res * res
-  | LeOp of res * res
-  | LtOp of res * res
-  | NotOp of res
-
-and atom =
+type atom =
   | IntAtom of int
   | BoolAtom of bool
   | FunAtom of expr * int * sigma
-  | OpAtom of op
-  | LabelResAtom of res * St.lstate
-  | ExprResAtom of res * St.estate
-  | LabelStubAtom of St.lstate
-  | ExprStubAtom of St.estate
-  (* | EquivStubAtom of
-      ((St.t, (St.comparator_witness[@compare.ignore])) Set.t
-      [@sexp.opaque] [@show.opaque] [@hash.ignore])
-      * int *)
+  | LResAtom of res * St.lstate
+  | EResAtom of res * St.estate
+  | LStubAtom of St.lstate
+  | EStubAtom of St.estate
   | PathCondAtom of path_cond * res
-  | RecordAtom of (ident * res) list
-  | ProjectionAtom of res * ident
-  | InspectionAtom of ident * res
-  | AssertAtom of ident * res * result_value_fv
+  | PlusAtom of res * res
+  | MinusAtom of res * res
+  | MultAtom of res * res
+  | EqAtom of res * res
+  | GeAtom of res * res
+  | GtAtom of res * res
+  | LeAtom of res * res
+  | LtAtom of res * res
+  | AndAtom of res * res
+  | OrAtom of res * res
+  | NotAtom of res
+  | RecAtom of (ident * res) list
+  | ProjAtom of res * ident
+  | InspAtom of ident * res
+  | AssertAtom of ident * res * res_val_fv
 
 and res = atom list
 
@@ -122,7 +116,7 @@ type pi = (atom list * bool) option
 [@@deriving hash, sexp, compare, show { with_path = false }]
 
 module Let_syntax = struct
-  let return r = (r, Set.empty (module SKey))
+  let return r = (r, Set.empty (module S_key))
 
   let bind (r, s) ~f =
     let r', s' = f (r, s) in
@@ -137,15 +131,6 @@ end
 module Choice = struct
   module T = struct
     type t = atom [@@deriving compare, sexp]
-  end
-
-  include T
-  include Comparable.Make (T)
-end
-
-module PathChoice = struct
-  module T = struct
-    type t = path_cond * atom [@@deriving compare, sexp]
   end
 
   include T
@@ -185,3 +170,5 @@ module Z3ExprKey = struct
   include T
   include Comparable.Make (T)
 end
+
+let choice_empty = Set.empty (module Choice)

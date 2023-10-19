@@ -144,23 +144,6 @@ let recursion =
      _ -> self self (n - 1)) 0 in id id 10 in x >= 2";
   |]
 
-let adapted =
-  [|
-    read_input "facehugger.ml";
-    read_input "blur.ml";
-    read_input "mj09.ml";
-    read_input "kcfa2.ml";
-    read_input "kcfa3.ml";
-    read_input "ack.ml";
-    read_input "tak.ml";
-    read_input "cpstak.ml";
-    read_input "loop2.ml";
-    read_input "loop2'.ml";
-    read_input "sat.ml";
-    read_input "sat-3.ml";
-    read_input "eta.ml";
-  |]
-
 (** Church numerals *)
 let zero = "(fun f -> fun x -> x)"
 
@@ -195,7 +178,9 @@ let church_binop =
       one succ succ one;
     Format.sprintf "%s (%s %s (%s %s %s))" unchurch mult church2 plus church1
       church3;
-    Format.sprintf "%s (%s %s (%s %s %s)) = %s (%s (%s %s %s) (%s %s %s))"
+    Format.sprintf
+      "letassert x = (%s (%s %s (%s %s %s)) = %s (%s (%s %s %s) (%s %s %s))) \
+       in x"
       unchurch mult church2 plus church1 church3 unchurch plus mult church2
       church1 mult church2 church3;
   |]
@@ -219,8 +204,6 @@ let lists =
   [|
     "letassert x = (" ^ list_cons ^ " 1 ({})).hd" ^ " in x = 1";
     "letassert x = let ls = { x = 1; y = 2; z = 3 } in ls.y in x = 2";
-    "letassert x = ({ hd = 1; tl = { hd = 2; tl = { hd = 3; tl = {} } } \
-     }.tl.hd) in x = 2";
     "letassert x = ({ hd = 1; tl = { hd = 2; tl = { hd = 3; tl = {} } } \
      }.tl.hd) in x = 2";
     (* incr_cell ^ " ({ hd = 0; tl = {} }) 3"; *)

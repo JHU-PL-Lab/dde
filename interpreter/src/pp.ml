@@ -53,9 +53,8 @@ let rec pp_expr fmt = function
 
 and pp_record fmt = function
   | [] -> ()
-  | [ (Ident x, e) ] -> Format.fprintf fmt "%s = %a" x pp_expr e
-  | (Ident x, e) :: rest ->
-      Format.fprintf fmt "%s = %a; %a" x pp_expr e pp_record rest
+  | [ (Ident x, e) ] -> ff fmt "%s = %a" x pp_expr e
+  | (Ident x, e) :: rest -> ff fmt "%s = %a; %a" x pp_expr e pp_record rest
 
 let rec pp_result_value fmt = function
   | IntResult x -> ff fmt "%d" x
@@ -97,3 +96,12 @@ let rec pp_fbtype fmt = function
 
 let show_expr (le : expr) = Format.asprintf "%a" pp_expr le
 let show_fbtype t = Format.asprintf "%a" pp_fbtype t
+
+let rec pp_res_val_fv fmt = function
+  | IntResFv i -> ff fmt "%d" i
+  | BoolResFv b -> ff fmt "%b" b
+  | VarResFv (Ident x) -> ff fmt "%s" x
+  | GeResFv (v1, v2) -> ff fmt "%a > %a" pp_res_val_fv v1 pp_res_val_fv v2
+  | v ->
+      (* Format.printf "%a" Ast.pp_res_val_fv v *)
+      ()

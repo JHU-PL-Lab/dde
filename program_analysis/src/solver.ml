@@ -22,14 +22,14 @@ let ida a =
        such that the latter must have already been visited
        by the time we get to the former *)
     match a with
-    | LabelResAtom (_, st) -> (
-        match Hashtbl.find atom_to_id (LabelStubAtom st) with
+    | LResAtom (_, st) -> (
+        match Hashtbl.find atom_to_id (LStubAtom st) with
         | Some id -> Some id
-        (* so if a stub is not found, then `a` is not involved
-           in any cycles *)
+        (* if a stub is not found, then `a` is not involved
+           in any cycle *)
         | None -> Hashtbl.find atom_to_id a)
-    | ExprResAtom (_, st) -> (
-        match Hashtbl.find atom_to_id (ExprStubAtom st) with
+    | EResAtom (_, st) -> (
+        match Hashtbl.find atom_to_id (EStubAtom st) with
         | Some id -> Some id
         | None -> Hashtbl.find atom_to_id a)
     | _ -> Hashtbl.find atom_to_id a
@@ -83,7 +83,7 @@ let entry_decl = ref None
 
 let find_or_add aid sort =
   match Hashtbl.find id_to_decl aid with
-  (* TODO: does the same leaf atom needs to be assigned different predicates? *)
+  (* TODO: does the same leaf atom need to be assigned different predicates? *)
   | Some pa -> pa
   | None ->
       let pa = zdecl aid [ sort ] bsort in
@@ -100,51 +100,43 @@ let reset () =
   fresh_id := -1
 
 (** can assume good form due to call to `eval_assert` *)
-let chcs_of_assert r1 (r2 : Interpreter.Ast.result_value_fv) =
+let chcs_of_assert r1 (r2 : Interpreter.Ast.res_val_fv) =
   let p = Hashtbl.find_exn id_to_decl (idr r1) in
   let ri = zconst "r" isort in
   let rb = zconst "r" bsort in
   match r2 with
-  | BoolResultFv b -> Hash_set.add chcs ([ ri ] |. (p <-- [ ri ]) --> zbool b)
-  | VarResultFv id' ->
-      Hash_set.add chcs ([ rb ] |. (p <-- [ rb ]) --> rb === ztrue)
-  | OpResultFv op -> (
-      match op with
-      | EqOpFv (v1, IntResultFv i)
-      | GeOpFv (v1, IntResultFv i)
-      | GtOpFv (v1, IntResultFv i)
-      | LeOpFv (v1, IntResultFv i)
-      | LtOpFv (v1, IntResultFv i) -> (
-          let op =
-            match op with
-            | EqOpFv _ -> ( === )
-            | GeOpFv _ -> ( >== )
-            | GtOpFv _ -> ( >>> )
-            | LeOpFv _ -> ( <== )
-            | LtOpFv _ -> ( <<< )
+  | BoolResFv b -> Hash_set.add chcs ([ ri ] |. (p <-- [ ri ]) --> zbool b)
+  | VarResFv id' -> Hash_set.add chcs ([ rb ] |. (p <-- [ rb ]) --> rb === ztrue)
+  | EqResFv (v1, IntResFv i)
+  | GeResFv (v1, IntResFv i)
+  | GtResFv (v1, IntResFv i)
+  | LeResFv (v1, IntResFv i)
+  | LtResFv (v1, IntResFv i) -> (
+      let op =
+        match r2 with
+        | EqResFv _ -> ( === )
+        | GeResFv _ -> ( >== )
+        | GtResFv _ -> ( >>> )
+        | LeResFv _ -> ( <== )
+        | LtResFv _ -> ( <<< )
+        | _ -> raise Unreachable
+      in
+      match v1 with
+      | VarResFv _ ->
+          Hash_set.add chcs ([ ri ] |. (p <-- [ ri ]) --> op ri (zint i))
+      | ProjResFv (VarResFv _, Ident x) ->
+          let p =
+            let r1_hd = List.hd_exn r1 in
+            match r1_hd with
+            | RecAtom _ -> Hashtbl.find_exn id_to_decl (ida r1_hd ^ "_" ^ x)
+            | LResAtom ([ a ], _) ->
+                Hashtbl.find_exn id_to_decl (ida a ^ "_" ^ x)
             | _ -> raise Unreachable
           in
-          (* LHS of assertion *)
-          match v1 with
-          | VarResultFv _ ->
-              Hash_set.add chcs ([ ri ] |. (p <-- [ ri ]) --> op ri (zint i))
-          | ProjectionResultFv (VarResultFv _, Ident x) ->
-              let p =
-                let r1_hd = List.hd_exn r1 in
-                match r1_hd with
-                | RecordAtom _ ->
-                    Hashtbl.find_exn id_to_decl (ida r1_hd ^ "_" ^ x)
-                | LabelResAtom ([ a ], _) ->
-                    Hashtbl.find_exn id_to_decl (ida a ^ "_" ^ x)
-                | _ ->
-                    (* Format.printf "%a\n" Grammar.pp_atom r1_hd; *)
-                    raise Unreachable
-              in
-              Hash_set.add chcs ([ ri ] |. (p <-- [ ri ]) --> op ri (zint i))
-          | _ -> raise Unreachable)
-      | NotOpFv _ ->
-          Hash_set.add chcs ([ rb ] |. (p <-- [ rb ]) --> (rb === zfalse))
+          Hash_set.add chcs ([ ri ] |. (p <-- [ ri ]) --> op ri (zint i))
       | _ -> raise Unreachable)
+  | NotResFv _ ->
+      Hash_set.add chcs ([ rb ] |. (p <-- [ rb ]) --> (rb === zfalse))
   | _ -> raise BadAssert
 
 let rec cond pis =
@@ -160,7 +152,7 @@ let rec cond pis =
     in
     (List.mapi pis ~f:(fun i _ -> zconst (Format.sprintf "c%d" i) bsort), conjs)
 
-and chcs_of_atom ?(pis = []) ?(stub_sort = isort) a v =
+and chcs_of_atom ?(pis = []) ?(stub_sort = isort) a =
   match a with
   | IntAtom i ->
       let cond_quants, cond_body = cond pis in
@@ -176,76 +168,73 @@ and chcs_of_atom ?(pis = []) ?(stub_sort = isort) a v =
       Hash_set.add chcs
         (if List.is_empty cond_quants then body
          else cond_quants |. cond_body --> body)
-  | OpAtom op -> (
-      match op with
-      | PlusOp (r1, r2)
-      | MinusOp (r1, r2)
-      | MultOp (r1, r2)
-      | EqualOp (r1, r2)
-      | AndOp (r1, r2)
-      | OrOp (r1, r2)
-      | GeOp (r1, r2)
-      | GtOp (r1, r2)
-      | LeOp (r1, r2)
-      | LtOp (r1, r2) ->
-          let aid, rid1, rid2 = (ida a, idr r1, idr r2) in
-          let is_int_arith =
-            match op with PlusOp _ | MinusOp _ | MultOp _ -> true | _ -> false
-          in
-          let zop =
-            match op with
-            | PlusOp _ -> ( +++ )
-            | MinusOp _ -> ( --- )
-            | MultOp _ -> ( *** )
-            | EqualOp _ -> ( === )
-            | AndOp _ -> ( &&& )
-            | OrOp _ -> ( ||| )
-            | GeOp _ -> ( >== )
-            | GtOp _ -> ( >>> )
-            | LeOp _ -> ( <== )
-            | LtOp _ -> ( <<< )
-            | _ -> raise Unreachable
-          in
-          let pa =
-            zdecl aid [ (if is_int_arith then isort else bsort) ] bsort
-          in
-          let param_sort =
-            match op with
-            | PlusOp _ | MinusOp _ | MultOp _ | EqualOp _ | GeOp _ | GtOp _
-            | LeOp _ | LtOp _ ->
-                isort
-            | _ -> bsort
-          in
-          let pr1, pr2 =
-            (zdecl rid1 [ param_sort ] bsort, zdecl rid2 [ param_sort ] bsort)
-          in
-          let r1_, r2_ = (zconst "r1" param_sort, zconst "r2" param_sort) in
-          (* don't use `add_exn` as we allow duplicates *)
-          ignore
-            ( Hashtbl.add id_to_decl ~key:aid ~data:pa,
-              Hashtbl.add id_to_decl ~key:rid1 ~data:pr1,
-              Hashtbl.add id_to_decl ~key:rid2 ~data:pr2 );
-          let cond_quants, cond_body = cond pis in
-          chcs_of_res r1 v ~pis ~stub_sort:param_sort;
-          chcs_of_res r2 v ~pis ~stub_sort:param_sort;
-          Hash_set.add chcs
-            (r1_ :: r2_ :: cond_quants
-            |. (pr1 <-- [ r1_ ] &&& (pr2 <-- [ r2_ ]) &&& cond_body)
-               --> (pa <-- [ zop r1_ r2_ ]))
-      | NotOp r ->
-          let aid, rid = (ida a, idr r) in
-          let pa = zdecl aid [ bsort ] bsort in
-          let pr = zdecl rid [ bsort ] bsort in
-          let r_ = zconst "r" bsort in
-          ignore
-            ( Hashtbl.add id_to_decl ~key:aid ~data:pa,
-              Hashtbl.add id_to_decl ~key:rid ~data:pr );
-          let cond_quants, cond_body = cond pis in
-          chcs_of_res r v ~pis ~stub_sort:bsort;
-          Hash_set.add chcs
-            ((r_ :: cond_quants |. (pr <-- [ r_ ]) &&& cond_body)
-            --> (pa <-- [ znot r_ ])))
-  | LabelResAtom (r, _) | ExprResAtom (r, _) ->
+  | PlusAtom (r1, r2)
+  | MinusAtom (r1, r2)
+  | MultAtom (r1, r2)
+  | EqAtom (r1, r2)
+  | AndAtom (r1, r2)
+  | OrAtom (r1, r2)
+  | GeAtom (r1, r2)
+  | GtAtom (r1, r2)
+  | LeAtom (r1, r2)
+  | LtAtom (r1, r2) ->
+      let aid, rid1, rid2 = (ida a, idr r1, idr r2) in
+      let is_int_arith =
+        match a with
+        | PlusAtom _ | MinusAtom _ | MultAtom _ -> true
+        | _ -> false
+      in
+      let zop =
+        match a with
+        | PlusAtom _ -> ( +++ )
+        | MinusAtom _ -> ( --- )
+        | MultAtom _ -> ( *** )
+        | EqAtom _ -> ( === )
+        | AndAtom _ -> ( &&& )
+        | OrAtom _ -> ( ||| )
+        | GeAtom _ -> ( >== )
+        | GtAtom _ -> ( >>> )
+        | LeAtom _ -> ( <== )
+        | LtAtom _ -> ( <<< )
+        | _ -> raise Unreachable
+      in
+      let pa = zdecl aid [ (if is_int_arith then isort else bsort) ] bsort in
+      let param_sort =
+        match a with
+        | PlusAtom _ | MinusAtom _ | MultAtom _ | EqAtom _ | GeAtom _ | GtAtom _
+        | LeAtom _ | LtAtom _ ->
+            isort
+        | _ -> bsort
+      in
+      let pr1, pr2 =
+        (zdecl rid1 [ param_sort ] bsort, zdecl rid2 [ param_sort ] bsort)
+      in
+      let r1_, r2_ = (zconst "r1" param_sort, zconst "r2" param_sort) in
+      ignore
+        ( Hashtbl.add id_to_decl ~key:aid ~data:pa,
+          Hashtbl.add id_to_decl ~key:rid1 ~data:pr1,
+          Hashtbl.add id_to_decl ~key:rid2 ~data:pr2 );
+      let cond_quants, cond_body = cond pis in
+      chcs_of_res r1 ~pis ~stub_sort:param_sort;
+      chcs_of_res r2 ~pis ~stub_sort:param_sort;
+      Hash_set.add chcs
+        (r1_ :: r2_ :: cond_quants
+        |. (pr1 <-- [ r1_ ] &&& (pr2 <-- [ r2_ ]) &&& cond_body)
+           --> (pa <-- [ zop r1_ r2_ ]))
+  | NotAtom r ->
+      let aid, rid = (ida a, idr r) in
+      let pa = zdecl aid [ bsort ] bsort in
+      let pr = zdecl rid [ bsort ] bsort in
+      let r_ = zconst "r" bsort in
+      ignore
+        ( Hashtbl.add id_to_decl ~key:aid ~data:pa,
+          Hashtbl.add id_to_decl ~key:rid ~data:pr );
+      let cond_quants, cond_body = cond pis in
+      chcs_of_res r ~pis ~stub_sort:bsort;
+      Hash_set.add chcs
+        ((r_ :: cond_quants |. (pr <-- [ r_ ]) &&& cond_body)
+        --> (pa <-- [ znot r_ ]))
+  | LResAtom (r, _) | EResAtom (r, _) ->
       (* derive Z3 sort for labeled result/stub pair from the sort of
          the concrete disjuncts, which is sound on any proper,
          terminating programs. *)
@@ -254,7 +243,7 @@ and chcs_of_atom ?(pis = []) ?(stub_sort = isort) a v =
             (* this may assign an ID for stub to be later inherited by
                its enclosing res atom but will trigger a lookup failure
                (caught) at stub's (non-existent) Z3 decl *)
-            chcs_of_atom a v ~pis ~stub_sort;
+            chcs_of_atom a ~pis ~stub_sort;
             match Hashtbl.find id_to_decl (ida a) with
             | Some pa ->
                 (* TODO: assert that all disjuncts are of the same type *)
@@ -273,103 +262,70 @@ and chcs_of_atom ?(pis = []) ?(stub_sort = isort) a v =
       let pr = zdecl rid [ sort ] bsort in
       ignore (Hashtbl.add id_to_decl ~key:rid ~data:pr);
       (* most of this is repetitive work, but necessary *)
-      chcs_of_res r v ~pis ~stub_sort;
+      chcs_of_res r ~pis ~stub_sort;
       let r_ = zconst "r" sort in
       Hash_set.add chcs ([ r_ ] |. (pr <-- [ r_ ]) --> (pa <-- [ r_ ]))
   | PathCondAtom (((r, _) as pi), r0) -> (
       (* generate CHCs for current path condition using
          the previous path conditions *)
-      chcs_of_res r v ~pis ~stub_sort;
-      chcs_of_res r0 v ~pis:(pi :: pis) ~stub_sort;
+      chcs_of_res r ~pis ~stub_sort;
+      chcs_of_res r0 ~pis:(pi :: pis) ~stub_sort;
+      (* chcs_of_res r0 ~pis ~stub_sort; *)
       (* point self at the same decl *)
       match Hashtbl.find id_to_decl (idr r0) with
       | Some decl -> ignore (Hashtbl.add id_to_decl ~key:(ida a) ~data:decl)
       | None -> ())
   | FunAtom _ -> ()
-  | LabelStubAtom (l, s) ->
-      if
-        Option.is_none
-          (Core.Set.find v ~f:(function
-            | NewSt.Lstate (l', s', _) -> Stdlib.(l = l' && s = s')
-            | _ -> false))
-      then (
-        let aid = ida a in
-        let pa = zdecl aid [ stub_sort ] bsort in
-        let r_ = zconst "r" stub_sort in
-        ignore (Hashtbl.add id_to_decl ~key:aid ~data:pa);
-        Hash_set.add chcs ([ r_ ] |. (pa <-- [ r_ ])))
-  | ExprStubAtom (e, s) ->
-      if
-        Option.is_none
-          (Core.Set.find v ~f:(function
-            | NewSt.Estate (e', s', _) -> Stdlib.(e = e' && s = s')
-            | _ -> false))
-      then (
-        let aid = ida a in
-        let pa = zdecl aid [ stub_sort ] bsort in
-        let r_ = zconst "r" stub_sort in
-        ignore (Hashtbl.add id_to_decl ~key:aid ~data:pa);
-        Hash_set.add chcs ([ r_ ] |. (pa <-- [ r_ ])))
-  (* records are good for: subsumes shape analysis *)
-  | RecordAtom _ -> ()
-  | ProjectionAtom _ | InspectionAtom _ ->
-      Format.printf "%a\n" pp_atom a;
-      raise Unreachable
+  | LStubAtom (l, s) ->
+      let aid = ida a in
+      let pa = zdecl aid [ stub_sort ] bsort in
+      ignore (Hashtbl.add id_to_decl ~key:aid ~data:pa)
+      (* let r_ = zconst "r" stub_sort in
+         Hash_set.add chcs ([ r_ ] |. (pa <-- [ r_ ])) *)
+  | EStubAtom (e, s) ->
+      let aid = ida a in
+      let pa = zdecl aid [ stub_sort ] bsort in
+      ignore (Hashtbl.add id_to_decl ~key:aid ~data:pa)
+      (* let r_ = zconst "r" stub_sort in
+         Hash_set.add chcs ([ r_ ] |. (pa <-- [ r_ ])) *)
   | AssertAtom (id, r1, r2) ->
-      chcs_of_res r1 v ~pis ~stub_sort;
+      chcs_of_res r1 ~pis ~stub_sort;
       chcs_of_assert r1 r2
-(* | _ -> failwith "unimplemented" *)
+  (* records are good for: subsumes shape analysis *)
+  | RecAtom _ -> ()
+  | ProjAtom _ | InspAtom _ -> raise Unreachable
 
-and chcs_of_res ?(pis = []) ?(stub_sort = isort) r v =
+and chcs_of_res ?(pis = []) ?(stub_sort = isort) r =
   let rid = idr r in
   List.iter r ~f:(fun a ->
-      chcs_of_atom a v ~pis ~stub_sort;
+      chcs_of_atom a ~pis ~stub_sort;
       let aid = ida a in
       let cond_quants, cond_body = cond pis in
       match Hashtbl.find id_to_decl aid with
       | Some pa ->
           let dom = FuncDecl.get_domain pa in
           let pr = zdecl rid dom bsort in
-          (* the root assertion is always P0 *)
+          (* at if conditions, the root assertion is always P0 *)
           if String.(rid = "P0") then entry_decl := Some pr;
           ignore (Hashtbl.add id_to_decl ~key:rid ~data:pr);
           let r = zconst "r" (List.hd_exn dom) in
           (* TODO: add flag to leave all path conditions out *)
           Hash_set.add chcs
             (r :: cond_quants |. (pa <-- [ r ] &&& cond_body) --> (pr <-- [ r ]))
-      | None -> ()
-      (* match a with
-         | LabelStubAtom _ | ExprStubAtom _ | AssertAtom _
-         | PathCondAtom (_, [ LabelStubAtom _ ]) ->
-             ()
-         | _ -> failwith "resatom non-labeled")*))
+      | None ->
+          (* AssertAtom *)
+          (* Format.printf "%a\n" Grammar.pp_atom a *)
+          ())
 
-(* let test =
-     [
-       LabelResAtom
-         ([ OpAtom (PlusOp ([ IntAtom 1 ], [ LabelStubAtom (0, []) ])) ], (0, []));
-     ]
-
-   let chcs_of_test _ =
-     chcs_of_res test;
-     let chcs = Hash_set.to_list chcs in
-     Format.printf "CHCs:\n";
-     List.iter ~f:(fun chc -> Format.printf "%s\n" (Z3.Expr.to_string chc)) chcs;
-     Format.printf "\nres_to_id:\n";
-     Core.Hashtbl.iteri
-       ~f:(fun ~key ~data ->
-         Format.printf "key: %a\ndata: %d\n" Grammar.pp_res key data)
-       res_to_id;
-     Format.printf "\natom_to_id:\n";
-     Core.Hashtbl.iteri
-       ~f:(fun ~key ~data ->
-         Format.printf "key: %a\ndata: %d\n" Grammar.pp_atom key data)
-       atom_to_id;
-     reset () *)
-
-let verify_result ?(v = Core.Set.empty (module NewSt)) r =
+let verify_result r =
   (* let solver = Z3.Solver.mk_solver_s ctx "HORN" in *)
-  chcs_of_res r v;
+  chcs_of_res r;
+  (* Format.printf "atom_to_id\n";
+     Hashtbl.iteri atom_to_id ~f:(fun ~key ~data ->
+         Format.printf "%a -> %d\n" pp_atom key data);
+     Format.printf "res_to_id\n";
+     Hashtbl.iteri res_to_id ~f:(fun ~key ~data ->
+         Format.printf "%a -> %d\n" pp_res key data); *)
   let chcs = list_of_chcs () in
   Z3.Solver.add solver chcs;
 
@@ -378,6 +334,7 @@ let verify_result ?(v = Core.Set.empty (module NewSt)) r =
 
   (* Format.printf "verification time: %f\n" (Stdlib.Sys.time () -. start); *)
   (* List.iter chcs ~f:(fun chc -> Format.printf "%s\n" (Z3.Expr.to_string chc)); *)
+  (* solver |> Z3.Solver.to_string |> Format.printf "Solver:\n%s"; *)
   match status with
   | SATISFIABLE ->
       (* Format.printf "sat" *)

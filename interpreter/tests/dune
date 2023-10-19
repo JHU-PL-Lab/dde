@@ -6,6 +6,6 @@
   core_bench
   core_unix.command_unix
   dde.interpreter
-  dde.al_interp
+  dde.dinterp
   fbdk.fb
   fbdk.fbenv))

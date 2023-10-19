@@ -14,8 +14,12 @@ let test_laziness _ =
   assert_equal "fun y -> 1"
     (peu ~should_simplify:true "(fun x -> fun y -> x) (if true then 1 else 0)")
 
-(* let test_memoization _ =
-   assert_equal "1" (peu ~should_simplify:true (Tests_subst.dde_fib 1)) *)
+let test_memoization _ =
+  (* assert_equal "" (peu ~should_simplify:true (Tests_subst.dde_fib 15)); *)
+  assert_equal ""
+    (peu ~should_simplify:true
+       "let fib = (fun self -> fun n -> if n = 0 or n = 1 then n else self \
+        self (n - 1) + self self (n - 2)) in fib fib 25")
 
 let test_record _ =
   (* gives value at leftmost x *)
@@ -55,13 +59,31 @@ let test_record_rec _ =
   assert_equal "{ hd = 5; tl = {} }"
     (peu ~should_simplify:true (incr_cell ^ " ({ hd = 0; tl = {} }) 5"))
 
+let test_misc _ =
+  assert_equal ""
+    (peu
+       "let append = fun self -> fun x -> fun y ->\n\
+       \  if not (hd in x) then y\n\
+       \  else { hd = x.hd; tl = self self (x.tl) y }\n\
+        in\n\n\
+        let flatten = fun self -> fun x ->\n\
+       \  if not (hd in x) then x\n\
+       \  else if not (hd in x.hd) then self self (x.tl)\n\
+       \  else if hd in (x.hd) then { hd = x.hd.hd; tl = self self (append \
+        append (x.hd.tl) (x.tl)) }\n\
+       \  else { hd = x.hd; tl = {} }\n\
+        in\n\n\
+        flatten flatten ({ hd = { hd = 1; tl = { hd = 2; tl = {} } }; tl = { \
+        hd = 3; tl = { hd = 4; tl = { hd = 5; tl = {} } } } })")
+
 let dde_self_tests =
   [
-    "Laziness" >:: test_laziness;
     (* "Memoization" >:: test_memoization; *)
-    "Record operations" >:: test_record;
-    "letassert" >:: test_letassert;
     (* "Record rec" >:: test_record_rec; *)
+    "Laziness" >:: test_laziness;
+    (* "Record operations" >:: test_record;
+       "letassert" >:: test_letassert; *)
+    (* "Misc." >:: test_misc; *)
   ]
 
 let dde_self = "DDE against self" >::: dde_self_tests

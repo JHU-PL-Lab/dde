@@ -68,30 +68,26 @@ and result_value =
   | RecordResult of (ident * result_value) list
 [@@deriving show { with_path = false }]
 
-type op_result_value_fv =
-  | PlusOpFv of result_value_fv * result_value_fv
-  | MinusOpFv of result_value_fv * result_value_fv
-  | EqOpFv of result_value_fv * result_value_fv
-  | AndOpFv of result_value_fv * result_value_fv
-  | OrOpFv of result_value_fv * result_value_fv
-  | GeOpFv of result_value_fv * result_value_fv
-  | GtOpFv of result_value_fv * result_value_fv
-  | LeOpFv of result_value_fv * result_value_fv
-  | LtOpFv of result_value_fv * result_value_fv
-  | NotOpFv of result_value_fv
-(* TODO: pretty print *)
-
 (** result values that may contain free variables *)
-and result_value_fv =
-  | IntResultFv of int
-  | BoolResultFv of bool
-  | VarResultFv of ident
-  | OpResultFv of op_result_value_fv
+type res_val_fv =
+  | IntResFv of int
+  | BoolResFv of bool
+  | VarResFv of ident
+  | PlusResFv of res_val_fv * res_val_fv
+  | MinusResOpFv of res_val_fv * res_val_fv
+  | EqResFv of res_val_fv * res_val_fv
+  | AndResFv of res_val_fv * res_val_fv
+  | OrResFv of res_val_fv * res_val_fv
+  | GeResFv of res_val_fv * res_val_fv
+  | GtResFv of res_val_fv * res_val_fv
+  | LeResFv of res_val_fv * res_val_fv
+  | LtResFv of res_val_fv * res_val_fv
+  | NotResFv of res_val_fv
   (* TODO: not even needed? *)
-  | FunResultFv
-  | RecordResultFv of (ident * result_value_fv) list
-  | ProjectionResultFv of result_value_fv * ident
-  | InspectionResultFv
+  | FunResFv
+  | RecResFv of (ident * res_val_fv) list
+  | ProjResFv of res_val_fv * ident
+  | InspResFv
 [@@deriving hash, sexp, compare, show { with_path = false }]
 
 type fbtype = TArrow of fbtype * fbtype | TVar of string

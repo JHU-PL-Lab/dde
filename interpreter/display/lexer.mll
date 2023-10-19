@@ -23,7 +23,7 @@ rule token = parse
 | "then"               { THEN }
 | "else"               { ELSE }
 | "let"                { LET }
-(* | "letassert"          { LETASSERT } *)
+| "letassert"          { LETASSERT }
 | "in"                 { IN }
 | ">="                 { GE }
 | "->"                 { GOESTO }
@@ -39,10 +39,10 @@ rule token = parse
 | '('                  { LPAREN }
 | "<"                  { LT }
 | ')'                  { RPAREN }
-(* | '{'                  { LBRACE }
+| '{'                  { LBRACE }
 | '}'                  { RBRACE }
 | ';'                  { SEP }
-| '.'                  { PROJECT } *)
+| '.'                  { PROJECT }
 | decimal_literal      { INT (int_of_string(Lexing.lexeme lexbuf)) }
 | lowercase identchar* { IDENT (Lexing.lexeme lexbuf) }
 | eof                  { raise Exit }

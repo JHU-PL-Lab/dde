@@ -1,8 +1,9 @@
+open Core
 open Interp
 
 let parse s =
-  let lexbuf = Lexing.from_string (s ^ ";;") in
-  Parser.main Lexer.token lexbuf
+  s |> Fn.flip ( ^ ) ";;" |> Lexing.from_string |> Parser.main Lexer.token
+  |> Ast.assign_depth
 
 let unparse e = Format.asprintf "%a" Pp.pp_res e
 let parse_eval s = eval (parse s)

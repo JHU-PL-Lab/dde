@@ -66,13 +66,13 @@ end
 
 module Cache_key = struct
   module T = struct
-    type t = expr * sigma * int [@@deriving hash, sexp, compare]
-    (* type t =
-         expr
-         * sigma
-         * ((SKey.t, (SKey.comparator_witness[@compare.ignore])) Set.t
-           [@sexp.opaque])
-       [@@deriving compare, sexp] *)
+    (* type t = expr * sigma [@@deriving hash, sexp, compare] *)
+    type t =
+      expr
+      * sigma
+      * ((NewSt.t, (NewSt.comparator_witness[@compare.ignore])) Set.t
+        [@sexp.opaque])
+    [@@deriving compare, sexp]
 
     let hash = Hashtbl.hash
   end
@@ -94,7 +94,7 @@ type atom =
   | RecordAtom of (ident * res) list
   | ProjectionAtom of res * ident
   | InspectionAtom of ident * res
-  | AssertAtom of ident * res * result_value_fv
+  | AssertAtom of ident * res * res_val_fv
 
 and res = atom list [@@deriving hash, sexp, compare, show { with_path = false }]
 

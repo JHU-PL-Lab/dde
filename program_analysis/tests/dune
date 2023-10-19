@@ -6,10 +6,17 @@
   core_bench
   core_unix.command_unix
   dde.interpreter
+  dde.dinterp
   dde.program_analysis
   dde.pa_reworked
+  dde.display_pa
   fbdk.fb
-  ounit2))
+  ounit2
+  landmarks)
+ (preprocess
+  (pps landmarks-ppx --auto))
+ (instrumentation
+  (backend landmarks --auto)))
 
 ; (rule
 ;  ;  (alias test)

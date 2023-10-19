@@ -1,6 +1,6 @@
 (library
- (name al_interp)
- (public_name dde.al_interp)
+ (name dinterp)
+ (public_name dde.dinterp)
  (preprocess
   (pps ppx_deriving.show ppx_jane))
  (modules debugutils ast interp lexer parser pp)
@@ -20,7 +20,7 @@
 
 (toplevel
  (name toplevel)
- (libraries utop al_interp))
+ (libraries utop dinterp))
 
 ; (alias
 ;  (name distributables)

@@ -21,10 +21,8 @@ let () =
            |> String.chop_suffix_if_exists ~suffix:"ms"
            |> String.chop_suffix_if_exists ~suffix:" milliseconds"
            |> Int.of_string ))
-  |> List.sort ~compare:(fun (fname1, _) (fname2, _) ->
+  |> List.sort_and_group ~compare:(fun (fname1, _) (fname2, _) ->
          String.ascending fname1 fname2)
-  |> List.group ~break:(fun (fname1, _) (fname2, _) ->
-         String.(fname1 <> fname2))
   |> List.map ~f:(fun group ->
          group |> List.unzip |> fun (fnames, runtimes) ->
          ( List.hd_exn fnames,

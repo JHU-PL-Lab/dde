@@ -4,11 +4,11 @@ let append = fun self -> fun x -> fun y ->
 in
 
 let flatten = fun self -> fun x ->
-  if not (hd in x) then x
-  else (
-    if not (hd in x.hd) then self self (x.tl)
-    else { hd = x.hd.hd; tl = self self ({ hd = x.hd.tl; tl = x.tl }) }
-  )
+  (* if hd in x then x
+  else if not (hd in x.hd) then self self (x.tl)
+  else if hd in x.hd then { hd = x.hd.hd; tl = self self (append append (x.hd.tl) (x.tl)) }
+  else { hd = x.hd; tl = {} } *)
+  if hd in x then 
 in
 
 flatten flatten ({ hd = { hd = 1; tl = { hd = 2; tl = {} } }; tl = { hd = 3; tl = { hd = 4; tl = { hd = 5; tl = {} } } } })

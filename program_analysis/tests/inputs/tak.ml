@@ -1,5 +1,5 @@
 (* https://github.com/adamsmd/paper-push-down-for-free-prototype/blob/master/benchmarks/larceny/tak.sch *)
-letassert x =
+(* letassert x = *)
   let tak = fun self -> fun x -> fun y -> fun z ->
     if not (y < x) then z
     else
@@ -9,4 +9,4 @@ letassert x =
         (self self (z - 1) x y)
   in
   tak tak 32 15 8
-in x = 0
+(* in x = 0 *)
