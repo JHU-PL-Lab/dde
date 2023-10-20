@@ -10,6 +10,11 @@ type d = DNil | DCons of (int * d) * d
 [@@deriving compare, sexp, show { with_path = false }]
 
 let ( => ) p d = DCons (p, d)
+
+let rec app_d d1 d2 =
+  match d1 with DNil -> d2 | DCons (p, d1') -> DCons (p, app_d d1' d2)
+
+let hd_exn_d d = match d with DCons (p, _) -> p | DNil -> failwith "Empty D"
 let rec length_d d = match d with DNil -> 0 | DCons (p, d') -> 1 + length_d d'
 
 let rec map_d d ~f =

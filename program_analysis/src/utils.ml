@@ -350,7 +350,8 @@ let dot_of_result ?(display_path_cond = true) test_num r =
             let eid = edge_id dom_node aid in
             add_edge dom_node aid;
             add_edge_prop eid ("dir", "back")
-        | None -> Logs.debug (fun m -> m "Lone stub: %s" (St.show_lstate st)))
+        | None -> failwith "lone stub"
+        (* Logs.debug (fun m -> m "Lone stub: %s" (St.show_lstate st)) *))
     | LEStubAtom (st, _) -> (
         add_node (Format.sprintf "%s [label=\"stub\"];" aid);
         match Map.find cycles (St.Estate st) with
@@ -359,7 +360,8 @@ let dot_of_result ?(display_path_cond = true) test_num r =
             let eid = edge_id dom_node aid in
             add_edge dom_node aid;
             add_edge_prop eid ("dir", "back")
-        | None -> Logs.debug (fun m -> m "Lone stub: %s" (St.show_estate st))
+        | None -> failwith "lone stub"
+        (* Logs.debug (fun m -> m "Lone stub: %s" (St.show_estate st)) *)
         (* Format.printf "Lone stub: %s\n" (St.show_estate st) *)
         (* failwith "Lone stub!" *))
     | LAssertAtom (Ident x, r, rv) ->
@@ -538,7 +540,7 @@ let dot_of_result ?(display_path_cond = true) test_num r =
                       remove_edge pid' rid;
                       remove_sibling pid' rid;
                       remove_node rid;
-                      (* Format.printf "Ayo: %s\n" (idr r); *)
+                      (* Format.printf "%s\n" (idr r); *)
                       dot_of_atom a (Some p) pid (Some r) pl *)
                   | a ->
                   dot_of_atom a (Some p) pid (Some r) pl;

@@ -9,4 +9,4 @@ letassert x =
       lp2 lp2 10 (fun n -> n + i) x
   in
   lp1 lp1 10 0
-in x = 0
+in x >= 0

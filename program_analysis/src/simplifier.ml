@@ -77,9 +77,9 @@ let rec simplify ?(pa = None) r =
                           ([ PlusAtom ([ IntAtom i1 ], [ IntAtom i2 ]) ], r2)
                     | _ -> raise Unreachable);
                   ]
-              | [ IntAtom i1 ], [ LResAtom ([ IntAtom i2 ], st) ]
-              | [ LResAtom ([ IntAtom i1 ], st) ], [ IntAtom i2 ] ->
-                  [ LResAtom ([ IntAtom (int_op i1 i2) ], st) ]
+              (* | [ IntAtom i1 ], [ LResAtom ([ IntAtom i2 ], st) ]
+                 | [ LResAtom ([ IntAtom i1 ], st) ], [ IntAtom i2 ] ->
+                     [ LResAtom ([ IntAtom (int_op i1 i2) ], st) ] *)
               (* this case should be very rare *)
               | [ PathCondAtom (pc1, r1) ], [ PathCondAtom (pc2, r2) ]
                 when Stdlib.(pc1 = pc2) ->
@@ -196,9 +196,9 @@ let rec simplify ?(pa = None) r =
             | [ IntAtom i1 ], [ IntAtom i2 ] -> Some [ IntAtom (i1 * i2) ]
             | [ IntAtom i1 ], [ MultAtom ([ IntAtom i2 ], r2) ] ->
                 Some [ MultAtom ([ IntAtom (i1 * i2) ], r2) ]
-            | [ IntAtom i1 ], [ LResAtom ([ IntAtom i2 ], st) ]
-            | [ LResAtom ([ IntAtom i1 ], st) ], [ IntAtom i2 ] ->
-                Some [ LResAtom ([ IntAtom (i1 * i2) ], st) ]
+            (* | [ IntAtom i1 ], [ LResAtom ([ IntAtom i2 ], st) ]
+               | [ LResAtom ([ IntAtom i1 ], st) ], [ IntAtom i2 ] ->
+                   Some [ LResAtom ([ IntAtom (i1 * i2) ], st) ] *)
             | [ IntAtom i1 ], [ EResAtom ([ IntAtom i2 ], st) ]
             | [ EResAtom ([ IntAtom i1 ], st) ], [ IntAtom i2 ] ->
                 Some [ EResAtom ([ IntAtom (i1 * i2) ], st) ]

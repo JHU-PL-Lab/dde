@@ -50,6 +50,12 @@ let mk_record l e =
   Hashtbl.add_exn myexpr ~key:l ~data:e;
   Hashtbl.add_exn mylabel ~key:e ~data:l
 
+let mk_update l e =
+  Hashtbl.remove myexpr l;
+  Hashtbl.add_exn myexpr ~key:l ~data:e;
+  Hashtbl.remove mylabel e;
+  Hashtbl.add_exn mylabel ~key:e ~data:l
+
 let get_label = Hashtbl.find_exn mylabel
 
 let clean_up () =
@@ -63,9 +69,7 @@ let mk_dbool b = DBool b
 
 let mk_dvar id =
   let l = mk_label () in
-  let e = DVar (id, -1, l) in
-  mk_record l e;
-  e
+  DVar (id, -1, l)
 
 let mk_dapp e1 e2 =
   let l = mk_label () in
@@ -100,17 +104,17 @@ let mk_dletassert id e1 e2 = DLetAssert (id, e1, e2)
 let rec assign_depth ?(d = 0) ?(m = String.Map.empty) e =
   match e with
   | DInt _ | DBool _ -> e
-  | DVar ((Ident x as id), _, l) -> DVar (id, d - Map.find_exn m x, l)
+  | DVar ((Ident x as id), _, l) ->
+      let e' = DVar (id, d - Map.find_exn m x, l) in
+      mk_update l e';
+      e'
   | DFun ((Ident x as id), e) ->
       let d = d + 1 in
       DFun
         (id, assign_depth e ~d ~m:(Map.add_exn (Map.remove m x) ~key:x ~data:d))
   | DApp (e1, e2, l) ->
       let e' = DApp (assign_depth e1 ~d ~m, assign_depth e2 ~d ~m, l) in
-      Hashtbl.remove myexpr l;
-      Hashtbl.add_exn myexpr ~key:l ~data:e';
-      Hashtbl.remove mylabel e;
-      Hashtbl.add_exn mylabel ~key:e' ~data:l;
+      mk_update l e';
       e'
   | DPlus (e1, e2) -> DPlus (assign_depth e1 ~d ~m, assign_depth e2 ~d ~m)
   | DMinus (e1, e2) -> DMinus (assign_depth e1 ~d ~m, assign_depth e2 ~d ~m)

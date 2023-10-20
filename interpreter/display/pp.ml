@@ -12,8 +12,8 @@ let is_compound_expr = function DVar _ -> false | _ -> true
 let rec pp_expr fmt = function
   | DInt i -> ff fmt "%d" i
   | DBool b -> ff fmt "%b" b
-  (* | DVar (Ident x, l) -> ff fmt "%s@%d" x l *)
-  | DVar (Ident x, _, _) -> ff fmt "%s" x
+  | DVar (Ident x, l, _) -> ff fmt "%s@%d" x l
+  (* | DVar (Ident x, _, _) -> ff fmt "%s" x *)
   | DFun (Ident x, e) -> ff fmt "@[<hv>fun %s ->@;<1 4>%a@]" x pp_expr e
   | DApp (e1, e2, _) ->
       let is_compound_exprL = function

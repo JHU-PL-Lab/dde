@@ -10,7 +10,7 @@ open Utils
 exception Unreachable
 exception Runtime_error
 
-let gen_logs = ref true
+let gen_logs = ref false
 let debug_plain msg = if !gen_logs then debug (fun m -> m msg)
 let debug msg = if !gen_logs then debug msg
 let info_plain msg = if !gen_logs then info msg
@@ -23,14 +23,14 @@ let rec matches_d d d' =
   compare_d d d' = 0
   || compare_d d DNil = 0
   || length_d d = length_d d'
-     && for_all2_d d d' ~f:(fun (_, d) (_, d') -> matches_d d d')
+     && for_all2_d d d' ~f:(fun (l, d) (l', d') -> l = l' && matches_d d d')
 
 let eq_label (l, d, s) (l', d', s') =
   l = l' && compare_d d d' = 0 && Set.compare_direct s s' = 0
 
 let rec vfrag = function
   | DNil -> DNil
-  | DCons ((e, d'), d) -> DCons ((e, vfrag d'), DNil)
+  | DCons ((e, d'), _) -> (e, vfrag d') => DNil
 
 let vfrag_s = Set.map (module DS_key) ~f:vfrag
 
@@ -45,7 +45,6 @@ let rec exists_stub r label =
 let elim_stub r label =
   if not (exists_stub r label) then r
   else
-    (* Format.printf "before: %a\n" pp_dres r; *)
     let bases =
       Set.filter_map
         (module DRes_key)
@@ -56,12 +55,11 @@ let elim_stub r label =
           | DFunAtom _ -> Some a
           | _ -> None)
     in
-    (* Format.printf "bases len: %d\n" (Set.length bases); *)
     let fin =
       Set.fold r ~init:dres_empty ~f:(fun acc a ->
           match a with
-          | DProjAtom (r, id) -> (
-              match Set.elements r with
+          | DProjAtom (r_proj, id) -> (
+              match Set.elements r_proj with
               | [ DStubAtom label' ] when eq_label label label' ->
                   Set.fold bases ~init:acc ~f:(fun acc -> function
                     | DRecAtom rs -> (
@@ -73,7 +71,11 @@ let elim_stub r label =
                         | None ->
                             (* TODO: this is fine? *)
                             acc)
-                    | _ -> raise Runtime_error)
+                    | a' ->
+                        Format.printf "r: %a\n" pp_dres r;
+                        Format.printf "a: %a\n" pp_datom a;
+                        Format.printf "base: %a\n" pp_datom a';
+                        raise Runtime_error)
               | _ ->
                   (* TODO: can be a stub of a different label *)
                   Set.add acc a)
@@ -90,20 +92,11 @@ let minisleep () =
        ())
 
 let rec analyze expr d s sfrag v level =
-  (* Logs.debug (fun m -> m "s length: %d" (Set.length s)); *)
-  (* minisleep (); *)
-  (* let i = Stdlib.read_int () in
-     Format.printf "read %d\n" i; *)
-  (* let oc = Stdlib.open_out "file" in *)
-  (* let oc = Out_channel.create "file" in
-     Printf.fprintf oc "hi";
-     Stdlib.flush_all (); *)
-  (* Stdlib.close_out oc; *)
-  (* Out_channel.close oc; *)
+  (* Logs.debug (fun m -> m "Level: %d" level); *)
   let r, s, sfrag =
     let level = level + 1 in
     match expr with
-    | DInt i -> (dres_singleton DIntAnyAtom, s, sfrag)
+    | DInt i -> (dres_singleton (DIntAtom i), s, sfrag)
     | DBool b -> (dres_singleton (DBoolAtom b), s, sfrag)
     | DFun (id, e) -> (dres_singleton (DFunAtom (expr, d)), s, sfrag)
     | DApp (e, e', l) ->
@@ -124,8 +117,7 @@ let rec analyze expr d s sfrag v level =
               (module DS_key)
               r1
               ~f:(function
-                | DFunAtom (_, d1) -> Some ((l, d) => d1 (* |> prune_d *))
-                | _ -> None)
+                | DFunAtom (_, d1) -> Some ((l, d) => d1 |> prune_d) | _ -> None)
           in
           let sfrag_new = vfrag_s s_new in
           let v_new =
@@ -148,12 +140,13 @@ let rec analyze expr d s sfrag v level =
           in
           debug (fun m -> m "****** DApp (%a) ******" Pp.pp_expr expr);
           fin)
-    | DVar (id, m, l) ->
+    | DVar (_, m, l) ->
         debug (fun m ->
             m "[Level %d] ====== DVar (%a) ======" level Pp.pp_expr expr);
         let stub_key = (l, d, sfrag) in
         if Set.mem v stub_key then (
-          debug (fun m -> m "Stubbed DVar");
+          debug (fun m ->
+              m "[Level %d] Stubbed DVar (%a)" level Pp.pp_expr expr);
           (dres_singleton (DStubAtom stub_key), s, sfrag))
         else (
           debug_plain "Didn't stub DVar";
@@ -161,16 +154,18 @@ let rec analyze expr d s sfrag v level =
           debug (fun m -> m "Key (D): %a" Pp.pp_d d);
           debug (fun m -> m "Key (S): %a" pp_s s);
           debug (fun m -> m "V:\n%a" pp_v v);
+          let l_app, _ = nth_exn_d d m in
           let fin =
             Set.fold s ~init:(dres_empty, s_empty, s_empty)
               ~f:(fun ((acc_r, acc_s, acc_sfrag) as acc) d1 ->
-                if matches_d d d1 then (
-                  debug (fun m -> m "[Level %d][DVar] Stitched!" level);
-                  (* Format.printf "d1: %a\n" Pp.pp_d d1;
-                     Format.printf "m: %d\n" m; *)
-                  let l_app, d2 = nth_exn_d d1 m in
+                let l_app', d2 = hd_exn_d d1 in
+                if l_app = l_app' then (
+                  debug (fun m ->
+                      m "[Level %d][DVar (%a)] Stitched: %a" level Pp.pp_expr
+                        expr Pp.pp_d d1);
                   match Hashtbl.find_exn myexpr l_app with
                   | DApp (_, em', _) ->
+                      debug (fun m -> m "em': %a" Pp.pp_expr em');
                       let r0, s0, sfrag0 =
                         analyze em' d2 s sfrag (Set.add v stub_key) level
                       in
@@ -179,7 +174,48 @@ let rec analyze expr d s sfrag v level =
                         Set.union acc_sfrag sfrag0 )
                   | _ -> raise Unreachable)
                 else acc)
-            |> fun (r, s, sfrag) -> (elim_stub r stub_key, s, sfrag)
+            (* if not (m < length_d d1) then acc
+               else if m - 1 >= 0 then (
+                 let l_app, d = nth_exn_d d m in
+                 debug_plain "m - 1 case";
+                 let l_app', d' = nth_exn_d d1 (m - 1) in
+                 if l_app = l_app' then (
+                   debug (fun m ->
+                       m "[Level %d][DVar (%a)] Stitched!" level Pp.pp_expr
+                         expr);
+                   debug (fun m_ -> m_ "Accessing index %d of %a" m Pp.pp_d d1);
+                   let d2 = d' in
+                   match Hashtbl.find_exn myexpr l_app with
+                   | DApp (_, em', _) ->
+                       debug (fun m -> m "em': %a" Pp.pp_expr em');
+                       let r0, s0, sfrag0 =
+                         analyze em' d2 s sfrag (Set.add v stub_key) level
+                       in
+                       ( Set.union acc_r r0,
+                         Set.union acc_s s0,
+                         Set.union acc_sfrag sfrag0 )
+                   | _ -> raise Unreachable)
+                 else acc)
+               else if matches_d d d1 then (
+                 debug_plain "m case";
+                 debug (fun m ->
+                     m "[Level %d][DVar (%a)] Stitched!" level Pp.pp_expr expr);
+                 debug (fun m_ -> m_ "Accessing index %d of %a" m Pp.pp_d d1);
+                 let l_app, d2 = nth_exn_d d1 m in
+                 debug (fun m -> m "d2: %a" Pp.pp_d d2);
+                 match Hashtbl.find_exn myexpr l_app with
+                 | DApp (_, em', _) ->
+                     debug (fun m -> m "em': %a" Pp.pp_expr em');
+                     let r0, s0, sfrag0 =
+                       analyze em' d2 s sfrag (Set.add v stub_key) level
+                     in
+                     ( Set.union acc_r r0,
+                       Set.union acc_s s0,
+                       Set.union acc_sfrag sfrag0 )
+                 | _ -> raise Unreachable)
+               else acc) *)
+            |>
+            fun (r, s, sfrag) -> (elim_stub r stub_key, s, sfrag)
           in
           debug (fun m ->
               m "[Level %d] ****** DVar (%a) ******" level Pp.pp_expr expr);

@@ -152,7 +152,8 @@ let rec cond pis =
     in
     (List.mapi pis ~f:(fun i _ -> zconst (Format.sprintf "c%d" i) bsort), conjs)
 
-and chcs_of_atom ?(pis = []) ?(stub_sort = isort) a =
+and chcs_of_atom ?(pis = []) ?(stub_sort = isort)
+    ?(p = Core.Set.empty (module St)) a =
   match a with
   | IntAtom i ->
       let cond_quants, cond_body = cond pis in
@@ -215,8 +216,8 @@ and chcs_of_atom ?(pis = []) ?(stub_sort = isort) a =
           Hashtbl.add id_to_decl ~key:rid1 ~data:pr1,
           Hashtbl.add id_to_decl ~key:rid2 ~data:pr2 );
       let cond_quants, cond_body = cond pis in
-      chcs_of_res r1 ~pis ~stub_sort:param_sort;
-      chcs_of_res r2 ~pis ~stub_sort:param_sort;
+      chcs_of_res r1 ~pis ~stub_sort:param_sort ~p;
+      chcs_of_res r2 ~pis ~stub_sort:param_sort ~p;
       Hash_set.add chcs
         (r1_ :: r2_ :: cond_quants
         |. (pr1 <-- [ r1_ ] &&& (pr2 <-- [ r2_ ]) &&& cond_body)
@@ -230,20 +231,21 @@ and chcs_of_atom ?(pis = []) ?(stub_sort = isort) a =
         ( Hashtbl.add id_to_decl ~key:aid ~data:pa,
           Hashtbl.add id_to_decl ~key:rid ~data:pr );
       let cond_quants, cond_body = cond pis in
-      chcs_of_res r ~pis ~stub_sort:bsort;
+      chcs_of_res r ~pis ~stub_sort:bsort ~p;
       Hash_set.add chcs
         ((r_ :: cond_quants |. (pr <-- [ r_ ]) &&& cond_body)
         --> (pa <-- [ znot r_ ]))
-  | LResAtom (r, _) | EResAtom (r, _) ->
+  | LResAtom (r, st) ->
       (* derive Z3 sort for labeled result/stub pair from the sort of
          the concrete disjuncts, which is sound on any proper,
          terminating programs. *)
+      let p = Core.Set.add p (St.Lstate st) in
       let sort =
         List.fold r ~init:None ~f:(fun t a ->
             (* this may assign an ID for stub to be later inherited by
                its enclosing res atom but will trigger a lookup failure
                (caught) at stub's (non-existent) Z3 decl *)
-            chcs_of_atom a ~pis ~stub_sort;
+            chcs_of_atom a ~pis ~stub_sort ~p;
             match Hashtbl.find id_to_decl (ida a) with
             | Some pa ->
                 (* TODO: assert that all disjuncts are of the same type *)
@@ -262,43 +264,73 @@ and chcs_of_atom ?(pis = []) ?(stub_sort = isort) a =
       let pr = zdecl rid [ sort ] bsort in
       ignore (Hashtbl.add id_to_decl ~key:rid ~data:pr);
       (* most of this is repetitive work, but necessary *)
-      chcs_of_res r ~pis ~stub_sort;
+      chcs_of_res r ~pis ~stub_sort ~p;
+      let r_ = zconst "r" sort in
+      Hash_set.add chcs ([ r_ ] |. (pr <-- [ r_ ]) --> (pa <-- [ r_ ]))
+  | EResAtom (r, st) ->
+      let p = Core.Set.add p (St.Estate st) in
+      let sort =
+        List.fold r ~init:None ~f:(fun t a ->
+            chcs_of_atom a ~pis ~stub_sort ~p;
+            match Hashtbl.find id_to_decl (ida a) with
+            | Some pa ->
+                (* TODO: assert that all disjuncts are of the same type *)
+                Some (pa |> FuncDecl.get_domain |> List.hd_exn)
+            | None -> t)
+        |> function
+        | Some t -> t
+        | None ->
+            Format.printf "%a\n" Grammar.pp_res r;
+            raise Unreachable
+      in
+      let aid = ida a in
+      let pa = zdecl aid [ sort ] bsort in
+      ignore (Hashtbl.add id_to_decl ~key:aid ~data:pa);
+      let rid = idr r in
+      let pr = zdecl rid [ sort ] bsort in
+      ignore (Hashtbl.add id_to_decl ~key:rid ~data:pr);
+      chcs_of_res r ~pis ~stub_sort ~p;
       let r_ = zconst "r" sort in
       Hash_set.add chcs ([ r_ ] |. (pr <-- [ r_ ]) --> (pa <-- [ r_ ]))
   | PathCondAtom (((r, _) as pi), r0) -> (
       (* generate CHCs for current path condition using
          the previous path conditions *)
-      chcs_of_res r ~pis ~stub_sort;
-      chcs_of_res r0 ~pis:(pi :: pis) ~stub_sort;
+      chcs_of_res r ~pis ~stub_sort ~p;
+      chcs_of_res r0 ~pis:(pi :: pis) ~stub_sort ~p;
       (* chcs_of_res r0 ~pis ~stub_sort; *)
       (* point self at the same decl *)
       match Hashtbl.find id_to_decl (idr r0) with
       | Some decl -> ignore (Hashtbl.add id_to_decl ~key:(ida a) ~data:decl)
       | None -> ())
   | FunAtom _ -> ()
-  | LStubAtom (l, s) ->
+  | LStubAtom ((l, s) as st) ->
       let aid = ida a in
       let pa = zdecl aid [ stub_sort ] bsort in
-      ignore (Hashtbl.add id_to_decl ~key:aid ~data:pa)
-      (* let r_ = zconst "r" stub_sort in
-         Hash_set.add chcs ([ r_ ] |. (pa <-- [ r_ ])) *)
-  | EStubAtom (e, s) ->
+      ignore (Hashtbl.add id_to_decl ~key:aid ~data:pa);
+      if not (Core.Set.mem p (St.Lstate st)) then
+        (* Format.printf "lstub: %s\n" aid; *)
+        let r_ = zconst "r" stub_sort in
+        Hash_set.add chcs ([ r_ ] |. (pa <-- [ r_ ]))
+  | EStubAtom ((e, s) as st) ->
       let aid = ida a in
       let pa = zdecl aid [ stub_sort ] bsort in
-      ignore (Hashtbl.add id_to_decl ~key:aid ~data:pa)
-      (* let r_ = zconst "r" stub_sort in
-         Hash_set.add chcs ([ r_ ] |. (pa <-- [ r_ ])) *)
+      ignore (Hashtbl.add id_to_decl ~key:aid ~data:pa);
+      if not (Core.Set.mem p (St.Estate st)) then
+        (* Format.printf "estub: %s\n" aid; *)
+        let r_ = zconst "r" stub_sort in
+        Hash_set.add chcs ([ r_ ] |. (pa <-- [ r_ ]))
   | AssertAtom (id, r1, r2) ->
-      chcs_of_res r1 ~pis ~stub_sort;
+      chcs_of_res r1 ~pis ~stub_sort ~p;
       chcs_of_assert r1 r2
   (* records are good for: subsumes shape analysis *)
   | RecAtom _ -> ()
   | ProjAtom _ | InspAtom _ -> raise Unreachable
 
-and chcs_of_res ?(pis = []) ?(stub_sort = isort) r =
+and chcs_of_res ?(pis = []) ?(stub_sort = isort)
+    ?(p = Core.Set.empty (module St)) r =
   let rid = idr r in
   List.iter r ~f:(fun a ->
-      chcs_of_atom a ~pis ~stub_sort;
+      chcs_of_atom a ~pis ~stub_sort ~p;
       let aid = ida a in
       let cond_quants, cond_body = cond pis in
       match Hashtbl.find id_to_decl aid with

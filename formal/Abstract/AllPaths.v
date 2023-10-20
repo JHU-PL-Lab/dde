@@ -197,7 +197,7 @@ Ltac solve_analyze :=
   | [|- _ <> _] => discriminate
   end.
 
-(* Example yoyo : [1] = 1 :: [] ++ [].
+(* Example eg : [1] = 1 :: [] ++ [].
 Proof. *)
 
 (* simple function value *)
