@@ -1,4 +1,4 @@
-open Program_analysis
+open Pa
 
 let toplevel_loop =
   let print_exception ex =
@@ -10,7 +10,7 @@ let toplevel_loop =
   let safe_parse () =
     try
       let lexbuf = Lexing.from_channel stdin in
-      Some (Interpreter.Parser.main Interpreter.Lexer.token lexbuf)
+      Some (Interp.Parser.main Interp.Lexer.token lexbuf)
     with
     | Exit -> exit 0
     | ex ->

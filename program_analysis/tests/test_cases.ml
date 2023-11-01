@@ -1,5 +1,5 @@
 open Core
-open Program_analysis.Solver
+open Pa.Solver
 
 let ri = zconst "r" isort
 let rb = zconst "r" bsort

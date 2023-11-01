@@ -1,11 +1,11 @@
 (library
- (name interpreter)
- (public_name dde.interpreter)
+ (name interp)
+ (public_name dde.interp)
  (preprocess
   (pps ppx_deriving.show bisect_ppx ppx_jane))
  (instrumentation
   (backend bisect_ppx --bisect-file _build/bisect))
- (modules fbdk debugutils ast type interp lexer options parser pp)
+ (modules lexer parser ast lib pp debugutils)
  (libraries core hashcons))
 
 (ocamllex
@@ -18,11 +18,11 @@
  (name main)
  (modes byte)
  (modules main)
- (libraries interpreter))
+ (libraries interp))
 
 (toplevel
  (name toplevel)
- (libraries utop interpreter))
+ (libraries utop interp))
 
 (alias
  (name distributables)

@@ -100,7 +100,7 @@ let reset () =
   fresh_id := -1
 
 (** can assume good form due to call to `eval_assert` *)
-let chcs_of_assert r1 (r2 : Interpreter.Ast.res_val_fv) =
+let chcs_of_assert r1 (r2 : Interp.Ast.res_val_fv) =
   let p = Hashtbl.find_exn id_to_decl (idr r1) in
   let ri = zconst "r" isort in
   let rb = zconst "r" bsort in

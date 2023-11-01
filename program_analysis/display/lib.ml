@@ -6,15 +6,8 @@ open Dinterp.Interp
 open Grammar
 open Grammar.DAtom
 open Utils
-
-exception Unreachable
-exception Runtime_error
-
-let gen_logs = ref false
-let debug_plain msg = if !gen_logs then debug (fun m -> m msg)
-let debug msg = if !gen_logs then debug msg
-let info_plain msg = if !gen_logs then info msg
-let info msg = if !gen_logs then info msg
+open Pa.Exns
+open Pa.Logging
 
 let rec prune_d ?(k = 1) d =
   map_d d ~f:(fun (l, d) -> (l, if k = 0 then DNil else prune_d d ~k:(k - 1)))

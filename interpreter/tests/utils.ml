@@ -1,4 +1,4 @@
-open Interpreter
+open Interp
 
 exception Unreachable
 
@@ -58,12 +58,12 @@ let dde_to_fbenv (v : Ast.result_value) : Fbenvast.expr =
 
 let dde_eval_fb s =
   Lexing.from_string s |> Parser.main Lexer.token
-  |> Interp.eval ~is_debug_mode:false ~should_simplify:true
+  |> Lib.eval ~is_debug_mode:false ~should_simplify:true
   |> dde_to_fb
 
 let dde_eval_fbenv s =
   Lexing.from_string s |> Parser.main Lexer.token
-  |> Interp.eval ~is_debug_mode:false ~should_simplify:true
+  |> Lib.eval ~is_debug_mode:false ~should_simplify:true
   |> dde_to_fbenv
 
 let dde_parse s =
@@ -82,5 +82,5 @@ let assert_unequal e1 e2 = OUnit2.assert_equal ~cmp:(fun a b -> a <> b) e1 e2
 
 let peu ?(should_simplify = false) s =
   s |> Core.Fn.flip ( ^ ) ";;" |> Lexing.from_string |> Parser.main Lexer.token
-  |> Interp.eval ~is_debug_mode:false ~should_simplify
+  |> Lib.eval ~is_debug_mode:false ~should_simplify
   |> Format.asprintf "%a" Pp.pp_result_value

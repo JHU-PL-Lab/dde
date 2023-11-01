@@ -1,5 +1,5 @@
 open Core
-open Interpreter.Ast
+open Interp.Ast
 
 module SKey = struct
   module T = struct
@@ -51,8 +51,8 @@ module NewSt = struct
     [@@deriving compare, sexp, hash]
 
     let show_estate (e, sigma, s) =
-      Format.asprintf "(%a, %s, {%s})" Interpreter.Ast.pp_expr e
-        (show_sigma sigma) (show_set s)
+      Format.asprintf "(%a, %s, {%s})" Interp.Ast.pp_expr e (show_sigma sigma)
+        (show_set s)
 
     let pp_estate fmt est = Format.fprintf fmt "%s" (show_estate est)
 
@@ -82,18 +82,18 @@ module Cache_key = struct
 end
 
 open Core
-open Interpreter.Ast
+open Interp.Ast
 
 type atom =
-  | IntAllAtom
+  | IntAnyAtom
   | IntAtom of int
   | BoolAtom of bool
   | FunAtom of expr * int * sigma
-  | LabelStubAtom of (int * sigma)
-  | ExprStubAtom of (expr * sigma)
-  | RecordAtom of (ident * res) list
-  | ProjectionAtom of res * ident
-  | InspectionAtom of ident * res
+  | LStubAtom of (int * sigma)
+  | EStubAtom of (expr * sigma)
+  | RecAtom of (ident * res) list
+  | ProjAtom of res * ident
+  | InspAtom of ident * res
   | AssertAtom of ident * res * res_val_fv
 
 and res = atom list [@@deriving hash, sexp, compare, show { with_path = false }]
@@ -122,15 +122,6 @@ module Choice = struct
   include T
   include Comparable.Make (T)
 end
-
-(* module PathChoice = struct
-     module T = struct
-       type t = path_cond * atom [@@deriving compare, sexp]
-     end
-
-     include T
-     include Comparable.Make (T)
-   end *)
 
 module AtomKey = struct
   module T = struct
@@ -165,3 +156,5 @@ module Z3ExprKey = struct
   include T
   include Comparable.Make (T)
 end
+
+let choice_empty = Set.empty (module Choice)

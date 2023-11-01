@@ -1,5 +1,5 @@
 open Core
-open Interpreter.Ast
+open Interp.Ast
 open Grammar
 
 exception Unreachable
@@ -30,7 +30,7 @@ let ff = Format.fprintf
 let rec pp_atom fmt = function
   | IntAtom x -> ff fmt "%d" x
   | BoolAtom b -> ff fmt "%b" b
-  | FunAtom (f, _, _) -> Interpreter.Pp.pp_expr fmt f
+  | FunAtom (f, _, _) -> Interp.Pp.pp_expr fmt f
   | LResAtom (choices, _) -> ff fmt "%a" pp_res choices
   | EResAtom (choices, _) -> ff fmt "%a" pp_res choices
   | LStubAtom _ -> ff fmt "stub"
@@ -101,7 +101,7 @@ type latom =
   | LRecAtom of (ident * lres) list * int
   | LProjAtom of lres * ident
   | LInspAtom of ident * lres
-  | LAssertAtom of ident * lres * Interpreter.Ast.res_val_fv
+  | LAssertAtom of ident * lres * Interp.Ast.res_val_fv
 
 and lres = latom list
 
@@ -129,7 +129,7 @@ end
 let rec ppp_latom fmt = function
   | LIntAtom (x, _) -> ff fmt "%d" x
   | LBoolAtom (b, _) -> ff fmt "%b" b
-  | LFunAtom (f, _, _) -> Interpreter.Pp.pp_expr fmt f
+  | LFunAtom (f, _, _) -> Interp.Pp.pp_expr fmt f
   | LLResAtom (choices, _, _) | LEResAtom (choices, _, _) ->
       ff fmt "%a" ppp_lres choices
   (* ff fmt "(%a, %a, %a)" pp_res choices Interpreter.Pp.pp_expr e pp_sigma s *)
@@ -373,8 +373,7 @@ let dot_of_result ?(display_path_cond = true) test_num r =
         add_edge xid rid;
         let rvid = Format.sprintf "%s_assn" aid in
         add_node
-          (Format.asprintf "%s [label=\"%a\"];" rvid
-             Interpreter.Pp.pp_res_val_fv rv);
+          (Format.asprintf "%s [label=\"%a\"];" rvid Interp.Pp.pp_res_val_fv rv);
         add_edge aid rvid;
         (* add_sibling aid xid;
            add_sibling aid rvid; *)

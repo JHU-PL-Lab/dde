@@ -1,5 +1,5 @@
 open Core
-open Interpreter.Ast
+open Interp.Ast
 
 module S_key = struct
   module T = struct
@@ -52,8 +52,8 @@ module NewSt = struct
     [@@deriving compare, sexp, hash]
 
     let show_estate (e, sigma, s) =
-      Format.asprintf "(%a, %s, {%s})" Interpreter.Ast.pp_expr e
-        (show_sigma sigma) (show_set s)
+      Format.asprintf "(%a, %s, {%s})" Interp.Ast.pp_expr e (show_sigma sigma)
+        (show_set s)
 
     let pp_estate fmt est = Format.fprintf fmt "%s" (show_estate est)
 

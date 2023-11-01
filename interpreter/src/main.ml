@@ -1,4 +1,4 @@
-open Interpreter
+open Interp
 
 let toplevel_loop typechecking_enabled show_types is_debug_mode should_simplify
     =
@@ -19,33 +19,18 @@ let toplevel_loop typechecking_enabled show_types is_debug_mode should_simplify
   let safe_parse () =
     try
       let lexbuf = Lexing.from_channel stdin in
-      Some (Fbdk.Parser.main Fbdk.Lexer.token lexbuf)
+      Some (Parser.main Lexer.token lexbuf)
     with
     | Exit -> exit 0
     | ex ->
         print_exception ex;
         None
   in
-  (* Type check if enabled and return the result. The result is a false *)
-  (* only if it is enabled and type checking throws an exception (fails) *)
-  let safe_typecheck ast =
-    try
-      if typechecking_enabled then (
-        let exprtype = Fbdk.Typechecker.typecheck ast in
-        if show_types then Format.printf " : %a\n" Fbdk.Pp.pp_fbtype exprtype;
-        true)
-      else true
-    with
-    | Fbdk.Typechecker.TypecheckerNotImplementedException -> true
-    | ex ->
-        print_exception ex;
-        false
-  in
   (* Interpret and print. Exceptions are caught and reported. But the toploop is not aborted *)
   let safe_interpret_and_print ast =
     try
-      let result = Fbdk.Interpreter.eval ast ~is_debug_mode ~should_simplify in
-      Format.printf "==> %a\n" Fbdk.Pp.pp_result_value result
+      let result = Lib.eval ast ~is_debug_mode ~should_simplify in
+      Format.printf "==> %a\n" Pp.pp_result_value result
     with ex -> print_exception ex
   in
   Format.printf "\t(typechecker %s)\n\n"
@@ -58,50 +43,50 @@ let toplevel_loop typechecking_enabled show_types is_debug_mode should_simplify
     match parse_result with
     | None -> ()
     | Some ast ->
-        if safe_typecheck ast then safe_interpret_and_print ast else ();
+        safe_interpret_and_print ast;
         Format.print_flush ()
   done
 
 let run_file filename is_debug_mode should_simplify =
   let fin = open_in filename in
   let lexbuf = Lexing.from_channel fin in
-  let ast = Fbdk.Parser.main Fbdk.Lexer.token lexbuf in
-  let result = Fbdk.Interpreter.eval ast ~is_debug_mode ~should_simplify in
-  Format.printf "%a\n" Fbdk.Pp.pp_result_value result;
+  let ast = Parser.main Lexer.token lexbuf in
+  let result = Lib.eval ast ~is_debug_mode ~should_simplify in
+  Format.printf "%a\n" Pp.pp_result_value result;
   Format.print_flush ()
 
 let main () =
   let filename = ref "" in
   let toplevel = ref true in
   let version = ref false in
-  let no_typechecking = ref (not Fbdk.Typechecker.typecheck_default_enabled) in
+  let no_typechecking = ref false in
+  (* let no_typechecking = ref (not Fbdk.Typechecker.typecheck_default_enabled) in *)
   let no_type_display = ref false in
   let show_exception_stack_trace = ref false in
   let is_debug_mode = ref false in
   let should_simplify = ref false in
   Arg.parse
-    ([
-       ("--typecheck", Arg.Clear no_typechecking, "enable typechecking");
-       ("--no-typecheck", Arg.Set no_typechecking, "disable typechecking");
-       ("--hide-types", Arg.Set no_type_display, "disable displaying of types");
-       ( "--show-backtrace",
-         Arg.Set show_exception_stack_trace,
-         "Enable the display of exception stack traces" );
-       ( "--debug",
-         Arg.Set is_debug_mode,
-         "output debug information from evaluation" );
-       ( "--simplify",
-         Arg.Set should_simplify,
-         "eagerly simplify (substitute free variables, perform function \
-          application, etc.)result" );
-     ]
-    @ Fbdk.Options.options)
+    [
+      ("--typecheck", Arg.Clear no_typechecking, "enable typechecking");
+      ("--no-typecheck", Arg.Set no_typechecking, "disable typechecking");
+      ("--hide-types", Arg.Set no_type_display, "disable displaying of types");
+      ( "--show-backtrace",
+        Arg.Set show_exception_stack_trace,
+        "Enable the display of exception stack traces" );
+      ( "--debug",
+        Arg.Set is_debug_mode,
+        "output debug information from evaluation" );
+      ( "--simplify",
+        Arg.Set should_simplify,
+        "eagerly simplify (substitute free variables, perform function \
+         application, etc.)result" );
+    ]
     (function
       | fname ->
           filename := fname;
           version := false;
           toplevel := false)
-    ("Usage: " ^ Fbdk.name ^ " [ options ] [ filename ]\noptions:");
+    "Usage: Interp [ options ] [ filename ]\noptions:";
 
   Printexc.record_backtrace !show_exception_stack_trace;
 

@@ -1,9 +1,7 @@
 open Core
+open Interp.Ast
 open Grammar
-open Interpreter.Ast
-
-exception Unreachable
-exception Runtime_error
+open Exns
 
 let rec exists_stub r label =
   List.exists r ~f:(function
@@ -31,6 +29,19 @@ let rec exists_stub r label =
     | AndAtom (r1, r2)
     | OrAtom (r1, r2) ->
         exists_stub r1 label || exists_stub r2 label)
+
+let int_op = function
+  | EqAtom _ -> ( = )
+  | GeAtom _ -> ( >= )
+  | GtAtom _ -> ( > )
+  | LeAtom _ -> ( <= )
+  | LtAtom _ -> ( < )
+  | _ -> raise Unreachable
+
+let bool_op = function
+  | AndAtom _ -> ( && )
+  | OrAtom _ -> ( || )
+  | _ -> raise Unreachable
 
 let rec simplify ?(pa = None) r =
   let r' =
@@ -212,17 +223,9 @@ let rec simplify ?(pa = None) r =
         | GtAtom (r1, r2)
         | LeAtom (r1, r2)
         | LtAtom (r1, r2) -> (
-            let int_op =
-              match a with
-              | EqAtom _ -> ( = )
-              | GeAtom _ -> ( >= )
-              | GtAtom _ -> ( > )
-              | LeAtom _ -> ( <= )
-              | LtAtom _ -> ( < )
-              | _ -> raise Unreachable
-            in
             match (r1, r2) with
-            | [ IntAtom i1 ], [ IntAtom i2 ] -> Some [ BoolAtom (int_op i1 i2) ]
+            | [ IntAtom i1 ], [ IntAtom i2 ] ->
+                Some [ BoolAtom (int_op a i1 i2) ]
             | _ ->
                 let r1', r2' =
                   (simplify r1 ~pa:(Some a), simplify r2 ~pa:(Some a))
@@ -237,27 +240,19 @@ let rec simplify ?(pa = None) r =
                     | LtAtom _ -> LtAtom (r1', r2')
                     | _ -> raise Unreachable);
                   ])
-        | AndAtom (r1, r2) | OrAtom (r1, r2) -> (
-            let bool_op =
-              match a with
-              | AndAtom _ -> ( && )
-              | OrAtom _ -> ( || )
-              | _ -> raise Unreachable
-            in
-            match (r1, r2) with
-            | [ BoolAtom b1 ], [ BoolAtom b2 ] ->
-                Some [ BoolAtom (bool_op b1 b2) ]
-            | _ ->
-                let r1', r2' =
-                  (simplify r1 ~pa:(Some a), simplify r2 ~pa:(Some a))
-                in
-                Some
-                  [
-                    (match a with
-                    | AndAtom _ -> AndAtom (r1', r2')
-                    | OrAtom _ -> OrAtom (r1', r2')
-                    | _ -> raise Unreachable);
-                  ])
+        | AndAtom (r1, r2) | OrAtom (r1, r2) ->
+            Some
+              (List.concat_map r1 ~f:(fun a1 ->
+                   List.map r2 ~f:(fun a2 ->
+                       match (a1, a2) with
+                       | BoolAtom b1, BoolAtom b2 -> BoolAtom (bool_op a b1 b2)
+                       | _ -> (
+                           let r1' = simplify r1 ~pa:(Some a) in
+                           let r2' = simplify r2 ~pa:(Some a) in
+                           match a with
+                           | AndAtom _ -> AndAtom (r1', r2')
+                           | OrAtom _ -> OrAtom (r1', r2')
+                           | _ -> raise Unreachable))))
         | NotAtom r -> (
             match r with
             | [ BoolAtom b ] -> Some [ BoolAtom (not b) ]

@@ -5,10 +5,10 @@
   core
   core_bench
   core_unix.command_unix
-  dde.interpreter
+  dde.interp
   dde.dinterp
-  dde.program_analysis
-  dde.pa_reworked
+  dde.pa
+  dde.simple_pa
   dde.display_pa
   fbdk.fb
   ounit2

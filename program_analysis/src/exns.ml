@@ -1,0 +1,3 @@
+exception Unreachable
+exception BadAssert
+exception Runtime_error

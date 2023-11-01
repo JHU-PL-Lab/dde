@@ -12,7 +12,7 @@ let is_compound_expr = function Var _ -> false | _ -> true
 let rec pp_expr fmt = function
   | Int i -> ff fmt "%d" i
   | Bool b -> ff fmt "%b" b
-  | Function (Ident i, x, l) -> ff fmt "@[<hv>fun %s ->@;<1 4>%a@]" i pp_expr x
+  | Function (Ident i, x, l) -> ff fmt "@[<hv>fun %s ->@;<0 2>%a@]" i pp_expr x
   | Var (Ident x, l) -> ff fmt "%s" x
   | Appl (e1, e2, _) ->
       let is_compound_exprL = function
@@ -36,7 +36,7 @@ let rec pp_expr fmt = function
   | Lt (e1, e2) -> ff fmt "(%a < %a)" pp_expr e1 pp_expr e2
   | Not e1 -> ff fmt "(not %a)" pp_expr e1
   | If (e1, e2, e3, _) ->
-      ff fmt "@[<hv>if %a then@;<1 4>%a@;<1 0>else@;<1 4>%a@]" pp_expr e1
+      ff fmt "@[<hv>if %a then@;<1 2>%a@;<1 0>else@;<1 2>%a@]" pp_expr e1
         pp_expr e2 pp_expr e3
   | Let (Ident i, e1, e2, _) ->
       ff fmt "@[<hv>let %s =@;<1 4>%a@;<1 0>in@;<1 4>%a@]" i pp_expr e1 pp_expr
@@ -102,6 +102,4 @@ let rec pp_res_val_fv fmt = function
   | BoolResFv b -> ff fmt "%b" b
   | VarResFv (Ident x) -> ff fmt "%s" x
   | GeResFv (v1, v2) -> ff fmt "%a > %a" pp_res_val_fv v1 pp_res_val_fv v2
-  | v ->
-      (* Format.printf "%a" Ast.pp_res_val_fv v *)
-      ()
+  | _ -> ()

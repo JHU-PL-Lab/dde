@@ -104,36 +104,6 @@ let recursion_thunked =
 
 let test_recursion _ = gen_test recursion_thunked
 
-let lossy_core_thunked =
-  [
-    (* (fun _ -> ("Int", pau'' ~verify:false (read_input "ack.ml"))); *)
-    (* (fun _ -> ("false", pau' ~verify:false (read_input "blur.ml"))); *)
-    (* (fun _ -> ("Int", pau' ~verify:false (read_input "cpstak.ml"))); *)
-    (fun _ -> ("false", pau' ~verify:false (read_input "eta.ml")));
-    (* (fun _ -> ("Int", pau' ~verify:false (read_input "facehugger.ml"))); *)
-    (fun _ -> ("Int", pau' ~verify:false (read_input "fact.ml")));
-    (fun _ -> ("false", pau' ~verify:false (read_input "kcfa2.ml")));
-    (fun _ -> ("false", pau' ~verify:false (read_input "kcfa3.ml")));
-    (* (fun _ -> ("Int", pau' ~verify:false (read_input "loop2.ml"))); *)
-    (* (fun _ ->
-         ( "(Int | (stub | (stub | (stub | (stub | stub)))))",
-           pau' ~verify:false (read_input "loop2'.ml") )); *)
-    (fun _ -> ("Int", pau' ~verify:false (read_input "mj09.ml")));
-    (* (fun _ -> ("true", pau' ~verify:false (read_input "sat-3.ml"))); *)
-    (* (fun _ -> ("true", pau' ~verify:false (read_input "sat.ml"))); *)
-    (* (fun _ -> ("Int", pau' ~verify:false (read_input "tak.ml"))); *)
-    (* TODO: still have to keep mapping? *)
-    (* (fun _ ->
-         ( "{ hd = Int; tl = { hd = Int; tl = ({} | { hd = Int; tl = ({} | { hd = \
-            Int; tl = stub }) }) } }",
-           pau' ~verify:false (read_input "map.ml") ));
-       (fun _ -> ("stub", pau' ~verify:false (read_input "primtest.ml")));
-       (fun _ -> ("(false | true)", pau' ~verify:false (read_input "rsa.ml"))); *)
-    (* (fun _ -> ("", pau' ~verify:false (read_input "church.ml"))); *)
-  ]
-
-let test_lossy_core _ = gen_test lossy_core_thunked
-
 let church_basic_thunked =
   [
     (fun _ -> ("(0 + 1)", pau ~test_num:41 church_basic.(0)));
@@ -171,6 +141,31 @@ let tests_thunked =
   @ conditional_thunked @ currying_thunked @ recursion_thunked
   @ church_basic_thunked @ church_binop_thunked @ lists_thunked
 
+let test_prune_d _ =
+  let open Dinterp.Ast in
+  let open Dinterp.Interp in
+  let open Display_pa.Lib in
+  (* assert_equal ((0, DNil) => DNil) (prune_d ((0, DNil) => DNil));
+     assert_equal
+       ((0, (1, DNil) => DNil) => DNil)
+       (prune_d ((0, (1, DNil) => DNil) => DNil));
+     assert_equal
+       ((0, (1, DNil) => DNil) => DNil)
+       (prune_d ((0, (1, (2, DNil) => DNil) => DNil) => DNil));
+     (* [ 0^[ 1^[ 2 ], 3^[ 3 ] ] ] -> [ 0^[ 1, 3^[ 3 ] ] ] *)
+     assert_equal
+       ((0, (1, DNil) => ((3, DNil) => DNil)) => DNil)
+       (prune_d ((0, (1, (2, DNil) => DNil) => ((3, DNil) => DNil)) => DNil));
+     assert_equal true (matches_d ((0, DNil) => DNil) ((1, DNil) => DNil));
+     assert_equal true
+       (matches_d ((0, DNil) => DNil) ((1, (2, DNil) => DNil) => DNil));
+     assert_equal false
+       (matches_d ((1, (2, DNil) => DNil) => DNil) ((0, DNil) => DNil)); *)
+  assert_equal
+    ~printer:(Format.asprintf "%a" Dinterp.Pp.pp_d)
+    ((0, (1, DNil) => ((3, DNil) => DNil)) => DNil)
+    (prune_d ((0, DNil) => ((1, DNil) => ((2, DNil) => ((3, DNil) => DNil)))))
+
 let ddpa_display_thunked =
   [
     (* (fun _ -> ("true", pau'' (read_input "blur.ml"))); *)
@@ -200,72 +195,102 @@ let test_ddpa_display _ = gen_test ddpa_display_thunked
 
 let ddpa_thunked =
   [
-    (* (fun _ -> ("true", pau ~verify:false ~test_num:1 (read_input "blur.ml"))); *)
-    (* (fun _ -> ("false", pau ~verify:false ~test_num:1 (read_input "eta.ml"))); *)
-    (* (fun _ ->
-       ( "((6 * 1) + (12 * ((((3 | (stub - 1)) - 1) * ((((3 | (stub - 1)) - 1) \
-          * stub) | 1)) | 1)))",
-         pau ~verify:false ~test_num:1 (read_input "facehugger.ml") )); *)
-    (* (fun _ ->
-       ( "(90 * ((((9 | (stub - 1)) - 1) * ((((9 | (stub - 1)) - 1) * stub) | \
-          1)) | 1))",
-         pau ~verify:false ~test_num:1 (read_input "fact.ml") )); *)
-    (* (fun _ -> ("false", pau ~verify:false ~test_num:1 (read_input "kcfa2.ml"))); *)
-    (* (fun _ -> ("false", pau ~verify:false ~test_num:1 (read_input "kcfa3.ml"))); *)
-    (* (fun _ ->
-       ( read_output "loop2-1.txt",
-         pau ~verify:false ~test_num:1 (read_input "loop2-1.ml") )); *)
+    (fun _ ->
+      ("true", pau ~verify:false ~test_name:"blur" (read_input "blur.ml")));
+    (fun _ ->
+      ("false", pau ~verify:false ~test_name:"eta" (read_input "eta.ml")));
+    (fun _ ->
+      ( "((6 * 1) + (12 * ((((3 | (stub - 1)) - 1) * ((((3 | (stub - 1)) - 1) \
+         * stub) | 1)) | 1)))",
+        pau ~verify:false ~test_name:"facehugger" (read_input "facehugger.ml")
+      ));
+    (fun _ ->
+      ( "(90 * ((((9 | (stub - 1)) - 1) * ((((9 | (stub - 1)) - 1) * stub) | \
+         1)) | 1))",
+        pau ~verify:false ~test_name:"fact" (read_input "fact.ml") ));
+    (fun _ ->
+      ("false", pau ~verify:false ~test_name:"kcfa2" (read_input "kcfa2.ml")));
+    (fun _ ->
+      ("false", pau ~verify:false ~test_name:"kcfa3" (read_input "kcfa3.ml")));
+    (fun _ ->
+      ( read_output "loop2-1.txt",
+        pau ~verify:false ~test_name:"loop2-1" (read_input "loop2-1.ml") ));
     (* (fun _ ->
        ( "((stub | ((stub | stub) | stub)) | ((stub | stub) | stub))",
-         pau ~verify:false ~test_num:1 (read_input "loop2'.ml") )); *)
-    (* (fun _ -> ("2", pau ~verify:false ~test_num:1 (read_input "mj09.ml"))); *)
-    (* (fun _ ->
-       ( "{ hd = 8; tl = { hd = 9; tl = ({} | { hd = (9 | 10); tl = ({} | { hd \
-          = (9 | 10); tl = stub }) }) } }",
-         pau ~verify:false ~test_num:1 (read_input "map.ml") )); *)
-    (* (fun _ -> ("15", pau ~verify:false ~test_num:1 (read_input "primtest.ml"))); *)
-    (* (fun _ ->
-       ( read_output "sat-1.txt",
-         pau ~verify:false ~test_num:1 (read_input "sat-1.ml") )); *)
+         pau ~verify:false ~test_name:"loop2'" (read_input "loop2'.ml") )); *)
+    (fun _ -> ("2", pau ~verify:false ~test_name:"mj09" (read_input "mj09.ml")));
     (fun _ ->
-      ( read_output "sat-2.txt",
-        pau ~verify:false ~test_num:1 (read_input "sat-2.ml") ));
-    (* (fun _ ->
-       ( read_output "sat-3.txt",
-         pau ~verify:false ~test_num:1 (read_input "sat-3.ml") )); *)
-    (* (fun _ -> ("false", pau ~verify:false ~test_num:1 (read_input "rsa.ml"))); *)
-    (* (fun _ -> ("Int", pau ~verify:false ~test_num:1 (read_input "ack.ml"))); *)
-    (* (fun _ -> ("Int", pau ~verify:false ~test_num:1 (read_input "tak.ml"))); *)
-    (* (fun _ -> ("", pau ~verify:false ~test_num:1 (read_input "church.ml"))); *)
-    (* (fun _ -> ("", pau ~verify:false ~test_num:1 (read_input "cpstak.ml"))); *)
+      ( "{ hd = 8; tl = { hd = 9; tl = ({} | { hd = (9 | 10); tl = ({} | { hd \
+         = (9 | 10); tl = stub }) }) } }",
+        pau ~verify:false ~test_name:"map" (read_input "map.ml") ));
+    (fun _ ->
+      ("15", pau ~verify:false ~test_name:"primtest" (read_input "primtest.ml")));
+    (fun _ ->
+      ( "(false | true)",
+        pau ~verify:false ~test_name:"sat-1" (read_input "sat-1.ml") ));
+    (fun _ ->
+      ( "(false | true)",
+        pau ~verify:false ~test_name:"sat-2" (read_input "sat-2.ml") ));
+    (fun _ ->
+      ( "(false | true)",
+        pau ~verify:false ~test_name:"sat-3" (read_input "sat-3.ml") ));
+    (fun _ ->
+      ("false", pau ~verify:false ~test_name:"rsa" (read_input "rsa.ml")));
+    (* (fun _ -> ("Int", pau ~verify:false ~test_name:"ack" (read_input "ack.ml")));
+       (fun _ -> ("Int", pau ~verify:false ~test_name:"tak" (read_input "tak.ml")));
+       (fun _ ->
+         ("", pau ~verify:false ~test_name:"church" (read_input "church.ml")));
+       (fun _ ->
+         ("", pau ~verify:false ~test_name:"cpstak" (read_input "cpstak.ml"))); *)
   ]
 
 let test_ddpa _ = gen_test ddpa_thunked
 
-let test_prune_d _ =
-  let open Dinterp.Ast in
-  let open Dinterp.Interp in
-  let open Display_pa.Lib in
-  (* assert_equal ((0, DNil) => DNil) (prune_d ((0, DNil) => DNil));
-     assert_equal
-       ((0, (1, DNil) => DNil) => DNil)
-       (prune_d ((0, (1, DNil) => DNil) => DNil));
-     assert_equal
-       ((0, (1, DNil) => DNil) => DNil)
-       (prune_d ((0, (1, (2, DNil) => DNil) => DNil) => DNil));
-     (* [ 0^[ 1^[ 2 ], 3^[ 3 ] ] ] -> [ 0^[ 1, 3^[ 3 ] ] ] *)
-     assert_equal
-       ((0, (1, DNil) => ((3, DNil) => DNil)) => DNil)
-       (prune_d ((0, (1, (2, DNil) => DNil) => ((3, DNil) => DNil)) => DNil));
-     assert_equal true (matches_d ((0, DNil) => DNil) ((1, DNil) => DNil));
-     assert_equal true
-       (matches_d ((0, DNil) => DNil) ((1, (2, DNil) => DNil) => DNil));
-     assert_equal false
-       (matches_d ((1, (2, DNil) => DNil) => DNil) ((0, DNil) => DNil)); *)
-  assert_equal
-    ~printer:(Format.asprintf "%a" Dinterp.Pp.pp_d)
-    ((0, (1, DNil) => ((3, DNil) => DNil)) => DNil)
-    (prune_d ((0, DNil) => ((1, DNil) => ((2, DNil) => ((3, DNil) => DNil)))))
+let ddpa_simple_thunked =
+  [
+    (* (fun _ ->
+         ( "(false | true)",
+           pau' ~verify:false ~test_name:"blur" (read_input "blur.ml") )); *)
+    (* (fun _ ->
+       ("false", pau' ~verify:false ~test_name:"eta" (read_input "eta.ml"))); *)
+    (* (fun _ ->
+       ( "Int",
+         pau' ~verify:false ~test_name:"facehugger" (read_input "facehugger.ml")
+       )); *)
+    (* (fun _ ->
+       ("false", pau' ~verify:false ~test_name:"kcfa2" (read_input "kcfa2.ml"))); *)
+    (* (fun _ ->
+       ("false", pau' ~verify:false ~test_name:"kcfa3" (read_input "kcfa3.ml"))); *)
+    (fun _ ->
+      ( "(Int | (stub | (stub | (stub | (stub | stub)))))",
+        pau' ~verify:false ~test_name:"loop2-1" (read_input "loop2-1.ml") ));
+    (* (fun _ ->
+       ("Int", pau' ~verify:false ~test_name:"mj09" (read_input "mj09.ml"))); *)
+    (* (fun _ ->
+       ( "{ hd = Int; tl = { hd = Int; tl = ({} | { hd = Int; tl = ({} | { hd = \
+          Int; tl = stub }) }) } }",
+         pau' ~verify:false ~test_name:"map" (read_input "map.ml") )); *)
+    (* (fun _ ->
+       ( "stub",
+         pau' ~verify:false ~test_name:"primtest" (read_input "primtest.ml") )); *)
+    (* (fun _ ->
+       ("true", pau' ~verify:false ~test_name:"sat-1" (read_input "sat-1.ml"))); *)
+    (* (fun _ ->
+       ("true", pau' ~verify:false ~test_name:"sat-2" (read_input "sat-2.ml"))); *)
+    (* (fun _ ->
+       ("true", pau' ~verify:false ~test_name:"sat-3" (read_input "sat-3.ml"))); *)
+    (* (fun _ ->
+       ( "(false | true)",
+         pau' ~verify:false ~test_name:"rsa" (read_input "rsa.ml") )); *)
+    (* (fun _ ->
+       ("Int", pau' ~verify:false ~test_name:"ack" (read_input "ack.ml"))); *)
+    (* (fun _ ->
+       ("Int", pau' ~verify:false ~test_name:"tak" (read_input "tak.ml"))); *)
+    (* (fun _ ->
+       ("", pau' ~verify:false ~test_name:"cpstak" (read_input "cpstak.ml"))); *)
+  ]
+
+let test_ddpa_simple _ = gen_test ddpa_simple_thunked
 
 let test_pa =
   [
@@ -279,12 +304,12 @@ let test_pa =
     (* "Church numerals binary operations" >:: test_church_binop; *)
     (* "Adapted" >:: test_adapted; *)
     (* "Lists" >:: test_lists; *)
-    (* "Core (simple)" >:: test_lossy_core; *)
-    (* "Core (display)" >:: test_lossy_core'; *)
     (* "pruned_d" >:: test_prune_d; *)
-    "DDPA (display)"
-    >: test_case test_ddpa_display ~length:(OUnitTest.Custom_length 100000.);
+    "DDPA (simple)"
+    >: test_case test_ddpa_simple ~length:(OUnitTest.Custom_length 100000.);
     (* "DDPA" >: test_case test_ddpa ~length:(OUnitTest.Custom_length 100000.); *)
+    (* "DDPA (display)"
+       >: test_case test_ddpa_display ~length:(OUnitTest.Custom_length 100000.); *)
   ]
 
 let tests = "Program analysis tests" >::: test_pa

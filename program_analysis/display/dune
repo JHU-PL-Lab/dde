@@ -8,7 +8,7 @@
  (instrumentation
   (backend landmarks --auto))
  (modules lib grammar debugutils utils simplifier)
- (libraries dde.dinterp core logs logs.fmt core_unix))
+ (libraries core logs logs.fmt core_unix dde.dinterp dde.pa))
 
 ; (executable
 ;  (name main)

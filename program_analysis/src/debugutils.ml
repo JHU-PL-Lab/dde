@@ -6,12 +6,11 @@ open Utils
 let is_debug_mode = ref false
 
 let parse s =
-  s ^ ";;" |> Lexing.from_string
-  |> Interpreter.Parser.main Interpreter.Lexer.token
+  s ^ ";;" |> Lexing.from_string |> Interp.Parser.main Interp.Lexer.token
   |> fun e ->
   (* keep labeling consistent across multiple calls
      to `analyze` *)
-  Interpreter.Ast.reset_label ();
+  Interp.Ast.reset_label ();
   e
 
 let unparse = Format.asprintf "%a" pp_res
