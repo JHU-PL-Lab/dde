@@ -1,10 +1,10 @@
-let not' = fun b -> if b then false else true in
+(* let not' = fun b -> if b then false else true in *)
 let phi = fun ps -> 
   ((ps.x1) || (ps.x2)) &&
-  ((ps.x1) || (if (ps.x2) then false else true) || (if (ps.x3) then false else true)) &&
+  ((ps.x1) || (not (ps.x2)) || (not (ps.x3))) &&
   ((ps.x3) || (ps.x4)) &&
-  ((if (ps.x4) then false else true) || (ps.x1)) &&
-  ((if (ps.x2) then false else true) || (if (ps.x3) then false else true)) &&
+  ((not (ps.x4)) || (ps.x1)) &&
+  ((not (ps.x2)) || (not (ps.x3))) &&
   ((ps.x4) || (ps.x2)) in
 
 let try_ = fun f ->

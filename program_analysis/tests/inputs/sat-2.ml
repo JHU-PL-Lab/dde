@@ -2,10 +2,10 @@
 
 let phi = fun x1 -> fun x2 -> fun x3 -> fun x4 -> fun x5 -> fun x6 -> fun x7 ->
   (x1 || x2) &&
-  (x1 || (if x2 then false else true) || (if x3 then false else true)) &&
+  (x1 || (not x2) || (not x3)) &&
   (x3 || x4) &&
-  ((if x4 then false else true) || x1) &&
-  ((if x2 then false else true) || (if x3 then false else true)) &&
+  ((not x4) || x1) &&
+  ((not x2) || (not x3)) &&
   (x4 || x2) in
 
 let try_ = fun f ->

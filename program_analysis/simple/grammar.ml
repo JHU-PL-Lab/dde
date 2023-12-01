@@ -1,7 +1,7 @@
 open Core
 open Interp.Ast
 
-module SKey = struct
+module S_key = struct
   module T = struct
     type t = sigma [@@deriving compare, sexp, show { with_path = false }, hash]
   end
@@ -26,38 +26,29 @@ module St = struct
   include Comparable.Make (T)
 end
 
-module NewSt = struct
+module V_key = struct
   module T = struct
-    type lstate =
-      int
-      * sigma
-      * ((SKey.t, (SKey.comparator_witness[@compare.ignore])) Set.t
-        [@sexp.opaque] [@show.opaque] [@hash.ignore])
-    [@@deriving compare, sexp, hash]
-
-    let show_set s =
-      s |> Set.to_list |> List.map ~f:show_sigma |> String.concat ~sep:", "
+    type lstate = int * sigma * int [@@deriving compare, sexp, hash]
 
     let show_lstate (l, sigma, s) =
-      Format.sprintf "(%d, %s, {%s})" l (show_sigma sigma) (show_set s)
+      Format.sprintf "(%d, %s, %d)" l (S_key.show sigma) s
 
     let pp_lstate fmt lst = Format.fprintf fmt "%s" (show_lstate lst)
 
-    type estate =
-      expr
-      * sigma
-      * ((SKey.t, (SKey.comparator_witness[@compare.ignore])) Set.t
-        [@sexp.opaque] [@show.opaque] [@hash.ignore])
-    [@@deriving compare, sexp, hash]
+    type estate = expr * sigma * int [@@deriving compare, sexp, hash]
 
     let show_estate (e, sigma, s) =
-      Format.asprintf "(%a, %s, {%s})" Interp.Ast.pp_expr e (show_sigma sigma)
-        (show_set s)
+      Format.asprintf "(%a, %s, %d)" Interp.Ast.pp_expr e (S_key.show sigma) s
 
     let pp_estate fmt est = Format.fprintf fmt "%s" (show_estate est)
 
     type t = Lstate of lstate | Estate of estate
-    [@@deriving compare, sexp, show { with_path = false }, hash]
+    [@@deriving compare, sexp, hash]
+
+    let show (k : t) =
+      match k with
+      | Lstate st -> Format.asprintf "%a" pp_lstate st
+      | Estate st -> Format.asprintf "%a" pp_estate st
   end
 
   include T
@@ -67,14 +58,47 @@ end
 module Cache_key = struct
   module T = struct
     (* type t = expr * sigma [@@deriving hash, sexp, compare] *)
-    type t =
-      expr
-      * sigma
-      * ((NewSt.t, (NewSt.comparator_witness[@compare.ignore])) Set.t
-        [@sexp.opaque])
-    [@@deriving compare, sexp]
+    type t = expr * sigma * int * int [@@deriving compare, sexp, hash]
+    (* [@@deriving_inline hash] *)
 
-    let hash = Hashtbl.hash
+    (* [@@@end] *)
+
+    (* let hash = Hashtbl.hash *)
+  end
+
+  include T
+  include Comparable.Make (T)
+end
+
+module V = struct
+  module T = struct
+    type t = Set.M(V_key).t [@@deriving compare, sexp]
+
+    let show (v : t) =
+      v |> Set.to_list |> List.map ~f:V_key.show |> String.concat ~sep:", "
+      |> Format.sprintf "{%s}"
+  end
+
+  include T
+  include Comparable.Make (T)
+end
+
+module S = struct
+  module T = struct
+    type t = Set.M(S_key).t [@@deriving compare, sexp]
+
+    let show (s : t) =
+      s |> Set.to_list |> List.map ~f:S_key.show |> String.concat ~sep:", "
+      |> Format.sprintf "{%s}"
+  end
+
+  include T
+  include Comparable.Make (T)
+end
+
+module Freq_key = struct
+  module T = struct
+    type t = expr * sigma * int * int [@@deriving compare, sexp]
   end
 
   include T
@@ -84,62 +108,55 @@ end
 open Core
 open Interp.Ast
 
-type atom =
-  | IntAnyAtom
-  | IntAtom of int
-  | BoolAtom of bool
-  | FunAtom of expr * int * sigma
-  | LStubAtom of (int * sigma)
-  | EStubAtom of (expr * sigma)
-  | RecAtom of (ident * res) list
-  | ProjAtom of res * ident
-  | InspAtom of ident * res
-  | AssertAtom of ident * res * res_val_fv
-
-and res = atom list [@@deriving hash, sexp, compare, show { with_path = false }]
-
-type pi = (atom list * bool) option
-[@@deriving hash, sexp, compare, show { with_path = false }]
-
-module Let_syntax = struct
-  let return r = (r, Set.empty (module SKey))
-
-  let bind (r, s) ~f =
-    let r', s' = f (r, s) in
-    (r', Set.union s s')
-
-  let map (r, s) ~f = return (f (r, s))
-  let ( >>= ) t f = bind t ~f
-  let ( >>| ) t f = map t ~f
+module rec Atom : sig
+  type t =
+    | IntAnyAtom
+    | IntAtom of int
+    | BoolAtom of bool
+    | FunAtom of expr * int * sigma
+    | LStubAtom of (int * sigma)
+    | EStubAtom of (expr * sigma)
+    | RecAtom of (ident * Res.t) list
+    | ProjAtom of Res.t * ident
+    | InspAtom of ident * Res.t
+    | AssertAtom of ident * Res.t * res_val_fv
+  [@@deriving compare, sexp]
+end = struct
+  type t =
+    | IntAnyAtom
+    | IntAtom of int
+    | BoolAtom of bool
+    | FunAtom of expr * int * sigma
+    | LStubAtom of (int * sigma)
+    | EStubAtom of (expr * sigma)
+    | RecAtom of (ident * Res.t) list
+    | ProjAtom of Res.t * ident
+    | InspAtom of ident * Res.t
+    | AssertAtom of ident * Res.t * res_val_fv
+  [@@deriving compare, sexp]
 end
 
-(* used to accumulate disjuncts when stitching stacks *)
-module Choice = struct
+and Res_key : sig
+  type t = Atom.t [@@deriving compare, sexp]
+  type comparator_witness
+
+  val comparator : (t, comparator_witness) Comparator.t
+end = struct
   module T = struct
-    type t = atom [@@deriving compare, sexp]
+    type t = Atom.t [@@deriving compare, sexp]
   end
 
   include T
   include Comparable.Make (T)
 end
 
-module AtomKey = struct
-  module T = struct
-    type t = atom [@@deriving hash, sexp, compare]
-  end
-
-  include T
-  include Comparable.Make (T)
+and Res : sig
+  type t = Set.M(Res_key).t [@@deriving compare, sexp]
+end = struct
+  type t = Set.M(Res_key).t [@@deriving compare, sexp]
 end
 
-module ResKey = struct
-  module T = struct
-    type t = res [@@deriving hash, sexp, compare]
-  end
-
-  include T
-  include Comparable.Make (T)
-end
+type pi = (Res.t * bool) option [@@deriving compare]
 
 module Z3ExprKey = struct
   module T = struct
@@ -157,4 +174,6 @@ module Z3ExprKey = struct
   include Comparable.Make (T)
 end
 
-let choice_empty = Set.empty (module Choice)
+let empty_res = Set.empty (module Res_key)
+let single_res = Set.singleton (module Res_key)
+let unwrap_res = Set.elements

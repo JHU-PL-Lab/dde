@@ -1,7 +1,8 @@
 let id = (fun xx -> xx) in
 let my_map = (fun f -> fun l ->
   let lp = fun self -> fun lst ->
-    if (if (hd in lst) then false else true) then {}
+    (* if (if (hd in lst) then false else true) then {} *)
+    if not (hd in lst) then {}
     else ({ hd = id f (lst.hd); tl = self self (lst.tl) })
   in
   lp lp l) in

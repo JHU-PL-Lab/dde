@@ -2,9 +2,10 @@ open Core
 open Interp.Ast
 open Pa.Exns
 open Grammar
+open Grammar.Atom
 
 let rec exists_stub r label =
-  List.exists r ~f:(function
+  Set.exists r ~f:(function
     | FunAtom _ | IntAtom _ | IntAnyAtom | BoolAtom _ -> false
     | LStubAtom st -> St.(label = St.Lstate st)
     | EStubAtom st -> St.(label = St.Estate st)
@@ -15,45 +16,37 @@ let rec exists_stub r label =
 
 let rec simplify ?(pa = None) r =
   let r' =
-    List.filter_map r ~f:(fun a ->
+    Set.fold r ~init:empty_res ~f:(fun acc a ->
         match a with
         | IntAtom _ | IntAnyAtom | BoolAtom _ | LStubAtom _ | EStubAtom _
         | FunAtom _ ->
-            Some [ a ]
+            Set.add acc a
         | AssertAtom (id, r, rv) ->
-            Some [ AssertAtom (id, simplify r ~pa:(Some a), rv) ]
+            Set.add acc (AssertAtom (id, simplify r ~pa:(Some a), rv))
         | RecAtom rs ->
-            Some
-              [
-                RecAtom
-                  (List.map rs ~f:(fun (id, r) -> (id, simplify r ~pa:(Some a))));
-              ]
+            Set.add acc
+              (RecAtom
+                 (List.map rs ~f:(fun (id, r) -> (id, simplify r ~pa:(Some a)))))
         | ProjAtom (r, id) ->
-            Some
-              (List.concat_map r ~f:(fun a ->
-                   match a with
-                   | RecAtom rs -> (
-                       match
-                         List.find rs ~f:(fun (id', _) ->
-                             compare_ident id id' = 0)
-                       with
-                       | Some (_, r) -> r
-                       | None ->
-                           (* [ ProjAtom ([ a ], id) ] *)
-                           [])
-                   | a ->
-                       (* Format.printf "%a\n" pp_atom a; *)
-                       [ ProjAtom ([ a ], id) ]))
+            Set.fold r ~init:acc ~f:(fun acc a ->
+                match a with
+                | RecAtom rs -> (
+                    match
+                      List.find rs ~f:(fun (id', _) -> compare_ident id id' = 0)
+                    with
+                    | Some (_, r) -> Set.union acc r
+                    | None -> acc)
+                | a ->
+                    Set.add acc
+                      (ProjAtom (Set.singleton (module Res_key) a, id)))
         | InspAtom (id, r) ->
-            Some
-              (List.concat_map r ~f:(function
-                | RecAtom rs ->
-                    [
-                      BoolAtom
-                        (List.exists rs ~f:(fun (id', _) ->
-                             compare_ident id id' = 0));
-                    ]
-                | a -> [ InspAtom (id, [ a ]) ])))
+            Set.fold r ~init:acc ~f:(fun acc -> function
+              | RecAtom rs ->
+                  Set.add acc
+                    (BoolAtom
+                       (List.exists rs ~f:(fun (id', _) ->
+                            compare_ident id id' = 0)))
+              | a ->
+                  Set.add acc (InspAtom (id, Set.singleton (module Res_key) a))))
   in
-  let r' = List.concat r' in
-  if compare_res r r' = 0 then r' else simplify r' ~pa
+  if Res.compare r r' = 0 then r' else simplify r' ~pa

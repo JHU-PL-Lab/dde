@@ -65,23 +65,6 @@ module NewSt = struct
   include Comparable.Make (T)
 end
 
-module Cache_key = struct
-  module T = struct
-    (* type t = expr * sigma [@@deriving hash, sexp, compare] *)
-    type t =
-      expr
-      * sigma
-      * ((NewSt.t, (NewSt.comparator_witness[@compare.ignore])) Set.t
-        [@sexp.opaque])
-    [@@deriving compare, sexp]
-
-    let hash = Hashtbl.hash
-  end
-
-  include T
-  include Comparable.Make (T)
-end
-
 type atom =
   | IntAtom of int
   | BoolAtom of bool
@@ -114,6 +97,26 @@ and path_cond = res * bool
 
 type pi = (atom list * bool) option
 [@@deriving hash, sexp, compare, show { with_path = false }]
+
+module Cache_key = struct
+  module T = struct
+    (* type t = expr * sigma [@@deriving hash, sexp, compare] *)
+    type t =
+      expr
+      * sigma
+      * ((NewSt.t, (NewSt.comparator_witness[@compare.ignore])) Set.t
+        [@sexp.opaque])
+      * ((S_key.t, (S_key.comparator_witness[@compare.ignore])) Set.t
+        [@sexp.opaque])
+      * pi
+    [@@deriving compare, sexp]
+
+    let hash = Hashtbl.hash
+  end
+
+  include T
+  include Comparable.Make (T)
+end
 
 module Let_syntax = struct
   let return r = (r, Set.empty (module S_key))

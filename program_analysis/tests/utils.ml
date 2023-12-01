@@ -49,6 +49,6 @@ let pau' ?(verify = true) ?(test_num = 0)
   if time then (
     Format.printf "%s: %f\n" test_name (after -. before);
     flush_all ());
-  r |> Format.asprintf "%a" Simple_pa.Utils.pp_res
+  r |> Core.Set.elements |> Format.asprintf "%a" Simple_pa.Utils.pp_res
 
 let pau'' = Display_pa.Debugutils.pau

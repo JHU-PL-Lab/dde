@@ -31,7 +31,8 @@ in
 
 let generate_fermat_prime = (fun self -> fun byte_size -> fun iterations ->
   let n = rand byte_size in
-  if (if (is_trivial_composite n) && (is_fermat_prime is_fermat_prime n iterations) then false else true) then
+  (* if (if (is_trivial_composite n) && (is_fermat_prime is_fermat_prime n iterations) then false else true) then *)
+  if not ((is_trivial_composite n) && (is_fermat_prime is_fermat_prime n iterations)) then
     n
   else
     self self byte_size iterations)

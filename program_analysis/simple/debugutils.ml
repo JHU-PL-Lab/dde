@@ -11,10 +11,10 @@ let parse s =
   Interp.Ast.reset_label ();
   e
 
-let unparse = Format.asprintf "%a" pp_res
+let unparse r = Format.asprintf "%a" pp_res (Core.Set.elements r)
 let parse_analyze s = s |> parse |> analyze ~debug_mode:!is_debug_mode
 let parse_analyze_unparse s = s |> parse_analyze |> unparse
 let pau = parse_analyze_unparse
 
 let parse_analyze_print s =
-  s |> parse_analyze |> Format.printf "==> %a\n" pp_res
+  s |> parse_analyze |> Core.Set.elements |> Format.printf "==> %a\n" pp_res

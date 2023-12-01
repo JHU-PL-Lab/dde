@@ -1,6 +1,7 @@
 open Core
 open Interp.Ast
 open Grammar
+open Grammar.Atom
 
 let pf = Format.printf
 let pfl = pf "%s\n"
@@ -66,15 +67,16 @@ let rec pp_atom fmt = function
       ff fmt
         (if List.length entries = 0 then "{%a}" else "{ %a }")
         pp_record_atom entries
-  | ProjAtom (r, Ident s) -> ff fmt "(%a.%s)" pp_res r s
-  | InspAtom (Ident s, r) -> ff fmt "(%s in %a)" s pp_res r
-  | AssertAtom (_, r, _) -> ff fmt "%a" pp_res r
+  | ProjAtom (r, Ident s) -> ff fmt "(%a.%s)" pp_res (Set.elements r) s
+  | InspAtom (Ident s, r) -> ff fmt "(%s in %a)" s pp_res (Set.elements r)
+  | AssertAtom (_, r, _) -> ff fmt "%a" pp_res (Set.elements r)
 
 and pp_record_atom fmt = function
   | [] -> ()
-  | [ (Ident x, v) ] -> Format.fprintf fmt "%s = %a" x pp_res v
-  | (Ident x, v) :: rest ->
-      Format.fprintf fmt "%s = %a; %a" x pp_res v pp_record_atom rest
+  | [ (Ident x, v) ] -> Format.fprintf fmt "%s = %a" x pp_res (Set.elements v)
+  | (Ident x, r) :: rest ->
+      Format.fprintf fmt "%s = %a; %a" x pp_res (Set.elements r) pp_record_atom
+        rest
 
 and pp_res fmt = function
   | [] -> ()
