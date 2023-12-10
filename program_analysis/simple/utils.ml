@@ -15,7 +15,6 @@ let rec starts_with sigma_parent sigma_child =
   | l_parent :: ls_parent, l_child :: ls_child ->
       l_parent = l_child && starts_with ls_parent ls_child
 
-let show_set = Set.fold ~init:"" ~f:(fun acc s -> show_sigma s ^ "\n" ^ acc)
 let pp_pair fmt (l, s) = Format.fprintf fmt "(%d, %s)" l @@ show_sigma s
 let pp_pair_list fmt ls = Format.pp_print_list pp_pair fmt ls
 let is_debug_mode = ref false

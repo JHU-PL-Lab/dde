@@ -93,22 +93,6 @@ let eval_assert e id =
 
 let log_v_set = Set.iter ~f:(fun st -> debug (fun m -> m "%s" (V_key.show st)))
 
-let fold_res_app ~init ~f l sigma d =
-  Set.fold ~init ~f:(fun acc a ->
-      debug (fun m ->
-          m "[Level %d] [Appl] Evaluating 1 possible function being applied:" d);
-      debug (fun m -> m "%a" pp_atom a);
-      match a with FunAtom (Function (_, e1, _), _, _) -> f acc e1 | _ -> acc)
-
-let fold_res_var ~init ~f expr sigma d r =
-  Set.fold r ~init ~f:(fun acc a ->
-      debug (fun m -> m "r1 length: %d" (Set.length r));
-      debug (fun m -> m "[Level %d] Visiting 1 possible function for e1:" d);
-      debug (fun m -> m "%a" pp_atom a);
-      match a with
-      | FunAtom (Function (Ident x1, _, l1), _, sigma1) -> f acc x1 l1 sigma1
-      | _ -> acc)
-
 let elim_stub r label =
   if exists_stub r label then
     (* Format.printf "elim_stub: %a\n" pp_res r; *)
@@ -259,7 +243,8 @@ let print_sids ?(size = false) =
 
 let start_time = ref (Stdlib.Sys.time ())
 
-let rec analyze_aux ?(tmp = false) d expr sigma pi : Res.t T.t =
+let rec analyze_aux d expr sigma pi : Res.t T.t =
+  let d = d + 1 in
   let%bind { c; s; v; sids; vids; freqs; _ } = get () in
   (* if Float.(Stdlib.Sys.time () - !start_time > 120.) then (
      print_freqs freqs ~sort:true;
@@ -277,16 +262,12 @@ let rec analyze_aux ?(tmp = false) d expr sigma pi : Res.t T.t =
   let%bind vid = get_vid v in
   let%bind sid = get_sid s in
   let%bind () = inc_freq (expr, sigma, vid, sid) in
-  (* let%bind freqs = get_freqs () in
-     let%bind () = set_freqs (Map.add_exn ()) *)
   let cache_key = (expr, sigma, vid, sid) in
   match Map.find c cache_key with
   | Some r ->
       debug (fun m -> m "Cache hit");
       return r
   | None ->
-      (* debug (fun m -> m "S size: %d" (Set.length s)); *)
-      let d = d + 1 in
       let%bind r =
         match expr with
         | Int i -> return (single_res IntAnyAtom)
@@ -295,15 +276,10 @@ let rec analyze_aux ?(tmp = false) d expr sigma pi : Res.t T.t =
         | Appl (e, _, l) ->
             info (fun m ->
                 m "[Level %d] === Appl (%a) ====" d Interp.Pp.pp_expr expr);
-            (* debug (fun m -> m "%a" Interp.Ast.pp_expr expr); *)
             let cycle_label = (l, sigma) in
-            (* let st = (l, pruned_sigma', s) in *)
-            let lst = V_key.Lstate (l, sigma, sid) in
-            (* debug (fun m -> m "State: %s" (NewSt.show lst)); *)
-            (* debug_plain "v_set:";
-               log_v_set v; *)
+            let v_state = V_key.Lstate (l, sigma, sid) in
             (* TODO: try two-pass mechanism again *)
-            if Set.mem v lst then (
+            if Set.mem v v_state then (
               debug_plain "Stubbed";
               info (fun m ->
                   m "[Level %d] *** Appl (%a) ****" d Interp.Pp.pp_expr expr);
@@ -319,19 +295,34 @@ let rec analyze_aux ?(tmp = false) d expr sigma pi : Res.t T.t =
                   m "Evaluating function being applied: %a" Interp.Pp.pp_expr e);
               debug (fun m ->
                   m "Evaluating function being applied: %a" Interp.Ast.pp_expr e);
-              let%bind () = set_v (Set.add v lst) in
+              let%bind () = set_v (Set.add v v_state) in
               let%bind r1 = analyze_aux d e sigma pi in
-              debug (fun m -> m "r1 length: %d" (Set.length r1));
+              debug (fun m -> m "[Appl] r1 length: %d" (Set.length r1));
               let%bind { s = s1; _ } = get () in
-              let%bind () = set_s (Set.add s1 pruned_sigma') in
+              let v_state_s = Set.add s1 pruned_sigma' in
+              let%bind () = set_s v_state_s in
+              let%bind v_state_sid = get_sid v_state_s in
+              let%bind () =
+                set_v (Set.add v (V_key.Lstate (l, sigma, v_state_sid)))
+              in
               let%bind r2 =
-                fold_res_app ~init:(return empty_res) l sigma d r1
-                  ~f:(fun acc e1 ->
-                    let%bind acc = acc in
+                Set.fold r1 ~init:(return empty_res) ~f:(fun acc a ->
                     debug (fun m ->
-                        m "[Appl] Evaluating body of function being applied: %a"
-                          Interp.Pp.pp_expr e1);
-                    analyze_aux d e1 pruned_sigma' pi)
+                        m
+                          "[Level %d] [Appl] Evaluating 1 possible function \
+                           being applied:"
+                          d);
+                    debug (fun m -> m "%a" pp_atom a);
+                    match a with
+                    | FunAtom (Function (_, e1, _), _, _) ->
+                        let%bind acc = acc in
+                        debug (fun m ->
+                            m
+                              "[Appl] Evaluating body of function being \
+                               applied: %a"
+                              Interp.Pp.pp_expr e1);
+                        analyze_aux d e1 pruned_sigma' pi
+                    | _ -> acc)
               in
               let r2 = elim_stub r2 (St.Lstate cycle_label) in
               debug (fun m -> m "r2: %a" pp_res (unwrap_res r2));
@@ -343,13 +334,9 @@ let rec analyze_aux ?(tmp = false) d expr sigma pi : Res.t T.t =
             let cycle_label = (expr, sigma) in
             let est = V_key.Estate (expr, sigma, sid) in
             let%bind () = set_v (Set.add v est) in
-            (* debug (fun m -> m "State: %s" (Grammar.NewSt.show est)); *)
-            (* debug_plain "v_set:";
-               log_v_set v; *)
             if Set.mem v est then (
               (* Var Stub *)
-              debug (fun m -> m "Stubbed: %s" x);
-              (* Format.printf "Stubbed: %s\n" x; *)
+              debug_plain "Stubbed";
               info (fun m -> m "[Level %d] *** Var (%s, %d) ****" d x l);
               return (single_res (EStubAtom cycle_label)))
             else (
@@ -366,8 +353,6 @@ let rec analyze_aux ?(tmp = false) d expr sigma pi : Res.t T.t =
                     | Appl (_, e2, l') ->
                         let%bind r1 =
                           debug_plain "Begin stitching stacks";
-                          debug_plain "S set:";
-                          debug (fun m -> m "%s" (S.show s));
                           debug (fun m ->
                               m "Head of candidate fragments must be: %d" l');
                           debug (fun m ->
@@ -376,9 +361,10 @@ let rec analyze_aux ?(tmp = false) d expr sigma pi : Res.t T.t =
                                  %s"
                                 (show_sigma s_tl));
                           (* enumerate all matching stacks in the set *)
+                          debug (fun m -> m "S len: %d" (Set.length s));
+                          debug (fun m -> m "S: %s" (S.show s));
                           Set.fold s ~init:(return empty_res)
                             ~f:(fun acc sigma_i ->
-                              let%bind acc' = acc in
                               let sigma_i_hd, sigma_i_tl =
                                 (List.hd_exn sigma_i, List.tl_exn sigma_i)
                               in
@@ -388,14 +374,15 @@ let rec analyze_aux ?(tmp = false) d expr sigma pi : Res.t T.t =
                               then (
                                 debug (fun m ->
                                     m
-                                      "[Level %d] Stitched! Evaluating Appl \
-                                       argument, using stitched stack %s:"
-                                      d (show_sigma sigma_i_tl));
+                                      "[Level %d] [Round %d] Stitched! \
+                                       Evaluating Appl argument, using \
+                                       stitched stack %s:"
+                                      d 0 (show_sigma sigma_i_tl));
                                 debug (fun m -> m "%a" Interp.Pp.pp_expr e2);
-                                (* debug (fun m ->
-                                    m "%a" Interp.Ast.pp_expr e2); *)
                                 (* stitch the stack to gain more precision *)
-                                analyze_aux d e2 sigma_i_tl pi)
+                                let%bind r0 = analyze_aux d e2 sigma_i_tl pi in
+                                let%bind acc' = acc in
+                                return (Set.union acc' r0))
                               else acc)
                         in
                         info (fun m ->
@@ -418,26 +405,22 @@ let rec analyze_aux ?(tmp = false) d expr sigma pi : Res.t T.t =
                         debug (fun m -> m "%a" Interp.Pp.pp_expr e1);
                         debug (fun m -> m "%a" Interp.Ast.pp_expr e1);
                         let est = V_key.Estate (e1, sigma, sid) in
-                        if Set.mem v est && not tmp then (
+                        if Set.mem v est then (
                           debug_plain "Stubbed e1";
-                          return (single_res @@ EStubAtom (e1, sigma)))
+                          return (single_res (EStubAtom (e1, sigma))))
                         else
                           let sigma_tl = List.tl_exn sigma in
                           debug_plain "Begin stitching stacks";
-                          (* debug_plain "S set:";
-                             debug (fun m -> m "%s" (show_set s));
-                             debug (fun m ->
-                                 m "Head of candidate fragments must be: %d" l2);
-                             debug (fun m ->
-                                 m "Tail of candidate fragments must start with: %s"
-                                   (show_sigma s_tl)); *)
                           (* let new_v = Set.add new_v est in *)
                           (* enumerate all matching stacks in the set *)
-                          debug (fun m -> m "S size: %d" (Set.length s));
+                          debug (fun m -> m "S len: %d" (Set.length s));
+                          debug (fun m -> m "S: %s" (S.show s));
                           let%bind r1 =
                             Set.fold s ~init:(return empty_res)
                               ~f:(fun acc sigma_i ->
-                                let%bind acc' = acc in
+                                debug (fun m ->
+                                    m "[Round %d] sigma_i: %s" 0
+                                      (S_key.show sigma_i));
                                 let sigma_i_hd, sigma_i_tl =
                                   (List.hd_exn sigma_i, List.tl_exn sigma_i)
                                 in
@@ -452,24 +435,50 @@ let rec analyze_aux ?(tmp = false) d expr sigma pi : Res.t T.t =
                                          function being applied at front of \
                                          sigma, using stitched stack %s"
                                         d (show_sigma sigma_i_tl));
-                                  analyze_aux ~tmp:true d e1 sigma_i_tl pi)
-                                else acc)
-                          in
-                          debug_plain
-                            "Found all stitched stacks and evaluated e1, begin \
-                             relabeling variables";
-                          let%bind r2 =
-                            fold_res_var ~init:(return empty_res) expr sigma d
-                              r1 ~f:(fun acc x1' l1 sigma1 ->
-                                let%bind acc' = acc in
-                                if Stdlib.(x1 = x1') && l_myfun = l1 then (
+                                  let%bind r0 =
+                                    analyze_aux d e1 sigma_i_tl pi
+                                  in
+                                  let%bind acc' = acc in
+                                  return (Set.union acc' r0))
+                                else (
                                   debug (fun m ->
-                                      m
-                                        "[Var Non-Local] Relabel %s with label \
-                                         %d and evaluate"
-                                        x l1);
-                                  analyze_aux d (Var (Ident x, l1)) sigma1 pi)
-                                else acc)
+                                      m "[Level %d] Didn't stitch!" d);
+                                  acc))
+                          in
+                          debug (fun m ->
+                              m
+                                "[Level %d] Found all stitched stacks and \
+                                 evaluated e1, begin relabeling variables"
+                                d);
+                          let%bind r2 =
+                            Set.fold r1 ~init:(return empty_res)
+                              ~f:(fun acc a ->
+                                debug (fun m ->
+                                    m "r1 length: %d" (Set.length r1));
+                                debug (fun m ->
+                                    m
+                                      "[Level %d] Visiting 1 possible function \
+                                       for e1:"
+                                      d);
+                                debug (fun m -> m "%a" pp_atom a);
+                                match a with
+                                | FunAtom
+                                    (Function (Ident x1', _, l1), _, sigma1) ->
+                                    if Stdlib.(x1 = x1') && l_myfun = l1 then (
+                                      debug (fun m ->
+                                          m
+                                            "[Var Non-Local] Relabel %s with \
+                                             label %d and evaluate"
+                                            x l1);
+                                      let%bind r0' =
+                                        analyze_aux d
+                                          (Var (Ident x, l1))
+                                          sigma1 pi
+                                      in
+                                      let%bind acc' = acc in
+                                      return (Set.union acc' r0'))
+                                    else acc
+                                | _ -> acc)
                           in
                           info (fun m ->
                               m "[Level %d] *** Var Non-Local (%s, %d) ****" d x
@@ -477,7 +486,8 @@ let rec analyze_aux ?(tmp = false) d expr sigma pi : Res.t T.t =
                           info (fun m ->
                               m "[Level %d] *** Var (%s, %d) ****" d x l);
                           let r2 = elim_stub r2 (St.Estate cycle_label) in
-                          debug (fun m -> m "r2: %a" pp_res (unwrap_res r2));
+                          debug (fun m ->
+                              m "[Var Non-Local] r2: %a" pp_res (unwrap_res r2));
                           return r2
                     | _ -> raise Unreachable [@coverage off])
               | _ -> raise Unreachable [@coverage off])
@@ -515,15 +525,11 @@ let rec analyze_aux ?(tmp = false) d expr sigma pi : Res.t T.t =
         | Lt (e1, e2) ->
             info (fun m ->
                 m "[Level %d] === Binop (%a) ====" d Interp.Pp.pp_expr expr);
-            (* Format.printf "e1: %a | e2: %a\n" pp_expr e1 pp_expr e2; *)
             let%bind r1 = analyze_aux d e1 sigma pi in
             let%bind r2 = analyze_aux d e2 sigma pi in
             debug (fun m ->
                 m "[Level %d] Evaluated binop to (%a <op> %a)" d Utils.pp_res
                   (unwrap_res r1) Utils.pp_res (unwrap_res r2));
-            (* debug (fun m ->
-                m "[Level %d] Evaluated binop to (%a <op> %a)" d Grammar.pp_res
-                  (unwrap_res r1) Grammar.pp_res (unwrap_res r2)); *)
             info (fun m ->
                 m "[Level %d] *** Binop (%a) ****" d Interp.Pp.pp_expr expr);
             let bool_tf_res =
@@ -651,7 +657,7 @@ let analyze ?(debug_mode = false) ?(verify = true) ?(test_num = 0)
   debug (fun m -> m "Result: %a" Utils.pp_res (unwrap_res r));
   (* debug (fun m -> m "Result: %a" Grammar.pp_res r); *)
   (if !is_debug_mode then (
-     Format.printf "\n%s\n\n" @@ show_expr e;
+     Format.printf "\n%s\n\n" (show_expr e);
      Format.printf "****** Label Table ******\n";
      Interp.Lib.print_myexpr myexpr;
      Format.printf "****** Label Table ******\n\n"))

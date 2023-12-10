@@ -287,8 +287,8 @@ let ddpa_simple_thunked =
     (* (fun _ ->
        ( "(false | true)",
          pau' ~verify:false ~test_name:"blur" (read_input "blur.ml") )); *)
-    (fun _ ->
-      ("false", pau' ~verify:false ~test_name:"eta" (read_input "eta.ml")));
+    (* (fun _ ->
+       ("false", pau' ~verify:false ~test_name:"eta" (read_input "eta.ml"))); *)
     (* (fun _ ->
          ( "Int",
            pau' ~verify:false ~test_name:"facehugger" (read_input "facehugger.ml")
@@ -317,14 +317,15 @@ let ddpa_simple_thunked =
     (* (fun _ ->
        ( "(false | true)",
          pau' ~verify:false ~test_name:"rsa" (read_input "rsa.ml") )); *)
-    (* (fun _ ->
-       ("Int", pau' ~verify:false ~test_name:"ack" (read_input "ack.ml"))); *)
-    (* (fun _ ->
-       ("Int", pau' ~verify:false ~test_name:"mack" (read_input "mack.ml"))); *)
-    (* (fun _ ->
-       ("Int", pau' ~verify:false ~test_name:"tak" (read_input "tak.ml"))); *)
-    (* (fun _ ->
-       ("", pau' ~verify:false ~test_name:"cpstak" (read_input "cpstak.ml"))); *)
+    (fun _ ->
+      ("Int", pau' ~verify:false ~test_name:"ack" (read_input "ack.ml")));
+    (fun _ ->
+      ( "(stub | (stub | (stub | (stub | (stub | (stub | (stub | stub)))))))",
+        pau' ~verify:false ~test_name:"mack" (read_input "mack.ml") ));
+    (fun _ ->
+      ("Int", pau' ~verify:false ~test_name:"tak" (read_input "tak.ml")));
+    (fun _ ->
+      ("Int", pau' ~verify:false ~test_name:"cpstak" (read_input "cpstak.ml")));
   ]
 
 let test_ddpa_simple _ = gen_test ddpa_simple_thunked
