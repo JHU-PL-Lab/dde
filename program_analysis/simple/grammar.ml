@@ -28,17 +28,17 @@ end
 
 module V_key = struct
   module T = struct
-    type lstate = int * sigma * int [@@deriving compare, sexp, hash]
+    type lstate = int * sigma * string [@@deriving compare, sexp, hash]
 
     let show_lstate (l, sigma, s) =
-      Format.sprintf "(%d, %s, %d)" l (S_key.show sigma) s
+      Format.sprintf "(%d, %s, %s)" l (S_key.show sigma) s
 
     let pp_lstate fmt lst = Format.fprintf fmt "%s" (show_lstate lst)
 
-    type estate = expr * sigma * int [@@deriving compare, sexp, hash]
+    type estate = expr * sigma * string [@@deriving compare, sexp, hash]
 
     let show_estate (e, sigma, s) =
-      Format.asprintf "(%a, %s, %d)" Interp.Ast.pp_expr e (S_key.show sigma) s
+      Format.asprintf "(%a, %s, %s)" Interp.Ast.pp_expr e (S_key.show sigma) s
 
     let pp_estate fmt est = Format.fprintf fmt "%s" (show_estate est)
 
@@ -57,13 +57,7 @@ end
 
 module Cache_key = struct
   module T = struct
-    (* type t = expr * sigma [@@deriving hash, sexp, compare] *)
-    type t = expr * sigma * int * int [@@deriving compare, sexp, hash]
-    (* [@@deriving_inline hash] *)
-
-    (* [@@@end] *)
-
-    (* let hash = Hashtbl.hash *)
+    type t = expr * sigma * string * string [@@deriving compare, sexp, hash]
   end
 
   include T
@@ -98,7 +92,7 @@ end
 
 module Freq_key = struct
   module T = struct
-    type t = expr * sigma * int * int [@@deriving compare, sexp]
+    type t = expr * sigma * string * string [@@deriving compare, sexp]
   end
 
   include T

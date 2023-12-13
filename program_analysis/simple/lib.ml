@@ -136,55 +136,47 @@ let elim_stub r label =
 module ReaderState = struct
   module T = struct
     type cache = Res.t Map.M(Cache_key).t
-    type vids = int Map.M(V).t
-    type sids = int Map.M(S).t
+    type vids = string Map.M(V).t
+    type sids = string Map.M(S).t
     type freqs = int64 Map.M(Freq_key).t
-
-    type state = {
-      s : S.t;
-      c : cache;
-      freqs : freqs;
-      sids : sids;
-      vids : vids;
-      cnt : int;
-    }
-
-    type 'a t = V.t -> state -> 'a * state
+    type env = { v : V.t; vids : vids; cnt : int }
+    type state = { s : S.t; c : cache; freqs : freqs; sids : sids; cnt : int }
+    type 'a t = env -> state -> 'a * state
 
     let return (a : 'a) : 'a t = fun _ st -> (a, st)
 
     let bind (m : 'a t) ~(f : 'a -> 'b t) : 'b t =
-     fun v st ->
-      let a, ({ s; sids; vids; cnt; _ } as st') = m v st in
-      let sids', cnt' =
-        if Map.mem sids s then (sids, cnt)
-        else (Map.add_exn sids ~key:s ~data:cnt, cnt + 1)
-      in
-      let vids', cnt' =
-        if Map.mem vids v then (vids, cnt')
-        else (Map.add_exn vids ~key:v ~data:cnt', cnt' + 1)
-      in
-      f a v { st' with sids = sids'; vids = vids'; cnt = cnt' }
+     fun env st ->
+      let a, st' = m env st in
+      f a env st'
 
     let map = `Define_using_bind
-    let ask () : V.t t = fun v st -> (v, st)
-    let local (f : V.t -> V.t) (m : 'a t) : 'a t = fun v st -> m (f v) st
+    let ask () : env t = fun env st -> (env, st)
+
+    let local (f : env -> env) (m : 'a t) : 'a t =
+     fun env st ->
+      let ({ v; vids; cnt } as env') = f env in
+      let vids', cnt' =
+        if Map.mem vids v then (vids, cnt)
+        else (Map.add_exn vids ~key:v ~data:(Format.sprintf "V%d" cnt), cnt + 1)
+      in
+      m { env' with vids = vids'; cnt = cnt' } st
+
     let get () : state t = fun _ st -> (st, st)
+    let get_vid v : string t = fun { vids; _ } st -> (Map.find_exn vids v, st)
 
-    let get_cnt () : int t =
-     fun _ ({ cnt; _ } as st) -> (cnt, { st with cnt = cnt + 1 })
-
-    let get_vid v : int t =
-     fun _ ({ vids; _ } as st) -> (Map.find_exn vids v, st)
-
-    let get_sid s : int t =
+    let get_sid s : string t =
      fun _ ({ sids; _ } as st) -> (Map.find_exn sids s, st)
 
-    let set_s s : unit t = fun _ st -> ((), { st with s })
+    let set_s s : unit t =
+     fun _ ({ sids; cnt; _ } as st) ->
+      let sids', cnt' =
+        if Map.mem sids s then (sids, cnt)
+        else (Map.add_exn sids ~key:s ~data:(Format.sprintf "S%d" cnt), cnt + 1)
+      in
+      ((), { st with s; sids = sids'; cnt = cnt' })
+
     let set_cache c : unit t = fun _ st -> ((), { st with c })
-    let set_vids vids : unit t = fun _ st -> ((), { st with vids })
-    let set_sids sids : unit t = fun _ st -> ((), { st with sids })
-    let set_freqs freqs : unit t = fun _ st -> ((), { st with freqs })
 
     let inc_freq freq_key : unit t =
      fun _ ({ freqs; _ } as st) ->
@@ -219,22 +211,23 @@ let print_freqs ?(sort = true) freqs =
      List.sort freqs ~compare:(fun (_, freq1) (_, freq2) ->
          Int64.descending freq1 freq2))
   |> List.iter ~f:(fun ((e, sigma, vid, sid), freq) ->
-         Format.printf "(%a, %a, %d, %d) -> %Ld\n" Interp.Pp.pp_expr e pp_sigma
+         Format.printf "(%a, %a, %s, %s) -> %Ld\n" Interp.Pp.pp_expr e pp_sigma
            sigma vid sid freq)
 
 let print_vids ?(size = false) ?(sort = false) vids =
   vids |> Map.to_alist |> fun vids ->
   (if not sort then vids
    else
-     List.sort vids ~compare:(fun (_, id1) (_, id2) -> Int.descending id1 id2))
+     List.sort vids ~compare:(fun (_, id1) (_, id2) ->
+         String.descending id1 id2))
   |> List.iter ~f:(fun (key, data) ->
-         if size then Format.printf "%d -> %d\n" (Set.length key) data
-         else Format.printf "%s -> %d\n" (V.show key) data)
+         if size then Format.printf "%d -> %s\n" (Set.length key) data
+         else Format.printf "%s -> %s\n" (V.show key) data)
 
 let print_sids ?(size = false) =
   Map.iteri ~f:(fun ~key ~data ->
-      if size then Format.printf "%d -> %d\n" (Set.length key) data
-      else Format.printf "%s -> %d\n" (S.show key) data)
+      if size then Format.printf "%d -> %s\n" (Set.length key) data
+      else Format.printf "%s -> %s\n" (S.show key) data)
 
 let start_time = ref (Stdlib.Sys.time ())
 let bool_tf_res = Set.of_list (module Res_key) [ BoolAtom true; BoolAtom false ]
@@ -266,10 +259,11 @@ let all_combs_bool' r1 r2 op =
 (* (true | false) && true *)
 
 let rec analyze_aux d expr sigma pi : Res.t T.t =
-  let%bind v = ask () in
-  let%bind { c; s; sids; vids; freqs; _ } = get () in
+  let%bind { v; vids; _ } = ask () in
+  let%bind { c; s; sids; freqs; _ } = get () in
   let d = d + 1 in
   if d > !max_d then max_d := d;
+  (* Logs.debug (fun m -> m "Max %d" !max_d); *)
   (* Logs.debug (fun m -> m "Level %d" d); *)
   (* Logs.debug (fun m -> m "S length: %d" (Set.length s)); *)
   let%bind vid = get_vid v in
@@ -278,7 +272,7 @@ let rec analyze_aux d expr sigma pi : Res.t T.t =
   let cache_key = (expr, sigma, vid, sid) in
   match Map.find c cache_key with
   | Some r ->
-      debug (fun m -> m "Cache hit");
+      (* Logs.debug (fun m -> m "Cache hit"); *)
       return r
   | None ->
       let%bind r =
@@ -292,17 +286,18 @@ let rec analyze_aux d expr sigma pi : Res.t T.t =
             let cycle_label = (l, sigma) in
             let v_state = V_key.Lstate (l, sigma, sid) in
             if Set.mem v v_state then (
+              (* App Stub *)
               debug_plain "Stubbed";
               info (fun m ->
                   m "[Level %d] *** Appl (%a) ****" d Interp.Pp.pp_expr expr);
               return (single_res (LStubAtom cycle_label)))
             else (
-              (* Application *)
+              (* App *)
               debug_plain "Didn't stub";
-              debug (fun m -> m "sigma: %s" (show_sigma sigma));
+              debug (fun m -> m "sigma: %a" pp_sigma sigma);
               let sigma' = l :: sigma in
               let pruned_sigma' = prune_sigma sigma' in
-              debug (fun m -> m "sigma_pruned': %s" (show_sigma pruned_sigma'));
+              debug (fun m -> m "sigma_pruned': %a" pp_sigma pruned_sigma');
               debug (fun m ->
                   m "Evaluating function being applied: %a" Interp.Pp.pp_expr e);
               let%bind r1 = analyze_aux d e sigma pi in
@@ -330,7 +325,8 @@ let rec analyze_aux d expr sigma pi : Res.t T.t =
                         let%bind acc_r = acc in
                         let%bind r0 =
                           local
-                            (fun v -> Set.add v v_new)
+                            (fun ({ v; _ } as env) ->
+                              { env with v = Set.add v v_new })
                             (analyze_aux d e1 pruned_sigma' pi)
                         in
                         return (Set.union acc_r r0)
@@ -358,7 +354,7 @@ let rec analyze_aux d expr sigma pi : Res.t T.t =
                     (* Var Local *)
                     info (fun m ->
                         m "[Level %d] === Var Local (%s, %d) ====" d x l);
-                    debug (fun m -> m "sigma: %s" (show_sigma sigma));
+                    debug (fun m -> m "sigma: %a" pp_sigma sigma);
                     let s_hd, s_tl = (List.hd_exn sigma, List.tl_exn sigma) in
                     match get_myexpr s_hd with
                     | Appl (_, e2, l') ->
@@ -369,8 +365,8 @@ let rec analyze_aux d expr sigma pi : Res.t T.t =
                           debug (fun m ->
                               m
                                 "Tail of candidate fragments must start with: \
-                                 %s"
-                                (show_sigma s_tl));
+                                 %a"
+                                pp_sigma s_tl);
                           (* enumerate all matching stacks in the set *)
                           debug (fun m -> m "S len: %d" (Set.length s));
                           debug (fun m -> m "S: %s" (S.show s));
@@ -386,14 +382,15 @@ let rec analyze_aux d expr sigma pi : Res.t T.t =
                                 debug (fun m ->
                                     m
                                       "[Level %d] Stitched! Evaluating Appl \
-                                       argument, using stitched stack %s:"
-                                      d (show_sigma sigma_i_tl));
+                                       argument, using stitched stack %a:"
+                                      d pp_sigma sigma_i_tl);
                                 debug (fun m -> m "%a" Interp.Pp.pp_expr e2);
                                 (* stitch the stack to gain more precision *)
                                 let%bind acc_r = acc in
                                 let%bind r0 =
                                   local
-                                    (fun v -> Set.add v est)
+                                    (fun ({ v; _ } as env) ->
+                                      { env with v = Set.add v est })
                                     (analyze_aux d e2 sigma_i_tl pi)
                                 in
                                 return (Set.union acc_r r0))
@@ -401,13 +398,9 @@ let rec analyze_aux d expr sigma pi : Res.t T.t =
                         in
                         info (fun m ->
                             m "[Level %d] *** Var Local (%s, %d) ****" d x l);
-                        debug (fun m ->
-                            m "[Var Local] r1 (bofore elim_stub): %a" pp_res
-                              (unwrap_res r1));
                         let r1 = elim_stub r1 (St.Estate cycle_label) in
                         debug (fun m ->
-                            m "[Var Local] r1 (after elim_stub): %a" pp_res
-                              (unwrap_res r1));
+                            m "[Var Local] r1: %a" pp_res (unwrap_res r1));
                         info (fun m ->
                             m "[Level %d] *** Var (%s, %d) ****" d x l);
                         return r1
@@ -416,7 +409,7 @@ let rec analyze_aux d expr sigma pi : Res.t T.t =
                     (* Var Non-Local *)
                     info (fun m ->
                         m "[Level %d] === Var Non-Local (%s, %d) ====" d x l);
-                    debug (fun m -> m "sigma: %s" (show_sigma sigma));
+                    debug (fun m -> m "sigma: %a" pp_sigma sigma);
                     debug_plain "Reading Appl at front of sigma";
                     match get_myexpr (List.hd_exn sigma) with
                     | Appl (e1, _, l2) ->
@@ -449,17 +442,20 @@ let rec analyze_aux d expr sigma pi : Res.t T.t =
                                       m
                                         "[Level %d] Stitched! Evaluating \
                                          function being applied at front of \
-                                         sigma, using stitched stack %s"
-                                        d (show_sigma sigma_i_tl));
+                                         sigma, using stitched stack %a"
+                                        d pp_sigma sigma_i_tl);
                                   let%bind acc_r = acc in
                                   let%bind r0 =
                                     local
-                                      (fun v -> Set.add v est)
+                                      (fun ({ v; _ } as env) ->
+                                        { env with v = Set.add v est })
                                       (analyze_aux d e1 sigma_i_tl pi)
                                   in
                                   return (Set.union acc_r r0))
                                 else acc)
                           in
+                          (* TODO: Eval(r1) *)
+                          debug (fun m -> m "r1 length: %d" (Set.length r1));
                           debug (fun m ->
                               m
                                 "[Level %d] Found all stitched stacks and \
@@ -468,8 +464,6 @@ let rec analyze_aux d expr sigma pi : Res.t T.t =
                           let%bind r2 =
                             Set.fold r1 ~init:(return empty_res)
                               ~f:(fun acc a ->
-                                debug (fun m ->
-                                    m "r1 length: %d" (Set.length r1));
                                 debug (fun m ->
                                     m
                                       "[Level %d] Visiting 1 possible function \
@@ -488,7 +482,8 @@ let rec analyze_aux d expr sigma pi : Res.t T.t =
                                       let%bind acc_r = acc in
                                       let%bind r0' =
                                         local
-                                          (fun v -> Set.add v est)
+                                          (fun ({ v; _ } as env) ->
+                                            { env with v = Set.add v est })
                                           (analyze_aux d
                                              (Var (Ident x, l1))
                                              sigma1 pi)
@@ -526,7 +521,6 @@ let rec analyze_aux d expr sigma pi : Res.t T.t =
                 debug (fun m -> m "[Level %d] === If Both ===" d);
                 (* Format.printf "r_cond: %a\n" pp_res r_cond; *)
                 let%bind r_true = analyze_aux d e_true sigma None in
-                info (fun m -> m "Evaluating: %a" Interp.Pp.pp_expr e_false);
                 let%bind r_false = analyze_aux d e_false sigma None in
                 debug (fun m -> m "[Level %d] *** If Both ***" d);
                 return (Set.union r_true r_false))
@@ -613,24 +607,27 @@ let analyze ?(debug_mode = false) ?(verify = true) ?(test_num = 0)
 
   (* Format.printf "%a\n" pp_expr e; *)
   start_time := Stdlib.Sys.time ();
-  let r, { vids; sids; freqs; _ } =
+  let empty_v = Set.empty (module V_key) in
+  let empty_s = Set.empty (module S_key) in
+  let r, { sids; freqs; _ } =
     analyze_aux 0 e [] None
-      (Set.empty (module V_key))
+      { v = empty_v; vids = Map.singleton (module V) empty_v "V0"; cnt = 1 }
       {
         s = Set.empty (module S_key);
         c = Map.empty (module Cache_key);
-        vids = Map.empty (module V);
-        sids = Map.empty (module S);
-        cnt = 0;
+        sids = Map.singleton (module S) empty_s "S0";
+        cnt = 1;
         freqs = Map.empty (module Freq_key);
       }
   in
 
-  (* print_freqs freqs;
-     Format.printf "vids:\n";
-     print_vids vids ~size:false;
-     Format.printf "sids:\n";
+  (* print_freqs freqs; *)
+
+  (* Format.printf "sids:\n";
      print_sids sids ~size:false; *)
+
+  (* Format.printf "vids:\n";
+     print_vids vids ~size:false; *)
 
   (* let r = simplify r in *)
   (* dot_of_result test_num r; *)

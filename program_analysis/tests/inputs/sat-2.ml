@@ -6,10 +6,12 @@ let phi = fun x1 -> fun x2 -> fun x3 -> fun x4 -> fun x5 -> fun x6 -> fun x7 ->
   (x3 || x4) &&
   ((not x4) || x1) &&
   ((not x2) || (not x3)) &&
-  (x4 || x2) in
+  (x4 || x2)
+in
 
 let try_ = fun f ->
-  f true || f false in
+  f true || f false
+in
 
 let sat_solve_7 = fun p ->
   try_ (fun n1 ->
@@ -19,6 +21,7 @@ let sat_solve_7 = fun p ->
           try_ (fun n5 ->
             try_ (fun n6 ->
               try_ (fun n7 ->
-                p n1 n2 n3 n4 n5 n6 n7))))))) in
+                p n1 n2 n3 n4 n5 n6 n7)))))))
+in
 
 sat_solve_7 phi

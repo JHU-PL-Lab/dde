@@ -300,37 +300,54 @@ let ddpa_simple_thunked =
        ("Int", pau' ~verify:false ~test_name:"loop2-1" (read_input "loop2-1.ml"))); *)
     (* (fun _ ->
        ("Int", pau' ~verify:false ~test_name:"mj09" (read_input "mj09.ml"))); *)
-    (fun _ ->
-      ( "{ hd = 8; tl = { hd = 9 | 10; tl = {} | { hd = 9 | 10; tl = {} | { hd \
-         = 9 | 10; tl = stub@(12,\n\
-         [12; 12]) } } } }",
-        pau' ~verify:false ~test_name:"map" (read_input "map.ml") ));
+    (* (fun _ ->
+       ( "{ hd = 8; tl = { hd = 9 | 10; tl = {} | { hd = 9 | 10; tl = {} | { hd \
+          = 9 | 10; tl = stub) } } } }",
+         pau' ~verify:false ~test_name:"map" (read_input "map.ml") )); *)
     (* (fun _ ->
        ( "stub",
          pau' ~verify:false ~test_name:"primtest" (read_input "primtest.ml") )); *)
     (* (fun _ ->
-       ("true", pau' ~verify:false ~test_name:"sat-1" (read_input "sat-1.ml"))); *)
-    (* (fun _ ->
-       ("true", pau' ~verify:false ~test_name:"sat-5" (read_input "sat-5.ml"))); *)
-    (* (fun _ ->
-       ("true", pau' ~verify:false ~test_name:"sat-2" (read_input "sat-2.ml"))); *)
-    (* (fun _ ->
-       ("true", pau' ~verify:false ~test_name:"sat-3" (read_input "sat-3.ml"))); *)
-    (* (fun _ ->
-       ("false", pau' ~verify:false ~test_name:"sat-4" (read_input "sat-4.ml"))); *)
-    (* (fun _ -> ("", pau' ~verify:false ~test_name:"id" recursion.(0))); *)
-    (* (fun _ ->
        ( "(false | true)",
          pau' ~verify:false ~test_name:"rsa" (read_input "rsa.ml") )); *)
-    (* (fun _ ->
-       ("Int", pau' ~verify:false ~test_name:"ack" (read_input "ack.ml"))); *)
-    (* (fun _ ->
-       ( "(stub | (stub | (stub | (stub | (stub | (stub | (stub | stub)))))))",
-         pau' ~verify:false ~test_name:"mack" (read_input "mack.ml") )); *)
-    (* (fun _ ->
-       ("Int", pau' ~verify:false ~test_name:"tak" (read_input "tak.ml"))); *)
-    (* (fun _ ->
-       ("Int", pau' ~verify:false ~test_name:"cpstak" (read_input "cpstak.ml"))); *)
+    (* (fun _ -> ("", pau' ~verify:false ~test_name:"id" recursion.(0))); *)
+    (fun _ ->
+      ( "false | true",
+        pau' ~verify:false ~test_name:"sat-1" (read_input "sat-1.ml") ));
+    (fun _ ->
+      ( "false | true",
+        pau' ~verify:false ~test_name:"sat-2" (read_input "sat-2.ml") ));
+    (fun _ ->
+      ( "false | true",
+        pau' ~verify:false ~test_name:"sat-3" (read_input "sat-3.ml") ));
+    (fun _ ->
+      ( "false | true",
+        pau' ~verify:false ~test_name:"sat-4" (read_input "sat-4.ml") ));
+    (fun _ ->
+      ("true", pau' ~verify:false ~test_name:"sat-5" (read_input "sat-5.ml")));
+    (fun _ ->
+      ( "Int | 0 | 1 | 2 | 3 | 4 | 5 | 11 | 12 | 13 | 14 | stub",
+        pau' ~verify:false ~test_name:"ack" (read_input "ack.ml") ));
+    (fun _ ->
+      ( "stub | stub | stub",
+        pau' ~verify:false ~test_name:"mack" (read_input "mack.ml") ));
+    (fun _ ->
+      ( "Int | -44 | -43 | -42 | -41 | -40 | -39 | -38 | -37 | -36 | -35 | -34 \
+         | -33 | -32 | -31 | -30 | -29 | -28 | -27 | -26 | -25 | -24 | -23 | \
+         -22 | -21 | -20 | -19 | -18 | -17 | -16 | -15 | -14 | -13 | -12 | -11 \
+         | -10 | -9 | -8 | -7 | -6 | -5 | -4 | -3 | -2 | -1 | 0 | 1 | 2 | 3 | \
+         4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | \
+         19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | \
+         stub | stub | stub | stub | stub | stub | stub | stub | stub | stub | \
+         stub | stub | stub | stub | stub | stub | stub | stub | stub | stub | \
+         stub | stub | stub | stub | stub | stub | stub | stub | stub | stub | \
+         stub | stub | stub | stub | stub | stub | stub | stub | stub | stub | \
+         stub | stub | stub | stub | stub | stub | stub | stub | stub | stub | \
+         stub | stub | stub | stub | stub | stub",
+        pau' ~verify:false ~test_name:"tak" (read_input "tak.ml") ));
+    (fun _ ->
+      ( "15 | 18 | 31 | 32 | stub | stub | stub",
+        pau' ~verify:false ~test_name:"cpstak" (read_input "cpstak.ml") ));
   ]
 
 let test_ddpa_simple _ = gen_test ddpa_simple_thunked

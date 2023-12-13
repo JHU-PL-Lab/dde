@@ -25,9 +25,12 @@ let rec pp_atom fmt = function
   | IntAtom i -> ff fmt "%d" i
   | BoolAtom b -> ff fmt "%b" b
   | FunAtom (f, _, _) -> Interp.Pp.pp_expr fmt f
-  | LStubAtom (l, sigma) -> ff fmt "stub@(%d,%a)" l pp_sigma sigma
+  | LStubAtom (l, sigma) ->
+      (* ff fmt "stub@(%d,%a)" l pp_sigma sigma *)
+      ff fmt "stub"
   | EStubAtom (e, sigma) ->
-      ff fmt "stub@(%a,%a)" Interp.Pp.pp_expr e pp_sigma sigma
+      (* ff fmt "stub@(%a,%a)" Interp.Pp.pp_expr e pp_sigma sigma *)
+      ff fmt "stub"
   | RecAtom entries ->
       ff fmt
         (if List.length entries = 0 then "{%a}" else "{ %a }")
