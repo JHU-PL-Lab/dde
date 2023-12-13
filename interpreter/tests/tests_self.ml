@@ -17,9 +17,9 @@ let test_laziness _ =
 let test_memoization _ =
   (* assert_equal "" (peu ~should_simplify:true (Tests_subst.dde_fib 15)); *)
   assert_equal ""
-    (peu ~should_simplify:true
+    (peu ~should_simplify:false
        "let fib = (fun self -> fun n -> if n = 0 or n = 1 then n else self \
-        self (n - 1) + self self (n - 2)) in fib fib 25")
+        self (n - 1) + self self (n - 2)) in fib fib 21")
 
 let test_record _ =
   (* gives value at leftmost x *)
@@ -78,9 +78,9 @@ let test_misc _ =
 
 let dde_self_tests =
   [
-    (* "Memoization" >:: test_memoization; *)
+    "Memoization" >:: test_memoization;
     (* "Record rec" >:: test_record_rec; *)
-    "Laziness" >:: test_laziness;
+    (* "Laziness" >:: test_laziness; *)
     (* "Record operations" >:: test_record;
        "letassert" >:: test_letassert; *)
     (* "Misc." >:: test_misc; *)

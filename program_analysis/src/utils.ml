@@ -57,8 +57,8 @@ let rec pp_atom fmt = function
         |> List.map ~f:(fun st -> Format.sprintf "%s" (St.show st))
         |> String.concat ~sep:", ")
         l *)
-  (* | PathCondAtom (_, r) -> ff fmt "%a" pp_res r *)
-  | PathCondAtom ((r, b), r') -> ff fmt "(%a = %b ⊩ %a)" pp_res r b pp_res r'
+  | PathCondAtom (_, r) -> ff fmt "%a" pp_res r
+  (* | PathCondAtom ((r, b), r') -> ff fmt "(%a = %b ⊩ %a)" pp_res r b pp_res r' *)
   | RecAtom entries ->
       ff fmt
         (if List.is_empty entries then "{%a}" else "{ %a }")

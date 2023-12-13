@@ -1,8 +1,8 @@
 letassert x =
 let phi = fun x1 -> fun x2 -> fun x3 -> fun x4 ->
-  (x1 || (not x2) || (not x3)) &&
-  ((not x2) || (not x3)) &&
-  (x4 || x2) in
+  (x1 || x2 || x3) &&
+  (x2 || (not x3)) &&
+  (x4 || (not x2)) in
 
 let try_ = fun f ->
   (f true) || (f false) in

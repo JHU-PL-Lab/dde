@@ -1,5 +1,5 @@
 let square = fun x -> (x * x) in
-let mod = fun x -> fun y -> 0 in
+let mod' = fun x -> fun y -> 0 in
 let div = (fun x -> fun y -> x) in
 let ceil = (fun x -> x) in
 let log = (fun x -> x) in
@@ -7,17 +7,17 @@ let rand = (fun x -> x) in
 
 let modulo_power = (fun self -> fun base -> fun exp -> fun n ->
   if exp = 0 then 1
-  else if (mod exp 2) = 1 then
-    mod (base * (self self base (exp - 1) n)) n
+  else if (mod' exp 2) = 1 then
+    mod' (base * (self self base (exp - 1) n)) n
   else
     let temp = self self base (div exp 2) n in
-    mod (square temp) n)
+    mod' (square temp) n)
   in
 
 let is_trivial_composite = fun n ->
-  mod n 2 = 0 || mod n 3 = 0 || mod n 5 = 0 || mod n 7 = 0 ||
-  mod n 11 = 0 || mod n 13 = 0 || mod n 17 = 0 || mod n 19 = 0 ||
-  mod n 23 = 0
+  mod' n 2 = 0 || mod' n 3 = 0 || mod' n 5 = 0 || mod' n 7 = 0 ||
+  mod' n 11 = 0 || mod' n 13 = 0 || mod' n 17 = 0 || mod' n 19 = 0 ||
+  mod' n 23 = 0
 in
 
 let is_fermat_prime = fun self -> fun n -> fun iterations ->

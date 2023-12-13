@@ -12,8 +12,8 @@ let is_compound_expr = function Var _ -> false | _ -> true
 let rec pp_expr fmt = function
   | Int i -> ff fmt "%d" i
   | Bool b -> ff fmt "%b" b
-  | Function (Ident i, x, l) -> ff fmt "@[<hv>fun %s ->@;<0 2>%a@]" i pp_expr x
-  | Var (Ident x, l) -> ff fmt "%s" x
+  | Function (Ident i, x, l) -> ff fmt "@[<hv>fun %s ->@;<1 2>%a@]" i pp_expr x
+  | Var (Ident x, l) -> ff fmt "%s/%d" x l
   | Appl (e1, e2, _) ->
       let is_compound_exprL = function
         | Appl _ -> false
@@ -48,8 +48,8 @@ let rec pp_expr fmt = function
       ff fmt
         (if List.length entries = 0 then "{%a}" else "{ %a }")
         pp_record entries
-  | Projection (e, Ident x) -> ff fmt "%a.%s" pp_expr e x
-  | Inspection (Ident x, e) -> ff fmt "%s.%a" x pp_expr e
+  | Projection (e, Ident x) -> ff fmt "(%a.%s)" pp_expr e x
+  | Inspection (Ident x, e) -> ff fmt "(%s in %a)" x pp_expr e
 
 and pp_record fmt = function
   | [] -> ()
