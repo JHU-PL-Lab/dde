@@ -7,7 +7,6 @@ open Utils
 open Solver
 open Simplifier
 open Exns
-open Logging
 
 (* max recursion depth ever reached by execution *)
 let max_d = ref 0
@@ -225,7 +224,7 @@ let rec analyze_aux_step d expr sigma pi s v =
       if Option.is_some found then
         debug (fun m -> m "[Level %d] Cache hit but lone stub" d);
       if d > !max_d then max_d := d;
-      debug_plain "Began recursive call to execution";
+      debug (fun m -> m "Began recursive call to execution");
       debug (fun m -> m "Max depth so far is: %d" !max_d);
       debug (fun m -> m "expr: %a" Interp.Pp.pp_expr expr);
       debug (fun m -> m "sigma: %s" (show_sigma sigma));
@@ -247,19 +246,19 @@ let rec analyze_aux_step d expr sigma pi s v =
             (* let st = (l, pruned_sigma', s) in *)
             let lst = NewSt.Lstate st in
             debug (fun m -> m "State: %s" (NewSt.show lst));
-            debug_plain "v_set:";
+            debug (fun m -> m "v_set:");
             log_v_set v;
             let stub_key = (l, sigma) in
             (* TODO: try two-pass mechanism again *)
             if Set.mem v lst then (
-              debug_plain "Stubbed";
+              debug (fun m -> m "Stubbed");
               info (fun m ->
                   m "[Level %d] ****** Appl (%a) *******" d Interp.Pp.pp_expr
                     expr);
               ([ LStubAtom stub_key ], s))
             else (
               (* Application *)
-              debug_plain "Didn't stub";
+              debug (fun m -> m "Didn't stub");
               debug (fun m ->
                   m "Evaluating function being applied: %a" Interp.Pp.pp_expr e);
               debug (fun m ->
@@ -294,7 +293,7 @@ let rec analyze_aux_step d expr sigma pi s v =
             let st = (expr, sigma, s) in
             let est = NewSt.Estate st in
             debug (fun m -> m "State: %s" (Grammar.NewSt.show est));
-            debug_plain "v_set:";
+            debug (fun m -> m "v_set:");
             log_v_set v;
             let stub_key = (expr, sigma) in
             if Set.mem v est then (
@@ -303,7 +302,7 @@ let rec analyze_aux_step d expr sigma pi s v =
               info (fun m -> m "[Level %d] ****** Var (%s, %d) *******" d x l);
               ([ EStubAtom stub_key ], s))
             else (
-              debug_plain "Didn't stub";
+              debug (fun m -> m "Didn't stub");
               match get_myfun l with
               | Some (Function (Ident x1, _, l_myfun)) ->
                   if String.(x = x1) then (
@@ -315,8 +314,8 @@ let rec analyze_aux_step d expr sigma pi s v =
                     match get_myexpr s_hd with
                     | Appl (_, e2, l') ->
                         let r1, s1 =
-                          debug_plain "Begin stitching stacks";
-                          debug_plain "S set:";
+                          debug (fun m -> m "Begin stitching stacks");
+                          debug (fun m -> m "S set:");
                           debug (fun m -> m "%s" (show_set s));
                           debug (fun m ->
                               m "Head of candidate fragments must be: %d" l');
@@ -367,16 +366,17 @@ let rec analyze_aux_step d expr sigma pi s v =
                         m "[Level %d] ====== Var Non-Local (%s, %d) ======" d x
                           l);
                     debug (fun m -> m "sigma: %s" (show_sigma sigma));
-                    debug_plain "Reading Appl at front of sigma";
+                    debug (fun m -> m "Reading Appl at front of sigma");
                     match get_myexpr (List.hd_exn sigma) with
                     | Appl (e1, _, l2) ->
-                        debug_plain "[Var Non-Local] Didn't stub e1";
-                        debug_plain "Function being applied at front of sigma:";
+                        debug (fun m -> m "[Var Non-Local] Didn't stub e1");
+                        debug (fun m ->
+                            m "Function being applied at front of sigma:");
                         debug (fun m -> m "%a" Interp.Pp.pp_expr e1);
                         debug (fun m -> m "%a" Interp.Ast.pp_expr e1);
                         let s_tl = List.tl_exn sigma in
-                        debug_plain "Begin stitching stacks";
-                        debug_plain "S set:";
+                        debug (fun m -> m "Begin stitching stacks");
+                        debug (fun m -> m "S set:");
                         debug (fun m -> m "%s" (show_set s));
                         debug (fun m ->
                             m "Head of candidate fragments must be: %d" l2);
@@ -409,9 +409,10 @@ let rec analyze_aux_step d expr sigma pi s v =
                         let new_v =
                           Set.add v (NewSt.Estate (expr, sigma, s1))
                         in
-                        debug_plain
-                          "Found all stitched stacks and evaluated e1, begin \
-                           relabeling variables";
+                        debug (fun m ->
+                            m
+                              "Found all stitched stacks and evaluated e1, \
+                               begin relabeling variables");
                         let r2, s2 =
                           fold_res_var ~init:(choice_empty, s1) expr sigma d r1
                             ~f:(fun (acc_r, acc_s) x1' l1 sigma1 ->
@@ -450,7 +451,7 @@ let rec analyze_aux_step d expr sigma pi s v =
             let r_cond, s0 = analyze_aux_step d e sigma pi s v in
             debug (fun m -> m "r_cond: %a" Utils.pp_res r_cond);
             debug (fun m -> m "r_cond: %a" Grammar.pp_res r_cond);
-            debug_plain "v_set:";
+            debug (fun m -> m "v_set:");
             log_v_set v;
             let true_sat = solve_cond r_cond true in
             let pc_true = (r_cond, true) in
@@ -568,7 +569,7 @@ and analyze_aux n e_glob d expr sigma pi s v =
   let r, s' = analyze_aux_step d expr sigma pi s v in
   debug (fun m -> m "[Level %d] After analyze_aux_step" d);
   if Set.compare_direct s s' = 0 then (
-    debug_plain "S didn't change, finishing...";
+    debug (fun m -> m "S didn't change, finishing...");
     (r, s'))
   else (
     debug (fun m -> m "[Level %d] [n = %d] Restarting afresh" d n);
@@ -587,7 +588,7 @@ let analyze ?(debug_mode = false) ?(verify = true) ?(test_num = 0) e =
 
   let e = trans_let None None e in
   build_myfun e None;
-  debug_plain "Program after subst";
+  debug (fun m -> m "Program after subst");
 
   (* let r, s =
        analyze_aux 0 e 0 e [] None

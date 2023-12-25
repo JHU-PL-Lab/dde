@@ -1,7 +1,25 @@
-open Program_analysis.Lib
+open Pa.Lib
 open Utils
-open Interpreter
+open Interp
 module QC = Core.Quickcheck
+
+module IdentSet = Set.Make (struct
+  type t = Ast.ident
+
+  let compare ident1 ident2 =
+    match (ident1, ident2) with
+    | Ast.Ident id1, Ast.Ident id2 -> compare id1 id2
+end)
+
+let label = ref (-1)
+
+let fresh_label () =
+  label := !label + 1;
+  !label
+
+let reset_label () = label := -1
+let ( |>> ) v f = Option.map f v
+let ( |>-> ) v f = Option.bind v f
 
 let filter_simple (e : Ast.expr) =
   match e with Function _ | Int _ | Bool _ | Var _ -> None | _ -> Some e

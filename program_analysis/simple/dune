@@ -3,7 +3,7 @@
  (public_name dde.simple_pa)
  (preprocess
   (pps ppx_deriving.show ppx_let ppx_jane landmarks-ppx --auto))
- (modules lib grammar solver simplifier utils debugutils)
- (libraries hashset core z3 logs logs.fmt dde.interp dde.pa)
+ (modules lib utils simplifier debug_utils exns)
+ (libraries core logs logs.fmt dde.interp)
  (instrumentation
   (backend landmarks --auto)))

@@ -17,9 +17,9 @@
 
 (package
  (name dde)
- (synopsis "Demand-Driven Execution (DDE)")
+ (synopsis "Pure Demand Operational Semantics")
  (description
-  "Formally verified concrete and abstract interpretation based on DDE")
+  "A novel minimal-state operational semantics for higher-order functional languages")
  (depends
   (ocaml
    (>= 4.14.1))

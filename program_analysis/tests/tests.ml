@@ -1,35 +1,30 @@
 open OUnit2
 open Core
-open Utils
 open Test_cases
-
-let gen_test ls =
-  List.iter ls ~f:(fun f ->
-      let expected, actual = f () in
-      assert_equal ~printer:Fn.id expected actual)
+open Utils
 
 let basic_thunked =
   [
-    (fun _ -> ("1", pau ~test_num:0 basic.(0)));
-    (fun _ -> ("1", pau ~test_num:1 basic.(1)));
-    (fun _ -> ("(1 + 2)", pau ~test_num:2 basic.(2)));
+    (fun _ -> ("1", pau basic.(0)));
+    (fun _ -> ("1", pau basic.(1)));
+    (fun _ -> ("(1 + 2)", pau basic.(2)));
   ]
 
 let test_basic _ = gen_test basic_thunked
 
 let nonlocal_lookup_thunked =
   [
-    (fun _ -> ("(1 + 2)", pau ~test_num:3 nonlocal_lookup.(0)));
-    (fun _ -> ("(1 + 2)", pau ~test_num:4 nonlocal_lookup.(1)));
-    (fun _ -> ("((3 + 1) + 2)", pau ~test_num:5 nonlocal_lookup.(2)));
+    (fun _ -> ("(1 + 2)", pau nonlocal_lookup.(0)));
+    (fun _ -> ("(1 + 2)", pau nonlocal_lookup.(1)));
+    (fun _ -> ("((3 + 1) + 2)", pau nonlocal_lookup.(2)));
   ]
 
 let test_nonlocal_lookup _ = gen_test nonlocal_lookup_thunked
 
 let local_stitching_thunked =
   [
-    (fun _ -> ("((1 + 1) + (1 + 1))", pau ~test_num:6 local_stitching.(0)));
-    (fun _ -> ("((0 + 1) + 2)", pau ~test_num:7 local_stitching.(1)));
+    (fun _ -> ("((1 + 1) + (1 + 1))", pau local_stitching.(0)));
+    (fun _ -> ("((0 + 1) + 2)", pau local_stitching.(1)));
   ]
 
 (* stack stitching is also needed at Var Local *)
@@ -37,24 +32,24 @@ let test_local_stitching _ = gen_test local_stitching_thunked
 
 let conditional_thunked =
   [
-    (fun _ -> ("(1 + (10 - 1))", pau ~test_num:8 conditional.(0)));
-    (* (fun _ -> ("1", pau ~test_num:9 conditional.(1))); *)
-    (* (fun _ -> ("1", pau ~test_num:10 conditional.(2))); *)
-    (* (fun _ -> ("1", pau ~test_num:11 conditional.(3))); *)
-    (* (fun _ -> ("false", pau ~test_num:12 conditional.(4))); *)
+    (fun _ -> ("(1 + (10 - 1))", pau conditional.(0)));
+    (* (fun _ -> ("1", pau  conditional.(1))); *)
+    (* (fun _ -> ("1", pau  conditional.(2))); *)
+    (* (fun _ -> ("1", pau  conditional.(3))); *)
+    (* (fun _ -> ("false", pau  conditional.(4))); *)
   ]
 
 let test_conditional _ = gen_test conditional_thunked
 
 let currying_thunked =
   [
-    (* (fun _ -> ("(2 + 1)", pau ~test_num:13 currying.(0)));
-       (fun _ -> ("(2 + 1)", pau ~test_num:14 currying.(1)));
-       (fun _ -> ("(1 + 2)", pau ~test_num:15 currying.(2)));
-       (fun _ -> ("((2 + 1) + (1 + 2))", pau ~test_num:16 currying.(3))); *)
+    (* (fun _ -> ("(2 + 1)", pau  currying.(0)));
+       (fun _ -> ("(2 + 1)", pau  currying.(1)));
+       (fun _ -> ("(1 + 2)", pau  currying.(2)));
+       (fun _ -> ("((2 + 1) + (1 + 2))", pau  currying.(3))); *)
     (fun _ ->
       ( "(((((1 + 1) + (1 + 2)) + (1 + 3)) + (1 + 4)) + (1 + 5))",
-        pau ~test_num:17 ~verify:false currying.(4) ));
+        pau ~verify:false currying.(4) ));
   ]
 
 let test_currying _ = gen_test currying_thunked
@@ -66,29 +61,27 @@ let test_currying _ = gen_test currying_thunked
 (* TODO: Racket/Van Horn examples *)
 let recursion_thunked =
   [
-    (fun _ ->
-      ( "(1 + (1 + ((1 + ((1 + stub) | 0)) | 0)))",
-        pau' ~test_num:18 ~verify:true recursion.(0) ));
+    (fun _ -> ("(1 + (1 + ((1 + ((1 + stub) | 0)) | 0)))", pau' recursion.(0)));
     (* (fun _ ->
          ( "(false or (false or ((false or ((false or stub) | true)) | true)))",
-           pau ~test_num:19 ~verify:false recursion.(1) )); *)
+           pau  ~verify:false recursion.(1) )); *)
     (* TODO: shouldn't have base case *)
     (* (fun _ ->
        ( "(1 + (1 + ((1 + ((1 + stub) | 0)) | 0)))",
-         pau ~test_num:20 ~verify:false recursion.(2) )); *)
+         pau  ~verify:false recursion.(2) )); *)
     (* (fun _ ->
          ( "(1 + (1 + (0 | (1 + (0 | (1 + stub))))))",
-           pau ~test_num:21 ~verify:false recursion.(3) ));
-       (fun _ -> ("0", pau ~test_num:22 ~verify:false recursion.(4)));
-       (fun _ -> ("true", pau ~test_num:23 ~verify:false recursion.(5)));
+           pau  ~verify:false recursion.(3) ));
+       (fun _ -> ("0", pau  ~verify:false recursion.(4)));
+       (fun _ -> ("true", pau  ~verify:false recursion.(5)));
        (* TODO *)
-       (* (fun _ -> ("false", pau ~test_num:18 ~verify:false recursion.(6))); *)
-       (fun _ -> ("true", pau ~test_num:24 ~verify:false recursion.(7)));
-       (* (fun _ -> ("(false | true)", pau ~test_num:25 ~verify:false recursion.(8))); *)
-       (fun _ -> ("(0 | 1)", pau ~test_num:26 ~verify:false recursion.(9)));
-       (fun _ -> ("1", pau ~test_num:27 ~verify:false recursion.(10)));
+       (* (fun _ -> ("false", pau  ~verify:false recursion.(6))); *)
+       (fun _ -> ("true", pau  ~verify:false recursion.(7)));
+       (* (fun _ -> ("(false | true)", pau  ~verify:false recursion.(8))); *)
+       (fun _ -> ("(0 | 1)", pau  ~verify:false recursion.(9)));
+       (fun _ -> ("1", pau  ~verify:false recursion.(10)));
        (fun _ ->
-         ("(0 | (1 | (0 - 1)))", pau ~test_num:28 ~verify:false recursion.(11))); *)
+         ("(0 | (1 | (0 - 1)))", pau  ~verify:false recursion.(11))); *)
     (* (fun _ ->
        ( "((((stub + ((3 | ((3 | (stub - 1)) - 1)) - 2)) | ((3 | (stub - 1)) - \
           1)) + ((3 | ((3 | (stub - 1)) - 1)) - 2)) + (((2 | ((3 | (((3 | \
@@ -96,42 +89,42 @@ let recursion_thunked =
           (((3 | (((2 | ((stub - 2) | (stub - 2))) - 1) | ((3 | (((2 | ((stub - \
           2) | (stub - 2))) - 1) | (stub - 1))) - 1))) - 2) | (stub - 2))) - \
           2)))",
-         pau ~verify:false ~test_num:29 recursion.(12) )); *)
+         pau ~verify:false  recursion.(12) )); *)
     (* (fun _ ->
        ( "(1 + (1 + ((1 + stub) | 0)))",
-         pau ~test_num:30 ~verify:false recursion.(13) )); *)
+         pau  ~verify:false recursion.(13) )); *)
   ]
 
 let test_recursion _ = gen_test recursion_thunked
 
 let church_basic_thunked =
   [
-    (fun _ -> ("(0 + 1)", pau ~test_num:41 church_basic.(0)));
-    (fun _ -> ("((0 + 1) + 1)", pau ~test_num:42 church_basic.(1)));
-    (fun _ -> ("(((0 + 1) + 1) + 1)", pau ~test_num:43 church_basic.(2)));
-    (fun _ -> ("((((0 + 1) + 1) + 1) + 1)", pau ~test_num:44 church_basic.(3)));
+    (fun _ -> ("(0 + 1)", pau church_basic.(0)));
+    (fun _ -> ("((0 + 1) + 1)", pau church_basic.(1)));
+    (fun _ -> ("(((0 + 1) + 1) + 1)", pau church_basic.(2)));
+    (fun _ -> ("((((0 + 1) + 1) + 1) + 1)", pau church_basic.(3)));
   ]
 
 let test_church_basic _ = gen_test church_basic_thunked
 
 let church_binop_thunked =
   [
-    (* (fun _ -> ("(0 + 1)", pau ~test_num:45 church_binop.(0))); *)
-    (* (fun _ -> ("", pau' ~test_num:45 church_binop.(1))); *)
-    (fun _ -> ("", pau ~test_num:45 ~verify:false church_binop.(2)));
-    (* (fun _ -> ("", pau ~test_num:45 ~verify:false church_binop.(3))); *)
+    (* (fun _ -> ("(0 + 1)", pau  church_binop.(0))); *)
+    (* (fun _ -> ("", pau'  church_binop.(1))); *)
+    (fun _ -> ("", pau ~verify:false church_binop.(2)));
+    (* (fun _ -> ("", pau  ~verify:false church_binop.(3))); *)
   ]
 
 let test_church_binop _ = gen_test church_binop_thunked
 
 let lists_thunked =
   [
-    (* (fun _ -> ("1", pau' ~test_num:46 lists.(0))); *)
-    (* (fun _ -> ("2", pau' ~test_num:47 lists.(1))); *)
-    (* (fun _ -> ("2", pau ~test_num:48 ~verify:false lists.(2))); *)
-    (fun _ -> ("", pau ~test_num:48 ~verify:false lists.(3)));
-    (* (fun _ -> ("", pau' ~test_num:50 ~verify:false lists.(4))); *)
-    (* (fun _ -> ("", pau' ~test_num:50 ~verify:false lists.(5))); *)
+    (* (fun _ -> ("1", pau'  lists.(0))); *)
+    (* (fun _ -> ("2", pau'  lists.(1))); *)
+    (* (fun _ -> ("2", pau  ~verify:false lists.(2))); *)
+    (fun _ -> ("", pau ~verify:false lists.(3)));
+    (* (fun _ -> ("", pau'  ~verify:false lists.(4))); *)
+    (* (fun _ -> ("", pau'  ~verify:false lists.(5))); *)
   ]
 
 let test_lists _ = gen_test lists_thunked
@@ -198,31 +191,31 @@ let poly_thunked =
     (* (fun _ ->
        ( "(90 * ((((9 | (stub - 1)) - 1) * ((((9 | (stub - 1)) - 1) * stub) | \
           1)) | 1))",
-         pau ~verify:false ~test_name:"fact 10"
+         pau ~verify:false ~name:"fact 10"
            "let fact = fun self -> fun n -> if n = 0 then 1 else n * self self \
             (n - 1) in fact fact 10" )); *)
     (* (fun _ ->
        ( "(380 * ((((19 | (stub - 1)) - 1) * ((((19 | (stub - 1)) - 1) * stub) \
           | 1)) | 1))",
-         pau ~verify:false ~test_name:"fact 20"
+         pau ~verify:false ~name:"fact 20"
            "let fact = fun self -> fun n -> if n = 0 then 1 else n * self self \
             (n - 1) in fact fact 20" )); *)
     (* (fun _ ->
        ( "(1560 * ((((39 | (stub - 1)) - 1) * ((((39 | (stub - 1)) - 1) * stub) \
           | 1)) | 1))",
-         pau ~verify:false ~test_name:"fact 40"
+         pau ~verify:false ~name:"fact 40"
            "let fact = fun self -> fun n -> if n = 0 then 1 else n * self self \
             (n - 1) in fact fact 40" )); *)
     (* (fun _ ->
        ( "(3540 * ((((59 | (stub - 1)) - 1) * ((((59 | (stub - 1)) - 1) * stub) \
           | 1)) | 1))",
-         pau ~verify:false ~test_name:"fact 60"
+         pau ~verify:false ~name:"fact 60"
            "let fact = fun self -> fun n -> if n = 0 then 1 else n * self self \
             (n - 1) in fact fact 60" )); *)
     (fun _ ->
       ( "(9900 * ((((99 | (stub - 1)) - 1) * ((((99 | (stub - 1)) - 1) * stub) \
          | 1)) | 1))",
-        pau ~verify:false ~test_name:"fact 100"
+        pau ~verify:false ~name:"fact 100"
           "let fact = fun self -> fun n -> if n = 0 then 1 else n * self self \
            (n - 1) in fact fact 100" ));
   ]
@@ -232,52 +225,51 @@ let test_poly _ = gen_test poly_thunked
 let ddpa_thunked =
   [
     (* (fun _ ->
-       ("true", pau ~verify:false ~test_name:"blur" (read_input "blur.ml"))); *)
+       ("true", pau ~verify:false ~name:"blur" (read_input "blur.ml"))); *)
     (* (fun _ ->
-         ("false", pau ~verify:false ~test_name:"eta" (read_input "eta.ml")));
+         ("false", pau ~verify:false ~name:"eta" (read_input "eta.ml")));
        (fun _ ->
          ( "((6 * 1) + (12 * ((((3 | (stub - 1)) - 1) * ((((3 | (stub - 1)) - 1) \
             * stub) | 1)) | 1)))",
-           pau ~verify:false ~test_name:"facehugger" (read_input "facehugger.ml")
+           pau ~verify:false ~name:"facehugger" (read_input "facehugger.ml")
          ));
        (fun _ ->
          ( "(90 * ((((9 | (stub - 1)) - 1) * ((((9 | (stub - 1)) - 1) * stub) | \
             1)) | 1))",
-           pau ~verify:false ~test_name:"fact" (read_input "fact.ml") ));
+           pau ~verify:false ~name:"fact" (read_input "fact.ml") ));
        (fun _ ->
-         ("false", pau ~verify:false ~test_name:"kcfa2" (read_input "kcfa2.ml")));
+         ("false", pau ~verify:false ~name:"kcfa2" (read_input "kcfa2.ml")));
        (fun _ ->
-         ("false", pau ~verify:false ~test_name:"kcfa3" (read_input "kcfa3.ml")));
+         ("false", pau ~verify:false ~name:"kcfa3" (read_input "kcfa3.ml")));
        (fun _ ->
          ( read_output "loop2-1.txt",
-           pau ~verify:false ~test_name:"loop2-1" (read_input "loop2-1.ml") ));
+           pau ~verify:false ~name:"loop2-1" (read_input "loop2-1.ml") ));
        (* (fun _ ->
           ( "((stub | ((stub | stub) | stub)) | ((stub | stub) | stub))",
-            pau ~verify:false ~test_name:"loop2'" (read_input "loop2'.ml") )); *)
-       (fun _ -> ("2", pau ~verify:false ~test_name:"mj09" (read_input "mj09.ml"))); *)
+            pau ~verify:false ~name:"loop2'" (read_input "loop2'.ml") )); *)
+       (fun _ -> ("2", pau ~verify:false ~name:"mj09" (read_input "mj09.ml"))); *)
     (* (fun _ ->
        ( "{ hd = 8; tl = { hd = 9; tl = ({} | { hd = (9 | 10); tl = ({} | { hd \
           = (9 | 10); tl = stub }) }) } }",
-         pau ~verify:false ~test_name:"map" (read_input "map.ml") )); *)
+         pau ~verify:false ~name:"map" (read_input "map.ml") )); *)
     (* (fun _ ->
-         ("15", pau ~verify:false ~test_name:"primtest" (read_input "primtest.ml"))); *)
+         ("15", pau ~verify:false ~name:"primtest" (read_input "primtest.ml"))); *)
     (fun _ ->
-      ( "(false | true)",
-        pau ~verify:false ~test_name:"sat-1" (read_input "sat-1.ml") ));
+      ("(false | true)", pau ~verify:false ~name:"sat-1" (read_input "sat-1.ml")));
     (* (fun _ ->
        ( "(false | true)",
-         pau ~verify:false ~test_name:"sat-2" (read_input "sat-2.ml") )); *)
+         pau ~verify:false ~name:"sat-2" (read_input "sat-2.ml") )); *)
     (* (fun _ ->
        ( "(false | true)",
-         pau ~verify:false ~test_name:"sat-3" (read_input "sat-3.ml") )); *)
+         pau ~verify:false ~name:"sat-3" (read_input "sat-3.ml") )); *)
     (* (fun _ ->
-       ("false", pau ~verify:false ~test_name:"rsa" (read_input "rsa.ml"))); *)
-    (* (fun _ -> ("Int", pau ~verify:false ~test_name:"ack" (read_input "ack.ml")));
-       (fun _ -> ("Int", pau ~verify:false ~test_name:"tak" (read_input "tak.ml")));
+       ("false", pau ~verify:false ~name:"rsa" (read_input "rsa.ml"))); *)
+    (* (fun _ -> ("Int", pau ~verify:false ~name:"ack" (read_input "ack.ml")));
+       (fun _ -> ("Int", pau ~verify:false ~name:"tak" (read_input "tak.ml")));
        (fun _ ->
-         ("", pau ~verify:false ~test_name:"church" (read_input "church.ml")));
+         ("", pau ~verify:false ~name:"church" (read_input "church.ml")));
        (fun _ ->
-         ("", pau ~verify:false ~test_name:"cpstak" (read_input "cpstak.ml"))); *)
+         ("", pau ~verify:false ~name:"cpstak" (read_input "cpstak.ml"))); *)
   ]
 
 let test_ddpa _ = gen_test ddpa_thunked
@@ -285,69 +277,66 @@ let test_ddpa _ = gen_test ddpa_thunked
 let ddpa_simple_thunked =
   [
     (* (fun _ ->
-       ("true", pau' ~verify:false ~test_name:"blur" (read_input "blur.ml"))); *)
+       ("true", pau' ~name:"blur" (read_input "blur.ml"))); *)
     (* (fun _ ->
-       ("false", pau' ~verify:false ~test_name:"eta" (read_input "eta.ml"))); *)
+       ("false", pau' ~name:"eta" (read_input "eta.ml"))); *)
     (* (fun _ ->
        ( "Int",
-         pau' ~verify:false ~test_name:"facehugger" (read_input "facehugger.ml")
+         pau' ~name:"facehugger" (read_input "facehugger.ml")
        )); *)
     (* (fun _ ->
-       ("false", pau' ~verify:false ~test_name:"kcfa2" (read_input "kcfa2.ml"))); *)
+       ("false", pau' ~name:"kcfa2" (read_input "kcfa2.ml"))); *)
     (* (fun _ ->
-       ("false", pau' ~verify:false ~test_name:"kcfa3" (read_input "kcfa3.ml"))); *)
+       ("false", pau' ~name:"kcfa3" (read_input "kcfa3.ml"))); *)
     (* (fun _ ->
-       ("Int", pau' ~verify:false ~test_name:"loop2-1" (read_input "loop2-1.ml"))); *)
+       ("Int", pau' ~name:"loop2-1" (read_input "loop2-1.ml"))); *)
     (* (fun _ ->
-       ("Int", pau' ~verify:false ~test_name:"mj09" (read_input "mj09.ml"))); *)
+       ("Int", pau' ~name:"mj09" (read_input "mj09.ml"))); *)
+    (fun _ ->
+      ( "{ hd = 8; tl = { hd = 9 | 10; tl = {} | { hd = 9 | 10; tl = {} | { hd \
+         = 9 | 10; tl = stub } } } }",
+        pau' ~name:"map" (read_input "map.ml") ));
     (* (fun _ ->
-       ( "{ hd = 8; tl = { hd = 9 | 10; tl = {} | { hd = 9 | 10; tl = {} | { hd \
-          = 9 | 10; tl = stub) } } } }",
-         pau' ~verify:false ~test_name:"map" (read_input "map.ml") )); *)
+       ("15", pau' ~name:"primtest" (read_input "primtest.ml"))); *)
     (* (fun _ ->
-       ( "stub",
-         pau' ~verify:false ~test_name:"primtest" (read_input "primtest.ml") )); *)
+       ("false", pau' ~name:"rsa" (read_input "rsa.ml"))); *)
+    (* (fun _ -> ("", pau' ~name:"id" recursion.(0))); *)
     (* (fun _ ->
-       ( "(false | true)",
-         pau' ~verify:false ~test_name:"rsa" (read_input "rsa.ml") )); *)
-    (* (fun _ -> ("", pau' ~verify:false ~test_name:"id" recursion.(0))); *)
-    (fun _ ->
-      ( "false | true",
-        pau' ~verify:false ~test_name:"sat-1" (read_input "sat-1.ml") ));
-    (fun _ ->
-      ( "false | true",
-        pau' ~verify:false ~test_name:"sat-2" (read_input "sat-2.ml") ));
-    (fun _ ->
-      ( "false | true",
-        pau' ~verify:false ~test_name:"sat-3" (read_input "sat-3.ml") ));
-    (fun _ ->
-      ( "false | true",
-        pau' ~verify:false ~test_name:"sat-4" (read_input "sat-4.ml") ));
-    (fun _ ->
-      ("true", pau' ~verify:false ~test_name:"sat-5" (read_input "sat-5.ml")));
-    (fun _ ->
-      ( "Int | 0 | 1 | 2 | 3 | 4 | 5 | 11 | 12 | 13 | 14 | stub",
-        pau' ~verify:false ~test_name:"ack" (read_input "ack.ml") ));
-    (fun _ ->
-      ( "stub | stub | stub",
-        pau' ~verify:false ~test_name:"mack" (read_input "mack.ml") ));
-    (fun _ ->
-      ( "Int | -44 | -43 | -42 | -41 | -40 | -39 | -38 | -37 | -36 | -35 | -34 \
-         | -33 | -32 | -31 | -30 | -29 | -28 | -27 | -26 | -25 | -24 | -23 | \
-         -22 | -21 | -20 | -19 | -18 | -17 | -16 | -15 | -14 | -13 | -12 | -11 \
-         | -10 | -9 | -8 | -7 | -6 | -5 | -4 | -3 | -2 | -1 | 0 | 1 | 2 | 3 | \
-         4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | \
-         19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | \
-         stub | stub | stub | stub | stub | stub | stub | stub | stub | stub | \
-         stub | stub | stub | stub | stub | stub | stub | stub | stub | stub | \
-         stub | stub | stub | stub | stub | stub | stub | stub | stub | stub | \
-         stub | stub | stub | stub | stub | stub | stub | stub | stub | stub | \
-         stub | stub | stub | stub | stub | stub | stub | stub | stub | stub | \
-         stub | stub | stub | stub | stub | stub",
-        pau' ~verify:false ~test_name:"tak" (read_input "tak.ml") ));
-    (fun _ ->
-      ( "15 | 18 | 31 | 32 | stub | stub | stub",
-        pau' ~verify:false ~test_name:"cpstak" (read_input "cpstak.ml") ));
+         ( "false | true",
+           pau' ~name:"sat-1" (read_input "sat-1.ml") ));
+       (fun _ ->
+         ( "false | true",
+           pau' ~name:"sat-2" (read_input "sat-2.ml") ));
+       (fun _ ->
+         ( "false | true",
+           pau' ~name:"sat-3" (read_input "sat-3.ml") ));
+       (fun _ ->
+         ( "false | true",
+           pau' ~name:"sat-4" (read_input "sat-4.ml") ));
+       (fun _ ->
+         ("true", pau' ~name:"sat-5" (read_input "sat-5.ml"))); *)
+    (* (fun _ ->
+       ( "Int | 2 | 3 | 4 | 5 | 6 | 13 | 14 | stub",
+         pau' ~name:"ack" (read_input "ack.ml") )); *)
+    (* (fun _ ->
+       ( "stub | stub | stub | stub",
+         pau' ~name:"mack" (read_input "mack.ml") )); *)
+    (* (fun _ ->
+       ( "Int | -44 | -43 | -42 | -41 | -40 | -39 | -38 | -37 | -36 | -35 | -34 \
+          | -33 | -32 | -31 | -30 | -29 | -28 | -27 | -26 | -25 | -24 | -23 | \
+          -22 | -21 | -20 | -19 | -18 | -17 | -16 | -15 | -14 | -13 | -12 | -11 \
+          | -10 | -9 | -8 | -7 | -6 | -5 | -4 | -3 | -2 | -1 | 0 | 1 | 2 | 3 | \
+          4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | \
+          19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | \
+          stub | stub | stub | stub | stub | stub | stub | stub | stub | stub | \
+          stub | stub | stub | stub | stub | stub | stub | stub | stub | stub | \
+          stub | stub | stub | stub | stub | stub | stub | stub | stub | stub | \
+          stub | stub | stub | stub | stub | stub | stub | stub | stub | stub | \
+          stub | stub | stub | stub | stub | stub | stub | stub | stub | stub | \
+          stub | stub | stub | stub | stub | stub",
+         pau' ~name:"tak" (read_input "tak.ml") )); *)
+    (* (fun _ ->
+       ("stub", pau' ~name:"cpstak" (read_input "cpstak.ml"))); *)
   ]
 
 let test_ddpa_simple _ = gen_test ddpa_simple_thunked
@@ -375,15 +364,26 @@ let test_pa =
 
 let tests = "Program analysis tests" >::: test_pa
 
+let enable_logging log_file =
+  let dst = log_file |> Out_channel.create |> Format.formatter_of_out_channel in
+  Logs.set_reporter (Logs_fmt.reporter ~dst ());
+  Logs.set_level (Some Logs.Debug)
+
 let _ =
-  (* Pbt.run _; *)
-  let out_file = Out_channel.create "logs" in
-  Logs.set_reporter
-    (Logs_fmt.reporter ~dst:(Format.formatter_of_out_channel out_file) ());
-  Logs.set_level (Some Logs.Debug);
-  let bench = ref false in
-  Arg.parse [ ("--bench", Arg.Set bench, "run benchmarks") ] (fun _ -> ()) "";
-  if !bench then Bench.run tests_thunked;
+  Arg.parse
+    [
+      ("--bench", Arg.Unit (fun _ -> Bench.run tests_thunked), "Run benchmarks");
+      ("--log", Arg.Unit (fun _ -> enable_logging "logs"), "Log to default file");
+      ("-log", Arg.String enable_logging, "Log to custom file");
+      ( "--runtime",
+        Arg.Unit (fun _ -> Simple_pa.Debug_utils.report_runtime := true),
+        "Report accurate runtime" );
+      (* ("--pbt", Arg.Unit (fun _ -> Pbt.run ()), "Run property-based tests"); *)
+    ]
+    (fun _ -> ())
+    "";
+
+  (* Format.printf "report_runtime: %b\n" !Utils.report_runtime; *)
   run_test_tt_main tests
 
 (* TODO: more tests, more projections than available *)

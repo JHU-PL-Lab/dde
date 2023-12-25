@@ -7,7 +7,6 @@ open Grammar
 open Grammar.DAtom
 open Utils
 open Pa.Exns
-open Pa.Logging
 
 let rec prune_d ?(k = 1) d =
   map_d d ~f:(fun (l, d) -> (l, if k = 0 then DNil else prune_d d ~k:(k - 1)))
@@ -99,7 +98,7 @@ let rec analyze expr d s sfrag v level =
           debug (fun m -> m "Stubbed DApp");
           (dres_singleton (DStubAtom stub_key), s, sfrag))
         else (
-          debug_plain "Didn't stub DApp";
+          debug (fun m -> m "Didn't stub DApp");
           debug (fun m -> m "Key (expr): %d" (get_label expr));
           debug (fun m -> m "Key (D): %a" Pp.pp_d d);
           debug (fun m -> m "Key (S): %a" pp_s s);
@@ -142,7 +141,7 @@ let rec analyze expr d s sfrag v level =
               m "[Level %d] Stubbed DVar (%a)" level Pp.pp_expr expr);
           (dres_singleton (DStubAtom stub_key), s, sfrag))
         else (
-          debug_plain "Didn't stub DVar";
+          debug (fun m -> m "Didn't stub DVar");
           debug (fun m -> m "Key (expr): %a" Pp.pp_expr expr);
           debug (fun m -> m "Key (D): %a" Pp.pp_d d);
           debug (fun m -> m "Key (S): %a" pp_s s);
@@ -170,7 +169,7 @@ let rec analyze expr d s sfrag v level =
             (* if not (m < length_d d1) then acc
                else if m - 1 >= 0 then (
                  let l_app, d = nth_exn_d d m in
-                 debug_plain "m - 1 case";
+                 debug (fun m -> m "m - 1 case";
                  let l_app', d' = nth_exn_d d1 (m - 1) in
                  if l_app = l_app' then (
                    debug (fun m ->
@@ -190,7 +189,7 @@ let rec analyze expr d s sfrag v level =
                    | _ -> raise Unreachable)
                  else acc)
                else if matches_d d d1 then (
-                 debug_plain "m case";
+                 debug (fun m -> m "m case";
                  debug (fun m ->
                      m "[Level %d][DVar (%a)] Stitched!" level Pp.pp_expr expr);
                  debug (fun m_ -> m_ "Accessing index %d of %a" m Pp.pp_d d1);

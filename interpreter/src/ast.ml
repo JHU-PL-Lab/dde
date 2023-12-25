@@ -255,7 +255,7 @@ let rec trans_let x e' e =
 let rec transform_let e =
   (* TODO: more cases *)
   match e with
-  | Int _ | Bool _ -> e
+  | Int _ | Bool _ | Var _ -> e
   | Function (ident, e, l) ->
       let e' = transform_let e in
       let f = Function (ident, e', l) in
@@ -296,4 +296,6 @@ let rec transform_let e =
   | And (e1, e2) -> And (transform_let e1, transform_let e2)
   | Or (e1, e2) -> Or (transform_let e1, transform_let e2)
   | Not e -> Not (transform_let e)
-  | _ -> e
+  | Record es -> Record (List.map es ~f:(fun (id, e) -> (id, transform_let e)))
+  | Projection (e, id) -> Projection (transform_let e, id)
+  | Inspection (id, e) -> Inspection (id, transform_let e)

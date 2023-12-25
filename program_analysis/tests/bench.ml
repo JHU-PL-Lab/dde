@@ -1,6 +1,5 @@
 open Core
 open Core_bench
-open Utils
 
 let run tests =
   Command_unix.run ~argv:[ "" ]
