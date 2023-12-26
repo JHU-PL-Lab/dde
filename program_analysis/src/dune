@@ -7,7 +7,7 @@
   (backend bisect_ppx --bisect-file _build/bisect))
  (instrumentation
   (backend landmarks --auto))
- (modules lib grammar solver simplifier utils debugutils exns)
+ (modules lib grammar solver simplifier utils debug_utils exns)
  (libraries dde.interp hashset core z3 logs logs.fmt))
 
 (executable

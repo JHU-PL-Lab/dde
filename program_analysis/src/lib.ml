@@ -583,9 +583,7 @@ and analyze_aux n e_glob d expr sigma pi s v =
         m "[Level %d] S after evaluating e_glob:\n%s" d (show_set s'));
     (r, s'))
 
-let analyze ?(debug_mode = false) ?(verify = true) ?(test_num = 0) e =
-  is_debug_mode := debug_mode;
-
+let analyze ?(verify = true) e =
   let e = trans_let None None e in
   build_myfun e None;
   debug (fun m -> m "Program after subst");
@@ -604,12 +602,6 @@ let analyze ?(debug_mode = false) ?(verify = true) ?(test_num = 0) e =
   (* dot_of_result test_num r; *)
   debug (fun m -> m "Result: %a" Utils.pp_res r);
   debug (fun m -> m "Result: %a" Grammar.pp_res r);
-  (if !is_debug_mode then (
-     Format.printf "\n%s\n\n" @@ show_expr e;
-     Format.printf "****** Label Table ******\n";
-     Interp.Lib.print_myexpr myexpr;
-     Format.printf "****** Label Table ******\n\n"))
-  [@coverage off];
 
   clean_up ();
 

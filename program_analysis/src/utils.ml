@@ -2,12 +2,7 @@ open Core
 open Interp.Ast
 open Grammar
 
-exception Unreachable
-
-let pf = Format.printf
-let pfl = pf "%s\n"
 let prune_sigma ?(k = 2) s = List.filteri s ~f:(fun i _ -> i < k)
-let take_sigma ?(k = 2) = Fn.flip List.take (k - 1)
 
 let rec starts_with sigma_parent sigma_child =
   match (sigma_parent, sigma_child) with
@@ -17,9 +12,6 @@ let rec starts_with sigma_parent sigma_child =
       l_parent = l_child && starts_with ls_parent ls_child
 
 let show_set = Set.fold ~init:"" ~f:(fun acc s -> show_sigma s ^ "\n" ^ acc)
-let pp_pair fmt (l, s) = Format.fprintf fmt "(%d, %s)" l @@ show_sigma s
-let pp_pair_list fmt ls = Format.pp_print_list pp_pair fmt ls
-let is_debug_mode = ref false
 
 let all_combs l1 l2 =
   Set.fold l1 ~init:[] ~f:(fun acc x ->

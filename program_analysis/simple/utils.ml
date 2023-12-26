@@ -3,16 +3,8 @@ open Logs
 open Interp.Ast
 
 let ff = Format.fprintf
-let prune_sigma ?(k = 2) s = List.filteri s ~f:(fun i _ -> i < k)
 
-let rec starts_with sigma_parent sigma_child =
-  match (sigma_parent, sigma_child) with
-  | _, [] -> true
-  | [], _ -> false
-  | l_parent :: ls_parent, l_child :: ls_child ->
-      l_parent = l_child && starts_with ls_parent ls_child
-
-module S_key = struct
+module Sigma = struct
   module T = struct
     type t = sigma [@@deriving compare, sexp, show { with_path = false }, hash]
   end
@@ -41,25 +33,30 @@ module V_key = struct
   module T = struct
     type lstate = int * sigma * string [@@deriving compare, sexp, hash]
 
-    let show_lstate (l, sigma, s) =
-      Format.sprintf "(%d, %s, %s)" l (S_key.show sigma) s
+    let pp_lstate fmt (l, sigma, s) =
+      Format.fprintf fmt "(%d, %a, %s)" l Sigma.pp sigma s
 
-    let pp_lstate fmt lst = Format.fprintf fmt "%s" (show_lstate lst)
+    let show_lstate (l, sigma, s) =
+      Format.sprintf "(%d, %s, %s)" l (Sigma.show sigma) s
 
     type estate = expr * sigma * string [@@deriving compare, sexp, hash]
 
-    let show_estate (e, sigma, s) =
-      Format.asprintf "(%a, %s, %s)" Interp.Ast.pp_expr e (S_key.show sigma) s
+    let pp_estate fmt (e, sigma, s) =
+      Format.fprintf fmt "(%a, %a, %s)" Interp.Ast.pp_expr e Sigma.pp sigma s
 
-    let pp_estate fmt est = Format.fprintf fmt "%s" (show_estate est)
+    let show_estate (e, sigma, s) =
+      Format.asprintf "(%a, %s, %s)" Interp.Ast.pp_expr e (Sigma.show sigma) s
 
     type t = Lstate of lstate | Estate of estate
     [@@deriving compare, sexp, hash]
 
-    let show (k : t) =
+    let pp fmt (k : t) =
       match k with
-      | Lstate st -> Format.asprintf "%a" pp_lstate st
-      | Estate st -> Format.asprintf "%a" pp_estate st
+      | Lstate st -> pp_lstate fmt st
+      | Estate st -> pp_estate fmt st
+
+    let show (k : t) =
+      match k with Lstate st -> show_lstate st | Estate st -> show_estate st
   end
 
   include T
@@ -79,8 +76,12 @@ module V = struct
   module T = struct
     type t = Set.M(V_key).t [@@deriving compare, sexp]
 
+    let pp fmt (v : t) =
+      v |> Set.elements |> List.map ~f:V_key.show |> String.concat ~sep:", "
+      |> Format.fprintf fmt "{%s}"
+
     let show (v : t) =
-      v |> Set.to_list |> List.map ~f:V_key.show |> String.concat ~sep:", "
+      v |> Set.elements |> List.map ~f:V_key.show |> String.concat ~sep:", "
       |> Format.sprintf "{%s}"
   end
 
@@ -90,10 +91,14 @@ end
 
 module S = struct
   module T = struct
-    type t = Set.M(S_key).t [@@deriving compare, sexp]
+    type t = Set.M(Sigma).t [@@deriving compare, sexp]
+
+    let pp fmt (s : t) =
+      s |> Set.elements |> List.map ~f:Sigma.show |> String.concat ~sep:", "
+      |> Format.fprintf fmt "{%s}"
 
     let show (s : t) =
-      s |> Set.to_list |> List.map ~f:S_key.show |> String.concat ~sep:", "
+      s |> Set.elements |> List.map ~f:Sigma.show |> String.concat ~sep:", "
       |> Format.sprintf "{%s}"
   end
 
@@ -267,6 +272,25 @@ module ReaderState = struct
   include Monad.Make (T)
 end
 
+let prune_sigma ?(k = 2) s = List.filteri s ~f:(fun i _ -> i < k)
+
+let rec starts_with sigma_parent sigma_child =
+  match (sigma_parent, sigma_child) with
+  | _, [] -> true
+  | [], _ -> false
+  | l_parent :: ls_parent, l_child :: ls_child ->
+      l_parent = l_child && starts_with ls_parent ls_child
+
+let suffixes l sigma s =
+  s
+  |> Set.filter_map
+       (module Sigma)
+       ~f:(function
+         | l' :: sigma_sigma' when l = l' && starts_with sigma_sigma' sigma ->
+             Some sigma_sigma'
+         | _ -> None)
+  |> Set.elements
+
 (** max recursion depth ever reached by execution *)
 let max_d = ref 0
 
@@ -289,12 +313,12 @@ let log_vids ?(size = false) ?(sort = false) vids =
          String.descending id1 id2))
   |> List.iter ~f:(fun (key, data) ->
          if size then debug (fun m -> m "%d -> %s\n" (Set.length key) data)
-         else debug (fun m -> m "%s -> %s\n" (V.show key) data))
+         else debug (fun m -> m "%a -> %s\n" V.pp key data))
 
 let log_sids ?(size = false) =
   Map.iteri ~f:(fun ~key ~data ->
       if size then debug (fun m -> m "%d -> %s\n" (Set.length key) data)
-      else debug (fun m -> m "%s -> %s\n" (S.show key) data))
+      else debug (fun m -> m "%a -> %s\n" S.pp key data))
 
 let bool_tf_res = Set.of_list (module Res_key) [ BoolAtom true; BoolAtom false ]
 

@@ -248,14 +248,14 @@ let ddpa_thunked =
           ( "((stub | ((stub | stub) | stub)) | ((stub | stub) | stub))",
             pau ~verify:false ~name:"loop2'" (read_input "loop2'.ml") )); *)
        (fun _ -> ("2", pau ~verify:false ~name:"mj09" (read_input "mj09.ml"))); *)
-    (* (fun _ ->
-       ( "{ hd = 8; tl = { hd = 9; tl = ({} | { hd = (9 | 10); tl = ({} | { hd \
-          = (9 | 10); tl = stub }) }) } }",
-         pau ~verify:false ~name:"map" (read_input "map.ml") )); *)
+    (fun _ ->
+      ( "{ hd = 8; tl = { hd = 9; tl = ({} | { hd = (9 | 10); tl = ({} | { hd \
+         = (9 | 10); tl = stub }) }) } }",
+        pau ~verify:false ~name:"map" (read_input "map.ml") ));
     (* (fun _ ->
          ("15", pau ~verify:false ~name:"primtest" (read_input "primtest.ml"))); *)
-    (fun _ ->
-      ("(false | true)", pau ~verify:false ~name:"sat-1" (read_input "sat-1.ml")));
+    (* (fun _ ->
+       ("(false | true)", pau ~verify:false ~name:"sat-1" (read_input "sat-1.ml"))); *)
     (* (fun _ ->
        ( "(false | true)",
          pau ~verify:false ~name:"sat-2" (read_input "sat-2.ml") )); *)
@@ -276,8 +276,7 @@ let test_ddpa _ = gen_test ddpa_thunked
 
 let ddpa_simple_thunked =
   [
-    (* (fun _ ->
-       ("true", pau' ~name:"blur" (read_input "blur.ml"))); *)
+    (* (fun _ -> ("true", pau' ~name:"blur" (read_input "blur.ml"))); *)
     (* (fun _ ->
        ("false", pau' ~name:"eta" (read_input "eta.ml"))); *)
     (* (fun _ ->
@@ -355,11 +354,9 @@ let test_pa =
     (* "Lists" >:: test_lists; *)
     (* "pruned_d" >:: test_prune_d; *)
     (* "Polynomial" >:: test_poly; *)
-    "DDPA (simple)"
-    >: test_case test_ddpa_simple ~length:(OUnitTest.Custom_length 100000.);
-    (* "DDPA" >: test_case test_ddpa ~length:(OUnitTest.Custom_length 100000.); *)
-    (* "DDPA (display)"
-       >: test_case test_ddpa_display ~length:(OUnitTest.Custom_length 100000.); *)
+    "DDPA (simple)" >: test_long test_ddpa_simple;
+    (* "DDPA (full)" >: test_long test_ddpa; *)
+    (* "DDPA (display)" >: test_long test_ddpa_display; *)
   ]
 
 let tests = "Program analysis tests" >::: test_pa
@@ -378,6 +375,9 @@ let _ =
       ( "--runtime",
         Arg.Unit (fun _ -> Simple_pa.Debug_utils.report_runtime := true),
         "Report accurate runtime" );
+      ( "--no-cache",
+        Arg.Unit (fun _ -> Simple_pa.Debug_utils.caching := false),
+        "Turn off caching" );
       (* ("--pbt", Arg.Unit (fun _ -> Pbt.run ()), "Run property-based tests"); *)
     ]
     (fun _ -> ())

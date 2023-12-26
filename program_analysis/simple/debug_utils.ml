@@ -1,11 +1,12 @@
 let report_runtime = ref false
+let caching = ref true
 
 let parse s =
   s |> Core.Fn.flip ( ^ ) ";;" |> Lexing.from_string
   |> Interp.Parser.main Interp.Lexer.token
 
 let parse_analyze ?(name = "test") s =
-  s |> parse |> Lib.analyze |> fun (r, runtime) ->
+  s |> parse |> Lib.analyze ~caching:!caching |> fun (r, runtime) ->
   if !report_runtime then Format.printf "%s: %f\n" name runtime;
   r
 
