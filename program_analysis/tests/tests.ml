@@ -249,27 +249,25 @@ let ddpa_thunked =
             pau ~verify:false ~name:"loop2'" (read_input "loop2'.ml") )); *)
        (fun _ -> ("2", pau ~verify:false ~name:"mj09" (read_input "mj09.ml"))); *)
     (fun _ ->
-      ( "{ hd = 8; tl = { hd = 9; tl = ({} | { hd = (9 | 10); tl = ({} | { hd \
-         = (9 | 10); tl = stub }) }) } }",
+      ( "{ hd = 8; tl = { hd = 9 | 10; tl = { hd = 9 | 10; tl = { hd = 9 | 10; \
+         tl = stub } | {} } | {} } }",
         pau ~verify:false ~name:"map" (read_input "map.ml") ));
     (* (fun _ ->
          ("15", pau ~verify:false ~name:"primtest" (read_input "primtest.ml"))); *)
     (* (fun _ ->
        ("(false | true)", pau ~verify:false ~name:"sat-1" (read_input "sat-1.ml"))); *)
     (* (fun _ ->
-       ( "(false | true)",
-         pau ~verify:false ~name:"sat-2" (read_input "sat-2.ml") )); *)
+       ("(false | true)", pau ~verify:false ~name:"sat-2" (read_input "sat-2.ml"))); *)
     (* (fun _ ->
-       ( "(false | true)",
-         pau ~verify:false ~name:"sat-3" (read_input "sat-3.ml") )); *)
+       ("(false | true)", pau ~verify:false ~name:"sat-3" (read_input "sat-3.ml"))); *)
     (* (fun _ ->
        ("false", pau ~verify:false ~name:"rsa" (read_input "rsa.ml"))); *)
-    (* (fun _ -> ("Int", pau ~verify:false ~name:"ack" (read_input "ack.ml")));
-       (fun _ -> ("Int", pau ~verify:false ~name:"tak" (read_input "tak.ml")));
-       (fun _ ->
-         ("", pau ~verify:false ~name:"church" (read_input "church.ml")));
-       (fun _ ->
-         ("", pau ~verify:false ~name:"cpstak" (read_input "cpstak.ml"))); *)
+    (* (fun _ -> ("Int", pau ~verify:false ~name:"ack" (read_input "ack.ml"))); *)
+    (* (fun _ -> ("Int", pau ~verify:false ~name:"tak" (read_input "tak.ml"))); *)
+    (* (fun _ ->
+       ("", pau ~verify:false ~name:"church" (read_input "church.ml"))); *)
+    (* (fun _ ->
+       ("", pau ~verify:false ~name:"cpstak" (read_input "cpstak.ml"))); *)
   ]
 
 let test_ddpa _ = gen_test ddpa_thunked
@@ -291,10 +289,10 @@ let ddpa_simple_thunked =
        ("Int", pau' ~name:"loop2-1" (read_input "loop2-1.ml"))); *)
     (* (fun _ ->
        ("Int", pau' ~name:"mj09" (read_input "mj09.ml"))); *)
-    (fun _ ->
-      ( "{ hd = 8; tl = { hd = 9 | 10; tl = {} | { hd = 9 | 10; tl = {} | { hd \
-         = 9 | 10; tl = stub } } } }",
-        pau' ~name:"map" (read_input "map.ml") ));
+    (* (fun _ ->
+       ( "{ hd = 8; tl = { hd = 9 | 10; tl = {} | { hd = 9 | 10; tl = {} | { hd \
+          = 9 | 10; tl = stub } } } }",
+         pau' ~name:"map" (read_input "map.ml") )); *)
     (* (fun _ ->
        ("15", pau' ~name:"primtest" (read_input "primtest.ml"))); *)
     (* (fun _ ->
@@ -320,20 +318,20 @@ let ddpa_simple_thunked =
     (* (fun _ ->
        ( "stub | stub | stub | stub",
          pau' ~name:"mack" (read_input "mack.ml") )); *)
-    (* (fun _ ->
-       ( "Int | -44 | -43 | -42 | -41 | -40 | -39 | -38 | -37 | -36 | -35 | -34 \
-          | -33 | -32 | -31 | -30 | -29 | -28 | -27 | -26 | -25 | -24 | -23 | \
-          -22 | -21 | -20 | -19 | -18 | -17 | -16 | -15 | -14 | -13 | -12 | -11 \
-          | -10 | -9 | -8 | -7 | -6 | -5 | -4 | -3 | -2 | -1 | 0 | 1 | 2 | 3 | \
-          4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | \
-          19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | \
-          stub | stub | stub | stub | stub | stub | stub | stub | stub | stub | \
-          stub | stub | stub | stub | stub | stub | stub | stub | stub | stub | \
-          stub | stub | stub | stub | stub | stub | stub | stub | stub | stub | \
-          stub | stub | stub | stub | stub | stub | stub | stub | stub | stub | \
-          stub | stub | stub | stub | stub | stub | stub | stub | stub | stub | \
-          stub | stub | stub | stub | stub | stub",
-         pau' ~name:"tak" (read_input "tak.ml") )); *)
+    (fun _ ->
+      ( "Int | -44 | -43 | -42 | -41 | -40 | -39 | -38 | -37 | -36 | -35 | -34 \
+         | -33 | -32 | -31 | -30 | -29 | -28 | -27 | -26 | -25 | -24 | -23 | \
+         -22 | -21 | -20 | -19 | -18 | -17 | -16 | -15 | -14 | -13 | -12 | -11 \
+         | -10 | -9 | -8 | -7 | -6 | -5 | -4 | -3 | -2 | -1 | 0 | 1 | 2 | 3 | \
+         4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | \
+         19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | \
+         stub | stub | stub | stub | stub | stub | stub | stub | stub | stub | \
+         stub | stub | stub | stub | stub | stub | stub | stub | stub | stub | \
+         stub | stub | stub | stub | stub | stub | stub | stub | stub | stub | \
+         stub | stub | stub | stub | stub | stub | stub | stub | stub | stub | \
+         stub | stub | stub | stub | stub | stub | stub | stub | stub | stub | \
+         stub | stub | stub | stub | stub | stub",
+        pau' ~name:"tak" (read_input "tak.ml") ));
     (* (fun _ ->
        ("stub", pau' ~name:"cpstak" (read_input "cpstak.ml"))); *)
   ]
@@ -354,8 +352,8 @@ let test_pa =
     (* "Lists" >:: test_lists; *)
     (* "pruned_d" >:: test_prune_d; *)
     (* "Polynomial" >:: test_poly; *)
-    "DDPA (simple)" >: test_long test_ddpa_simple;
-    (* "DDPA (full)" >: test_long test_ddpa; *)
+    (* "DDPA (simple)" >: test_long test_ddpa_simple; *)
+    "DDPA (full)" >: test_long test_ddpa;
     (* "DDPA (display)" >: test_long test_ddpa_display; *)
   ]
 

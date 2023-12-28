@@ -1,6 +1,7 @@
 open Core
 open Interp.Ast
 open Grammar
+open Grammar.Atom
 open Exns
 
 let rec exists_stub r label =
@@ -317,4 +318,4 @@ let rec simplify ?(pa = None) r =
                 | a -> [ InspAtom (id, [ a ]) ])))
   in
   let r' = List.concat r' in
-  if compare_res r r' = 0 then r' else simplify r' ~pa
+  if Res.compare r r' = 0 then r' else simplify r' ~pa

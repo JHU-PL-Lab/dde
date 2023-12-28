@@ -203,8 +203,6 @@ end = struct
     if Set.is_empty r then ff fmt "#" else ff fmt "%a" pp_aux (Set.elements r)
 end
 
-type pi = (Res.t * bool) option [@@deriving compare]
-
 let empty_res = Set.empty (module Res_key)
 let single_res = Set.singleton (module Res_key)
 

@@ -111,7 +111,9 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
   let%bind () = inc_freq (expr, sigma, vid, sid) in
   let cache_key = (expr, sigma, vid, sid) in
   match Map.find c cache_key with
-  | Some r when caching && ((not rerun) || iter = 2) ->
+  | Some r
+    when not (exists_lone_stub r)
+         (* when caching && ((not rerun) || iter = 2) *) ->
       debug (fun m -> m "Cache hit: %a -> %a" Interp.Pp.pp_expr expr Res.pp r);
       return r
   | _ ->
@@ -134,10 +136,10 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
             else (
               (* App *)
               debug (fun m -> m "Didn't stub");
-              debug (fun m -> m "sigma: %a" pp_sigma sigma);
+              debug (fun m -> m "sigma: %a" Sigma.pp sigma);
               let sigma' = l :: sigma in
               let pruned_sigma' = prune_sigma sigma' in
-              debug (fun m -> m "sigma_pruned': %a" pp_sigma pruned_sigma');
+              debug (fun m -> m "sigma_pruned': %a" Sigma.pp pruned_sigma');
               debug (fun m ->
                   m "Evaluating function being applied: %a" Interp.Pp.pp_expr e);
               let%bind r1 = analyze_aux ~caching d e sigma in
@@ -162,14 +164,14 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                               "[App] Evaluating body of function being \
                                applied: %a"
                               Interp.Pp.pp_expr e1);
-                        let%bind acc_r = acc in
+                        let%bind rs = acc in
                         let%bind r0 =
                           local
                             (fun ({ v; _ } as env) ->
                               { env with v = Set.add v v_new })
                             (analyze_aux ~caching d e1 pruned_sigma')
                         in
-                        return (Set.union acc_r r0)
+                        return (Set.union rs r0)
                     | _ -> acc)
               in
               let r2 = elim_stub r2 (St.Lstate cycle_label) in
@@ -197,7 +199,7 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                     info (fun m ->
                         m "[Level %d] === Var Local (%a) ===" d
                           Interp.Pp.pp_expr expr);
-                    debug (fun m -> m "sigma: %a" pp_sigma sigma);
+                    debug (fun m -> m "sigma: %a" Sigma.pp sigma);
                     let s_hd, s_tl = (List.hd_exn sigma, List.tl_exn sigma) in
                     match get_myexpr s_hd with
                     | Appl (_, e2, l') ->
@@ -206,7 +208,7 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                             m "Head of candidate fragments must be: %d" l');
                         debug (fun m ->
                             m "Tail of candidate fragments must start with: %a"
-                              pp_sigma s_tl);
+                              Sigma.pp s_tl);
                         (* enumerate all matching stacks in the set *)
                         debug (fun m -> m "S: %a" S.pp s);
                         (* the fact that we can prune away "bad" stacks like this
@@ -217,7 +219,7 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                             ~f:(fun acc suf ->
                               debug (fun m ->
                                   m
-                                    "[Level %d] Stitched! Evaluating Appl \
+                                    "[Level %d] Stitched! Evaluating App \
                                      argument, using stitched stack %a:"
                                     d pp_sigma suf);
                               debug (fun m -> m "%a" Interp.Pp.pp_expr e2);
@@ -248,7 +250,8 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                         let r1 = elim_stub r1 (St.Estate cycle_label) in
                         debug (fun m -> m "[Var Local] r1: %a" Res.pp r1);
                         info (fun m ->
-                            m "[Level %d] *** Var (%s, %d) ***" d x l);
+                            m "[Level %d] *** Var (%a) ***" d Interp.Pp.pp_expr
+                              expr);
                         return r1
                     | _ -> raise Unreachable [@coverage off])
                   else (
@@ -256,13 +259,13 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                     info (fun m ->
                         m "[Level %d] === Var Non-Local (%a) ===" d
                           Interp.Pp.pp_expr expr);
-                    debug (fun m -> m "sigma: %a" pp_sigma sigma);
+                    debug (fun m -> m "sigma: %a" Sigma.pp sigma);
                     debug (fun m -> m "Reading App at front of sigma");
                     match get_myexpr (List.hd_exn sigma) with
                     | Appl (e1, _, l2) ->
                         debug (fun m ->
-                            m "Function being applied at front of sigma:");
-                        debug (fun m -> m "%a" Interp.Pp.pp_expr e1);
+                            m "Function being applied at front of sigma: %a"
+                              Interp.Pp.pp_expr e1);
                         let e1st = V_key.Estate (e1, sigma, sid) in
                         if Set.mem v e1st (* && rerun = 2 *) then (
                           debug (fun m -> m "[Var Non-Local] Stubbed e1");
@@ -275,17 +278,17 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                         else
                           let sigma_tl = List.tl_exn sigma in
                           debug (fun m -> m "Begin stitching stacks");
-                          (* enumerate all matching stacks in the set *)
                           debug (fun m -> m "S: %a" S.pp s);
                           let sufs = suffixes l2 sigma_tl s in
+                          (* enumerate all matching stacks in the set *)
                           let%bind r1 =
                             List.fold sufs ~init:(return empty_res)
                               ~f:(fun acc suf ->
                                 debug (fun m ->
                                     m
-                                      " [Level %d][Var Non-Local] Stitched! \
+                                      "[Level %d][Var Non-Local] Stitched! \
                                        Evaluating %a, using stitched stack %a"
-                                      d Interp.Pp.pp_expr e1 pp_sigma suf);
+                                      d Interp.Pp.pp_expr e1 Sigma.pp suf);
                                 let%bind rs = acc in
                                 let%bind r0 =
                                   local
@@ -303,14 +306,14 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                                 return (Set.union rs r0))
                           in
                           let r1 = simplify r1 in
-                          (* let%bind { c; _ } = get () in
-                             let c =
-                               List.fold sufs ~init:c ~f:(fun acc suf ->
-                                   let cache_key = (e1, suf, vid, sid) in
-                                   Map.add_exn (Map.remove acc cache_key)
-                                     ~key:cache_key ~data:r1)
-                             in
-                             let%bind () = set_cache c in *)
+                          let%bind { c; _ } = get () in
+                          let c =
+                            List.fold sufs ~init:c ~f:(fun acc suf ->
+                                let cache_key = (e1, suf, vid, sid) in
+                                Map.add_exn (Map.remove acc cache_key)
+                                  ~key:cache_key ~data:r1)
+                          in
+                          let%bind () = set_cache c in
                           debug (fun m -> m "r1 length: %d" (Set.length r1));
                           debug (fun m ->
                               m
@@ -335,7 +338,7 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                                             "[Var Non-Local] Relabel %s with \
                                              label %d and evaluate"
                                             x l1);
-                                      let%bind acc_r = acc in
+                                      let%bind rs = acc in
                                       let%bind r0' =
                                         local
                                           (fun ({ v; _ } as env) ->
@@ -344,7 +347,7 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                                              (Var (Ident x, l1))
                                              sigma1)
                                       in
-                                      return (Set.union acc_r r0'))
+                                      return (Set.union rs r0'))
                                     else acc
                                 | _ -> acc)
                           in
@@ -352,7 +355,8 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                               m "[Level %d] *** Var Non-Local (%a) ***" d
                                 Interp.Pp.pp_expr expr);
                           info (fun m ->
-                              m "[Level %d] *** Var (%s, %d) ***" d x l);
+                              m "[Level %d] *** Var (%a) ***" d
+                                Interp.Pp.pp_expr expr);
                           let r2 = elim_stub r2 (St.Estate cycle_label) in
                           debug (fun m -> m "[Var Non-Local] r2: %a" Res.pp r2);
                           return r2

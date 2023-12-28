@@ -6,8 +6,8 @@ open Utils
 exception Unreachable
 exception BadAssert
 
-let res_to_id = Hashtbl.create (module ResKey)
-let atom_to_id = Hashtbl.create (module AtomKey)
+let res_to_id = Hashtbl.create (module Tmp_res_key)
+let atom_to_id = Hashtbl.create (module Atom)
 let fresh_id = ref (-1)
 
 let idr r =
@@ -22,7 +22,7 @@ let ida a =
        such that the latter must have already been visited
        by the time we get to the former *)
     match a with
-    | LResAtom (_, st) -> (
+    | Atom.LResAtom (_, st) -> (
         match Hashtbl.find atom_to_id (LStubAtom st) with
         | Some id -> Some id
         (* if a stub is not found, then `a` is not involved
@@ -128,7 +128,7 @@ let chcs_of_assert r1 (r2 : Interp.Ast.res_val_fv) =
           let p =
             let r1_hd = List.hd_exn r1 in
             match r1_hd with
-            | RecAtom _ -> Hashtbl.find_exn id_to_decl (ida r1_hd ^ "_" ^ x)
+            | Atom.RecAtom _ -> Hashtbl.find_exn id_to_decl (ida r1_hd ^ "_" ^ x)
             | LResAtom ([ a ], _) ->
                 Hashtbl.find_exn id_to_decl (ida a ^ "_" ^ x)
             | _ -> raise Unreachable
@@ -155,7 +155,7 @@ let rec cond pis =
 and chcs_of_atom ?(pis = []) ?(stub_sort = isort)
     ?(p = Core.Set.empty (module St)) a =
   match a with
-  | IntAtom i ->
+  | Atom.IntAtom i ->
       let cond_quants, cond_body = cond pis in
       let pa = find_or_add (ida a) isort in
       let body = pa <-- [ zint i ] in
@@ -254,7 +254,7 @@ and chcs_of_atom ?(pis = []) ?(stub_sort = isort)
         |> function
         | Some t -> t
         | None ->
-            Format.printf "%a\n" Grammar.pp_res r;
+            Format.printf "%a\n" Res.pp r;
             raise Unreachable
       in
       let aid = ida a in
@@ -280,7 +280,7 @@ and chcs_of_atom ?(pis = []) ?(stub_sort = isort)
         |> function
         | Some t -> t
         | None ->
-            Format.printf "%a\n" Grammar.pp_res r;
+            Format.printf "%a\n" Res.pp r;
             raise Unreachable
       in
       let aid = ida a in

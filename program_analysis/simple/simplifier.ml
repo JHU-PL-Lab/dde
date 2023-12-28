@@ -7,12 +7,21 @@ open Utils.Atom
 let rec exists_stub r label =
   Set.exists r ~f:(function
     | FunAtom _ | IntAtom _ | IntAnyAtom | BoolAtom _ -> false
-    | LStubAtom st -> St.(label = St.Lstate st)
-    | EStubAtom st -> St.(label = St.Estate st)
+    | LStubAtom st -> St.compare label (St.Lstate st) = 0
+    | EStubAtom st -> St.compare label (St.Estate st) = 0
     | RecAtom entries ->
         List.exists entries ~f:(fun (_, r) -> exists_stub r label)
     | ProjAtom (r, _) | InspAtom (_, r) | AssertAtom (_, r, _) ->
         exists_stub r label)
+
+let rec exists_lone_stub r =
+  Set.exists r ~f:(function
+    | FunAtom _ | IntAtom _ | IntAnyAtom | BoolAtom _ -> false
+    | LStubAtom _ | EStubAtom _ -> true
+    | RecAtom entries ->
+        List.exists entries ~f:(fun (_, r) -> exists_lone_stub r)
+    | ProjAtom (r, _) | InspAtom (_, r) | AssertAtom (_, r, _) ->
+        exists_lone_stub r)
 
 let rec simplify ?(pa = None) r =
   let r' =
