@@ -1,6 +1,6 @@
 (test
  (name tests)
- (modules tests tests_subst tests_env tests_self tests_al bench utils)
+ (modules tests tests_subst tests_env tests_self tests_display bench utils)
  (libraries
   ounit2
   core_bench

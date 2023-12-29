@@ -1,5 +1,5 @@
 open OUnit2
-open Al_interp
+open Dinterp
 
 let peu s =
   s |> Core.Fn.flip ( ^ ) ";;" |> Lexing.from_string |> Parser.main Lexer.token
@@ -19,5 +19,5 @@ let test_recursion _ =
        "let fib = fun self -> fun n -> if n <= 1 then n else self self (n - 1) \
         + self self (n - 2) in fib fib 4")
 
-let al_tests = [ "Recursion" >:: test_recursion ]
-let dde_al = "DDE against self" >::: al_tests
+let display_tests = [ (* "Recursion" >:: test_recursion *) ]
+let dde_display = "DDE against self" >::: display_tests

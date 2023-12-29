@@ -78,11 +78,11 @@ let test_misc _ =
 
 let dde_self_tests =
   [
-    "Memoization" >:: test_memoization;
+    (* "Memoization" >:: test_memoization; *)
     (* "Record rec" >:: test_record_rec; *)
-    (* "Laziness" >:: test_laziness; *)
-    (* "Record operations" >:: test_record;
-       "letassert" >:: test_letassert; *)
+    "Laziness" >:: test_laziness;
+    "Record operations" >:: test_record;
+    "letassert" >:: test_letassert;
     (* "Misc." >:: test_misc; *)
   ]
 

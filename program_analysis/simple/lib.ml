@@ -92,9 +92,9 @@ let cache key data =
   let%bind { c; _ } = get () in
   let%bind () = set_cache (Map.add_exn (Map.remove c key) ~key ~data) in
   let expr, _, _, _ = key in
-  (match Map.find c key with
-  | Some r -> debug (fun m -> m "[Cache] Found: %a" Res.pp r)
-  | None -> debug (fun m -> m "[Cache] Not found"));
+  (* (match Map.find c key with
+     | Some r -> debug (fun m -> m "[Cache] Found: %a" Res.pp r)
+     | None -> debug (fun m -> m "[Cache] Not found")); *)
   debug (fun m -> m "[Cache] Add: %a -> %a" Interp.Pp.pp_expr expr Res.pp data);
   return data
 
@@ -109,10 +109,14 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
   let%bind vid = get_vid v in
   let%bind sid = get_sid s in
   let%bind () = inc_freq (expr, sigma, vid, sid) in
-  let cache_key = (expr, sigma, vid, sid) in
+  (* let cache_key = (expr, sigma, vid, sid) in *)
+  (* let cache_key = (expr, sigma, v, s) in *)
+  let cache_key = (expr, sigma, v, sid) in
+  (* debug (fun m -> m "V: %a" V.pp v); *)
   match Map.find c cache_key with
   | Some r
-    when not (exists_lone_stub r)
+    when caching
+         (* when not (exists_lone_stub r) *)
          (* when caching && ((not rerun) || iter = 2) *) ->
       debug (fun m -> m "Cache hit: %a -> %a" Interp.Pp.pp_expr expr Res.pp r);
       return r
@@ -166,7 +170,7 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                               Interp.Pp.pp_expr e1);
                         let%bind rs = acc in
                         let%bind r0 =
-                          local
+                          local d
                             (fun ({ v; _ } as env) ->
                               { env with v = Set.add v v_new })
                             (analyze_aux ~caching d e1 pruned_sigma')
@@ -226,7 +230,7 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                               (* stitch the stack to gain more precision *)
                               let%bind rs = acc in
                               let%bind r0 =
-                                local
+                                local d
                                   (fun ({ v; _ } as env) ->
                                     { env with v = Set.add v est })
                                   (analyze_aux ~caching d e2 suf)
@@ -291,7 +295,7 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                                       d Interp.Pp.pp_expr e1 Sigma.pp suf);
                                 let%bind rs = acc in
                                 let%bind r0 =
-                                  local
+                                  local d
                                     (fun ({ v; rerun; iter; _ } as env) ->
                                       {
                                         env with
@@ -306,14 +310,14 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                                 return (Set.union rs r0))
                           in
                           let r1 = simplify r1 in
-                          let%bind { c; _ } = get () in
-                          let c =
-                            List.fold sufs ~init:c ~f:(fun acc suf ->
-                                let cache_key = (e1, suf, vid, sid) in
-                                Map.add_exn (Map.remove acc cache_key)
-                                  ~key:cache_key ~data:r1)
-                          in
-                          let%bind () = set_cache c in
+                          (* let%bind { c; _ } = get () in
+                             let c =
+                               List.fold sufs ~init:c ~f:(fun acc suf ->
+                                   let cache_key = (e1, suf, vid, sid) in
+                                   Map.add_exn (Map.remove acc cache_key)
+                                     ~key:cache_key ~data:r1)
+                             in
+                             let%bind () = set_cache c in *)
                           debug (fun m -> m "r1 length: %d" (Set.length r1));
                           debug (fun m ->
                               m
@@ -340,7 +344,7 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                                             x l1);
                                       let%bind rs = acc in
                                       let%bind r0' =
-                                        local
+                                        local d
                                           (fun ({ v; _ } as env) ->
                                             { env with v = Set.add v est })
                                           (analyze_aux ~caching d
@@ -464,7 +468,7 @@ let analyze ?(caching = true) e =
     analyze_aux ~caching 0 e []
       {
         v = empty_v;
-        vids = Map.singleton (module V) empty_v "V0";
+        vids = Map.singleton (module V) empty_v 0;
         cnt = 1;
         rerun = false;
         iter = 0;
@@ -472,7 +476,7 @@ let analyze ?(caching = true) e =
       {
         c = Map.empty (module Cache_key);
         s = empty_s;
-        sids = Map.singleton (module S) empty_s "S0";
+        sids = Map.singleton (module S) empty_s 0;
         cnt = 1;
         freqs = Map.empty (module Freq_key);
       }
