@@ -88,14 +88,14 @@ let eval_assert e id =
 open ReaderState
 open ReaderState.Let_syntax
 
-let cache key data =
+let cache d key data =
   let%bind { c; _ } = get () in
   let%bind () = set_cache (Map.add_exn (Map.remove c key) ~key ~data) in
-  let expr, _, _, _ = key in
   (* (match Map.find c key with
      | Some r -> debug (fun m -> m "[Cache] Found: %a" Res.pp r)
      | None -> debug (fun m -> m "[Cache] Not found")); *)
-  debug (fun m -> m "[Cache] Add: %a -> %a" Interp.Pp.pp_expr expr Res.pp data);
+  debug (fun m ->
+      m "[Level %d] Add: %s\n->\n%s" d (Cache_key.show key) (Res.show data));
   return data
 
 let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
@@ -108,17 +108,26 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
      debug (fun m -> m "S length: %d" (Set.length s)); *)
   let%bind vid = get_vid v in
   let%bind sid = get_sid s in
+  debug (fun m -> m "SID: %d" sid);
   let%bind () = inc_freq (expr, sigma, vid, sid) in
   (* let cache_key = (expr, sigma, vid, sid) in *)
   (* let cache_key = (expr, sigma, v, s) in *)
-  let cache_key = (expr, sigma, v, sid) in
-  (* debug (fun m -> m "V: %a" V.pp v); *)
+  let cache_key = (expr, sigma, vid, sid) in
+  if d = 21 && vid = 11 then (
+    debug (fun m ->
+        m "[Level %d] Cache:\n%s" d
+          (c |> Map.to_alist |> List.unzip |> fst
+          |> List.filter ~f:(fun (expr', _, _, _) ->
+                 Interp.Ast.compare_expr expr expr' = 0)
+          |> List.map ~f:Cache_key.show |> String.concat ~sep:"\n"));
+    debug (fun m -> m "Cache key: %s" (Cache_key.show cache_key)));
   match Map.find c cache_key with
   | Some r
     when caching
          (* when not (exists_lone_stub r) *)
          (* when caching && ((not rerun) || iter = 2) *) ->
-      debug (fun m -> m "Cache hit: %a -> %a" Interp.Pp.pp_expr expr Res.pp r);
+      debug (fun m ->
+          m "[Level %d] Hit: %s -> %a" d (Cache_key.show cache_key) Res.pp r);
       return r
   | _ ->
       let%bind r =
@@ -452,7 +461,7 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
             return (single_res (AssertAtom (id, r1, r2)))
         | Let _ -> raise Unreachable [@coverage off]
       in
-      cache cache_key (simplify r)
+      cache d cache_key (simplify r)
 
 let analyze ?(caching = true) e =
   let e = transform_let e in
@@ -469,15 +478,14 @@ let analyze ?(caching = true) e =
       {
         v = empty_v;
         vids = Map.singleton (module V) empty_v 0;
-        cnt = 1;
         rerun = false;
         iter = 0;
       }
       {
         c = Map.empty (module Cache_key);
         s = empty_s;
-        sids = Map.singleton (module S) empty_s 0;
-        cnt = 1;
+        sids = Map.singleton (module S) empty_s 1;
+        cnt = 2;
         freqs = Map.empty (module Freq_key);
       }
   in

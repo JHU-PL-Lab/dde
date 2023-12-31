@@ -29,6 +29,23 @@ module St = struct
   include Comparable.Make (T)
 end
 
+module S = struct
+  module T = struct
+    type t = Set.M(Sigma).t [@@deriving compare, sexp]
+
+    let pp fmt (s : t) =
+      s |> Set.elements |> List.map ~f:Sigma.show |> String.concat ~sep:", "
+      |> Format.fprintf fmt "{%s}"
+
+    let show (s : t) =
+      s |> Set.elements |> List.map ~f:Sigma.show |> String.concat ~sep:", "
+      |> Format.sprintf "{%s}"
+  end
+
+  include T
+  include Comparable.Make (T)
+end
+
 module V_key = struct
   module T = struct
     type lstate = int * sigma * int [@@deriving compare, sexp]
@@ -42,10 +59,10 @@ module V_key = struct
     type estate = expr * sigma * int [@@deriving compare, sexp]
 
     let pp_estate fmt (e, sigma, sid) =
-      Format.fprintf fmt "(%a, %a, %d)" Interp.Ast.pp_expr e Sigma.pp sigma sid
+      Format.fprintf fmt "(%a, %a, %d)" Interp.Pp.pp_expr e Sigma.pp sigma sid
 
     let show_estate (e, sigma, sid) =
-      Format.asprintf "(%a, %s, %d)" Interp.Ast.pp_expr e (Sigma.show sigma) sid
+      Format.asprintf "(%a, %s, %d)" Interp.Pp.pp_expr e (Sigma.show sigma) sid
 
     type t = Lstate of lstate | Estate of estate [@@deriving compare, sexp]
 
@@ -56,19 +73,6 @@ module V_key = struct
 
     let show (k : t) =
       match k with Lstate st -> show_lstate st | Estate st -> show_estate st
-  end
-
-  include T
-  include Comparable.Make (T)
-end
-
-module Cache_key = struct
-  module T = struct
-    (* type t = expr * sigma * int * int [@@deriving compare, sexp] *)
-    (* type t = expr * sigma * Set.M(V_key).t * Set.M(Sigma).t
-       [@@deriving compare, sexp] *)
-    (* type t = expr * sigma * int * Set.M(Sigma).t [@@deriving compare, sexp] *)
-    type t = expr * sigma * Set.M(V_key).t * int [@@deriving compare, sexp]
   end
 
   include T
@@ -90,27 +94,35 @@ module V = struct
 
   include T
   include Comparable.Make (T)
-
-  (* let compare = Set.compare_direct *)
 end
 
-module S = struct
+module Cache_key = struct
   module T = struct
-    type t = Set.M(Sigma).t [@@deriving compare, sexp]
+    type t = expr * sigma * int * int [@@deriving compare, sexp]
+    (* type t = expr * sigma * Set.M(V_key).t * Set.M(Sigma).t
+       [@@deriving compare, sexp] *)
+    (* type t = expr * sigma * int * Set.M(Sigma).t [@@deriving compare, sexp] *)
+    (* type t = expr * sigma * V.t * int [@@deriving compare, sexp] *)
 
-    let pp fmt (s : t) =
-      s |> Set.elements |> List.map ~f:Sigma.show |> String.concat ~sep:", "
-      |> Format.fprintf fmt "{%s}"
+    let pp fmt (expr, sigma, vid, sid) =
+      Format.fprintf fmt "(%a, %a, %d, %d)" Interp.Pp.pp_expr expr Sigma.pp
+        sigma vid sid
 
-    let show (s : t) =
-      s |> Set.elements |> List.map ~f:Sigma.show |> String.concat ~sep:", "
-      |> Format.sprintf "{%s}"
+    let show (expr, sigma, vid, sid) =
+      Format.asprintf "(%a, %a, %d, %d)" Interp.Pp.pp_expr expr Sigma.pp sigma
+        vid sid
+
+    (* let pp fmt (expr, sigma, v, sid) =
+         Format.fprintf fmt "(%a, %a, %a, %d)" Interp.Pp.pp_expr expr Sigma.pp
+           sigma V.pp v sid
+
+       let show (expr, sigma, v, sid) =
+         Format.asprintf "(%a, %a, %a, %d)" Interp.Pp.pp_expr expr Sigma.pp sigma
+           V.pp v sid *)
   end
 
   include T
   include Comparable.Make (T)
-
-  (* let compare = Set.compare_direct *)
 end
 
 module Freq_key = struct
@@ -121,9 +133,6 @@ module Freq_key = struct
   include T
   include Comparable.Make (T)
 end
-
-open Core
-open Interp.Ast
 
 module rec Atom : sig
   type t =
@@ -197,7 +206,8 @@ end
 and Res : sig
   type t = Set.M(Res_key).t [@@deriving compare, sexp]
 
-  val pp : Format.formatter -> Res.t -> unit
+  val pp : Format.formatter -> t -> unit
+  val show : t -> string
 end = struct
   type t = Set.M(Res_key).t [@@deriving compare, sexp]
 
@@ -208,6 +218,8 @@ end = struct
 
   and pp fmt r =
     if Set.is_empty r then ff fmt "#" else ff fmt "%a" pp_aux (Set.elements r)
+
+  let show (r : t) = Format.asprintf "%a" pp r
 end
 
 let empty_res = Set.empty (module Res_key)
@@ -220,7 +232,7 @@ module ReaderState = struct
     type vids = int Map.M(V).t
     type sids = int Map.M(S).t
     type freqs = int64 Map.M(Freq_key).t
-    type env = { v : V.t; vids : vids; cnt : int; rerun : bool; iter : int }
+    type env = { v : V.t; vids : vids; rerun : bool; iter : int }
     type state = { s : S.t; c : cache; freqs : freqs; sids : sids; cnt : int }
     type 'a t = env -> state -> 'a * state
 
@@ -235,22 +247,13 @@ module ReaderState = struct
     let ask () : env t = fun env st -> (env, st)
 
     let local d (f : env -> env) (m : 'a t) : 'a t =
-     fun env st ->
-      let ({ v; vids; cnt; _ } as env') = f env in
-      debug (fun m ->
-          m "[Level %d] VIDs: %s" d
-            (vids |> Map.to_alist |> List.unzip |> snd
-            |> List.sort ~compare:Int.compare
-            |> List.to_string ~f:string_of_int));
+     fun env ({ cnt; _ } as st) ->
+      let ({ v; vids; _ } as env') = f env in
       let vids', cnt' =
-        if Map.mem vids v then (
-          debug (fun m -> m "[Level %d] No new VID" d);
-          (vids, cnt))
-        else (
-          debug (fun m -> m "[Level %d] New VID: %d" d cnt);
-          (Map.add_exn vids ~key:v ~data:cnt, cnt + 1))
+        if Map.mem vids v then (vids, cnt)
+        else (Map.add_exn vids ~key:v ~data:cnt, cnt + 1)
       in
-      m { env' with vids = vids'; cnt = cnt' } st
+      m { env' with vids = vids' } { st with cnt = cnt' }
 
     let get () : state t = fun _ st -> (st, st)
     let get_vid v : int t = fun { vids; _ } st -> (Map.find_exn vids v, st)
