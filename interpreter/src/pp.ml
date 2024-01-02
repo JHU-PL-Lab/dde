@@ -27,7 +27,7 @@ let rec pp_expr fmt = function
   | Plus (e1, e2) -> ff fmt "(%a + %a)" pp_expr e1 pp_expr e2
   | Minus (e1, e2) -> ff fmt "(%a - %a)" pp_expr e1 pp_expr e2
   | Mult (e1, e2) -> ff fmt "(%a * %a)" pp_expr e1 pp_expr e2
-  | Equal (e1, e2) -> ff fmt "(%a = %a)" pp_expr e1 pp_expr e2
+  | Eq (e1, e2) -> ff fmt "(%a = %a)" pp_expr e1 pp_expr e2
   | And (e1, e2) -> ff fmt "(%a and %a)" pp_expr e1 pp_expr e2
   | Or (e1, e2) -> ff fmt "(%a or %a)" pp_expr e1 pp_expr e2
   | Ge (e1, e2) -> ff fmt "(%a >= %a)" pp_expr e1 pp_expr e2

@@ -1,526 +1,348 @@
 open Core
 open Interp.Ast
-open Grammar
 
-let show_set = Set.fold ~init:"" ~f:(fun acc s -> show_sigma s ^ "\n" ^ acc)
 let ff = Format.fprintf
 
-type latom =
-  | LIntAtom of int * int
-  | LBoolAtom of bool * int
-  | LFunAtom of expr * int * sigma
-  | LLResAtom of lres * St.lstate * int
-  | LEResAtom of lres * St.estate * int
-  | LLStubAtom of St.lstate * int
-  | LEStubAtom of St.estate * int
-  | LPathCondAtom of lpath_cond * lres
-  | LPlusAtom of lres * lres * int
-  | LMinusAtom of lres * lres * int
-  | LMultAtom of lres * lres * int
-  | LEqAtom of lres * lres * int
-  | LGeAtom of lres * lres * int
-  | LGtAtom of lres * lres * int
-  | LLeAtom of lres * lres * int
-  | LLtAtom of lres * lres * int
-  | LAndAtom of lres * lres * int
-  | LOrAtom of lres * lres * int
-  | LNotAtom of lres * int
-  | LRecAtom of (ident * lres) list * int
-  | LProjAtom of lres * ident
-  | LInspAtom of ident * lres
-  | LAssertAtom of ident * lres * Interp.Ast.res_val_fv
+module Sigma = struct
+  module T = struct
+    type t = sigma [@@deriving compare, sexp, show { with_path = false }, hash]
+  end
 
-and lres = latom list
+  include T
+  include Comparable.Make (T)
+end
 
-and lpath_cond = lres * bool
+module St = struct
+  module T = struct
+    type lstate = int * sigma
+    [@@deriving compare, sexp, hash, show { with_path = false }]
+
+    type estate = expr * sigma
+    [@@deriving compare, sexp, hash, show { with_path = false }]
+
+    type t = Lstate of lstate | Estate of estate
+    [@@deriving compare, sexp, hash, show { with_path = false }]
+  end
+
+  include T
+  include Comparable.Make (T)
+end
+
+module S = struct
+  module T = struct
+    type t = Set.M(Sigma).t [@@deriving compare, sexp, hash]
+
+    let pp fmt (s : t) =
+      s |> Set.elements |> List.map ~f:Sigma.show |> String.concat ~sep:", "
+      |> Format.fprintf fmt "{%s}"
+
+    let show (s : t) =
+      s |> Set.elements |> List.map ~f:Sigma.show |> String.concat ~sep:", "
+      |> Format.sprintf "{%s}"
+  end
+
+  include T
+  include Comparable.Make (T)
+end
+
+module V_key = struct
+  module T = struct
+    type lstate = int * sigma * int [@@deriving compare, sexp, hash]
+
+    let pp_lstate fmt (l, sigma, sid) =
+      Format.fprintf fmt "(%d, %a, %d)" l Sigma.pp sigma sid
+
+    let show_lstate (l, sigma, sid) =
+      Format.sprintf "(%d, %s, %d)" l (Sigma.show sigma) sid
+
+    type estate = expr * sigma * int [@@deriving compare, sexp, hash]
+
+    let pp_estate fmt (e, sigma, sid) =
+      Format.fprintf fmt "(%a, %a, %d)" Interp.Pp.pp_expr e Sigma.pp sigma sid
+
+    let show_estate (e, sigma, sid) =
+      Format.asprintf "(%a, %s, %d)" Interp.Ast.pp_expr e (Sigma.show sigma) sid
+
+    type t = Lstate of lstate | Estate of estate
+    [@@deriving compare, sexp, hash]
+
+    let pp fmt (k : t) =
+      match k with
+      | Lstate st -> pp_lstate fmt st
+      | Estate st -> pp_estate fmt st
+
+    let show (k : t) =
+      match k with Lstate st -> show_lstate st | Estate st -> show_estate st
+  end
+
+  include T
+  include Comparable.Make (T)
+end
+
+module V = struct
+  module T = struct
+    type t = Set.M(V_key).t [@@deriving compare, sexp, hash]
+
+    let pp fmt (v : t) =
+      v |> Set.elements |> List.map ~f:V_key.show |> String.concat ~sep:", "
+      |> Format.fprintf fmt "{%s}"
+
+    let show (v : t) =
+      v |> Set.elements |> List.map ~f:V_key.show |> String.concat ~sep:", "
+      |> Format.sprintf "{%s}"
+  end
+
+  include T
+  include Comparable.Make (T)
+end
+
+module rec Atom : sig
+  type t =
+    | IntAtom of int
+    | BoolAtom of bool
+    | FunAtom of expr * int * sigma
+    | LResAtom of Res.t * St.lstate
+    | EResAtom of Res.t * St.estate
+    | LStubAtom of St.lstate
+    | EStubAtom of St.estate
+    | PathCondAtom of (Res.t * bool) * Res.t
+    | PlusAtom of Res.t * Res.t
+    | MinusAtom of Res.t * Res.t
+    | MultAtom of Res.t * Res.t
+    | EqAtom of Res.t * Res.t
+    | GeAtom of Res.t * Res.t
+    | GtAtom of Res.t * Res.t
+    | LeAtom of Res.t * Res.t
+    | LtAtom of Res.t * Res.t
+    | AndAtom of Res.t * Res.t
+    | OrAtom of Res.t * Res.t
+    | NotAtom of Res.t
+    | RecAtom of (ident * Res.t) list
+    | ProjAtom of Res.t * ident
+    | InspAtom of ident * Res.t
+    | AssertAtom of ident * Res.t * res_val_fv
+  [@@deriving hash, sexp, compare]
+
+  val pp : Format.formatter -> t -> unit
+end = struct
+  type t =
+    | IntAtom of int
+    | BoolAtom of bool
+    | FunAtom of expr * int * sigma
+    | LResAtom of Res.t * St.lstate
+    | EResAtom of Res.t * St.estate
+    | LStubAtom of St.lstate
+    | EStubAtom of St.estate
+    | PathCondAtom of (Res.t * bool) * Res.t
+    | PlusAtom of Res.t * Res.t
+    | MinusAtom of Res.t * Res.t
+    | MultAtom of Res.t * Res.t
+    | EqAtom of Res.t * Res.t
+    | GeAtom of Res.t * Res.t
+    | GtAtom of Res.t * Res.t
+    | LeAtom of Res.t * Res.t
+    | LtAtom of Res.t * Res.t
+    | AndAtom of Res.t * Res.t
+    | OrAtom of Res.t * Res.t
+    | NotAtom of Res.t
+    | RecAtom of (ident * Res.t) list
+    | ProjAtom of Res.t * ident
+    | InspAtom of ident * Res.t
+    | AssertAtom of ident * Res.t * res_val_fv
+  [@@deriving hash, sexp, compare]
+
+  let rec pp_record fmt = function
+    | [] -> ()
+    | [ (Ident x, v) ] -> Format.fprintf fmt "%s = %a" x Res.pp v
+    | (Ident x, v) :: rest ->
+        Format.fprintf fmt "%s = %a; %a" x Res.pp v pp_record rest
+
+  and pp fmt = function
+    | IntAtom x -> ff fmt "%d" x
+    | BoolAtom b -> ff fmt "%b" b
+    | FunAtom (f, _, _) -> Interp.Pp.pp_expr fmt f
+    | LResAtom (choices, _) -> ff fmt "%a" Res.pp choices
+    | EResAtom (choices, _) -> ff fmt "%a" Res.pp choices
+    | LStubAtom _ -> ff fmt "stub"
+    | EStubAtom _ -> ff fmt "stub"
+    (* | LResAtom (choices, (l, _)) -> ff fmt "(%a)^%d" Res.pp choices l
+       | EResAtom (choices, (e, _)) ->
+           ff fmt "(%a)^%a" Res.pp choices Interp.Pp.pp_expr e
+       | LStubAtom (l, _) -> ff fmt "stub@%d" l
+       | EStubAtom (e, _) -> ff fmt "(stub@%a)" Interp.Pp.pp_expr e *)
+    | PlusAtom (r1, r2) -> ff fmt "(%a + %a)" Res.pp r1 Res.pp r2
+    | MinusAtom (r1, r2) -> ff fmt "(%a - %a)" Res.pp r1 Res.pp r2
+    | MultAtom (r1, r2) -> ff fmt "(%a * %a)" Res.pp r1 Res.pp r2
+    | EqAtom (r1, r2) -> ff fmt "(%a = %a)" Res.pp r1 Res.pp r2
+    | AndAtom (r1, r2) -> ff fmt "(%a and %a)" Res.pp r1 Res.pp r2
+    | OrAtom (r1, r2) -> ff fmt "(%a or %a)" Res.pp r1 Res.pp r2
+    | GeAtom (r1, r2) -> ff fmt "(%a >= %a)" Res.pp r1 Res.pp r2
+    | GtAtom (r1, r2) -> ff fmt "(%a > %a)" Res.pp r1 Res.pp r2
+    | LeAtom (r1, r2) -> ff fmt "(%a <= %a)" Res.pp r1 Res.pp r2
+    | LtAtom (r1, r2) -> ff fmt "(%a < %a)" Res.pp r1 Res.pp r2
+    | NotAtom r1 -> ff fmt "(not %a)" Res.pp r1
+    (* | EquivStubAtom (s, l) ->
+        ff fmt "{%s}[%d]"
+          (s |> Set.elements
+          |> List.map ~f:(fun st -> Format.sprintf "%s" (St.show st))
+          |> String.concat ~sep:", ")
+          l *)
+    | PathCondAtom (_, r) -> ff fmt "%a" Res.pp r
+    (* | PathCondAtom ((r, b), r') -> ff fmt "(%a = %b ⊩ %a)" Res.pp r b Res.pp r' *)
+    | RecAtom entries ->
+        ff fmt
+          (if List.is_empty entries then "{%a}" else "{ %a }")
+          pp_record entries
+    | ProjAtom (r, Ident s) -> ff fmt "(%a.%s)" Res.pp r s
+    | InspAtom (Ident s, r) -> ff fmt "(%s in %a)" s Res.pp r
+    | AssertAtom (_, r, _) -> ff fmt "%a" Res.pp r
+end
+
+and Res : sig
+  type t = Atom.t list [@@deriving hash, sexp, compare]
+
+  val pp : Format.formatter -> t -> unit
+  val show : t -> string
+end = struct
+  type t = Atom.t list [@@deriving hash, sexp, compare]
+
+  let rec pp_aux fmt = function
+    | [] -> ()
+    | [ a ] -> ff fmt "%a" Atom.pp a
+    | a :: _as -> ff fmt "%a | %a" Atom.pp a pp_aux _as
+
+  and pp fmt r = if List.is_empty r then ff fmt "#" else ff fmt "%a" pp_aux r
+
+  let show (r : t) = Format.asprintf "%a" pp r
+end
+
+type pi = (Res.t * bool) option
 [@@deriving hash, sexp, compare, show { with_path = false }]
 
-module LAtomKey = struct
+module Res_key : sig
+  type t = Atom.t [@@deriving hash, compare, sexp]
+  type comparator_witness
+
+  val comparator : (t, comparator_witness) Comparator.t
+end = struct
   module T = struct
-    type t = latom [@@deriving hash, sexp, compare]
+    type t = Atom.t [@@deriving hash, compare, sexp]
   end
 
   include T
   include Comparable.Make (T)
 end
 
-module LResKey = struct
+module Cache_key = struct
   module T = struct
-    type t = lres [@@deriving hash, sexp, compare]
+    type t = expr * sigma * int * int * pi [@@deriving hash, compare, sexp]
+
+    let pp fmt (expr, sigma, vid, sid, pi) =
+      Format.fprintf fmt "(%a, %a, %d, %d, %a)" Interp.Pp.pp_expr expr Sigma.pp
+        sigma vid sid pp_pi pi
+
+    let show (expr, sigma, vid, sid, pi) =
+      Format.asprintf "(%a, %a, %d, %d, %s)" Interp.Pp.pp_expr expr Sigma.pp
+        sigma vid sid (show_pi pi)
   end
 
   include T
   include Comparable.Make (T)
 end
 
-let rec ppp_latom fmt = function
-  | LIntAtom (x, _) -> ff fmt "%d" x
-  | LBoolAtom (b, _) -> ff fmt "%b" b
-  | LFunAtom (f, _, _) -> Interp.Pp.pp_expr fmt f
-  | LLResAtom (choices, _, _) | LEResAtom (choices, _, _) ->
-      ff fmt "%a" ppp_lres choices
-  (* ff fmt "(%a, %a, %a)" pp_res choices Interpreter.Pp.pp_expr e pp_sigma s *)
-  | LPlusAtom (r1, r2, _) -> ff fmt "(%a + %a)" ppp_lres r1 ppp_lres r2
-  | LMinusAtom (r1, r2, _) -> ff fmt "(%a - %a)" ppp_lres r1 ppp_lres r2
-  | LMultAtom (r1, r2, _) -> ff fmt "(%a * %a)" ppp_lres r1 ppp_lres r2
-  | LEqAtom (r1, r2, _) -> ff fmt "(%a = %a)" ppp_lres r1 ppp_lres r2
-  | LAndAtom (r1, r2, _) -> ff fmt "(%a and %a)" ppp_lres r1 ppp_lres r2
-  | LOrAtom (r1, r2, _) -> ff fmt "(%a or %a)" ppp_lres r1 ppp_lres r2
-  | LGeAtom (r1, r2, _) -> ff fmt "(%a >= %a)" ppp_lres r1 ppp_lres r2
-  | LGtAtom (r1, r2, _) -> ff fmt "(%a > %a)" ppp_lres r1 ppp_lres r2
-  | LLeAtom (r1, r2, _) -> ff fmt "(%a <= %a)" ppp_lres r1 ppp_lres r2
-  | LLtAtom (r1, r2, _) -> ff fmt "(%a < %a)" ppp_lres r1 ppp_lres r2
-  | LNotAtom (r, _) -> (
-      match r with
-      | [ LEqAtom (r1, r2, _) ] -> ff fmt "%a <> %a" ppp_lres r1 ppp_lres r2
-      | [ LGeAtom (r1, r2, l) ] -> ff fmt "%a" ppp_latom (LLtAtom (r1, r2, l))
-      | [ LGtAtom (r1, r2, l) ] -> ff fmt "%a" ppp_latom (LLeAtom (r1, r2, l))
-      | [ LLeAtom (r1, r2, l) ] -> ff fmt "%a" ppp_latom (LGtAtom (r1, r2, l))
-      | [ LLtAtom (r1, r2, l) ] -> ff fmt "%a" ppp_latom (LGeAtom (r1, r2, l))
-      | _ -> failwith "unimplemented")
-  | LLStubAtom _ | LEStubAtom _ -> ff fmt "stub"
-  (* | PathCondAtom ((r, b), r') -> ff fmt "(%a = %b ⊩ %a)" pp_res r b pp_res r' *)
-  | LPathCondAtom (_, r) -> ff fmt "%a" ppp_lres r
-  | LRecAtom (es, _) ->
-      ff fmt
-        (if List.length es = 0 then "{%a}" else "{ %a }")
-        pp_lrecord_atom es
-  | LProjAtom (r, Ident s) -> ff fmt "%a.%s" ppp_lres r s
-  | LInspAtom (Ident s, r) -> ff fmt "%s in %a" s ppp_lres r
-  | LAssertAtom (_, r, _) -> ff fmt "Assert (%a)" ppp_lres r
+module Tmp_res_key = struct
+  module T = struct
+    type t = Res.t [@@deriving hash, compare, sexp]
+  end
 
-and pp_lrecord_atom fmt = function
-  | [] -> ()
-  | [ (Ident x, v) ] -> Format.fprintf fmt "%s = %a" x ppp_lres v
-  | (Ident x, v) :: rest ->
-      Format.fprintf fmt "%s = %a; %a" x ppp_lres v pp_lrecord_atom rest
+  include T
+  include Comparable.Make (T)
+end
 
-and ppp_lres fmt = function
-  | [] -> ()
-  | [ a ] -> ff fmt "%a" ppp_latom a
-  | a :: _as -> ff fmt "(%a | %a)" ppp_latom a ppp_lres _as
+module Z3ExprKey = struct
+  module T = struct
+    open Z3
 
-let res_to_id = Hashtbl.create (module LResKey)
-let atom_to_id = Hashtbl.create (module LAtomKey)
-let nodes = Hashset.create 100
-let edges = Hashtbl.create (module String)
-let edge_props = Hashtbl.create (module String)
-let siblings = Hashtbl.create (module String)
-let fresh_id = ref (-1)
+    type t = Expr.expr
 
-let get_next_id () =
-  incr fresh_id;
-  !fresh_id
+    let compare = Expr.compare
+    let sexp_of_t e = e |> Expr.ast_of_expr |> AST.to_sexpr |> Sexp.of_string
+    let t_of_sexp s = failwith "unimplemented"
+    let hash e = e |> Expr.ast_of_expr |> AST.hash
+  end
 
-let idr r =
-  Format.sprintf "P%d" (Hashtbl.find_or_add res_to_id r ~default:get_next_id)
+  include T
+  include Comparable.Make (T)
+end
 
-let ida a =
-  Format.sprintf "P%d" (Hashtbl.find_or_add atom_to_id a ~default:get_next_id)
+let empty_res = Set.empty (module Res_key)
+let single_res = Set.singleton (module Res_key)
 
-let add_node = Hashset.add nodes
-let remove_node = Hashset.remove nodes
-let pc_switch = ref ""
+(** Reader-State monad threaded through the analysis *)
+module ReaderState = struct
+  module T = struct
+    type cache = Res.t Map.M(Cache_key).t
+    type vids = int Map.M(V).t
+    type sids = int Map.M(S).t
+    type env = { v : V.t; vids : vids }
+    type state = { s : S.t; c : cache; sids : sids; cnt : int }
+    type 'a t = env -> state -> 'a * state
 
-let add_edge_prop eid (k, v) =
-  let p = Format.sprintf "%s=%s" k v in
-  match Hashtbl.find edge_props eid with
-  | None -> Hashtbl.add_exn edge_props ~key:eid ~data:(String.Set.singleton p)
-  | Some ps ->
-      Hashtbl.remove edge_props eid;
-      Hashtbl.add_exn edge_props ~key:eid ~data:(Set.add ps p)
+    let return (a : 'a) : 'a t = fun _ st -> (a, st)
 
-let edge_id = Format.sprintf "%s_%s"
+    let bind (m : 'a t) ~(f : 'a -> 'b t) : 'b t =
+     fun env st ->
+      let a, st' = m env st in
+      f a env st'
 
-let add_edge hd tl =
-  if String.(!pc_switch <> "") then
-    add_edge_prop (edge_id hd tl) ("cluster", !pc_switch);
-  match Hashtbl.find edges hd with
-  | None -> Hashtbl.add_exn edges ~key:hd ~data:(String.Set.singleton tl)
-  | Some tls ->
-      Hashtbl.remove edges hd;
-      Hashtbl.add_exn edges ~key:hd ~data:(Set.add tls tl)
+    let map = `Define_using_bind
+    let ask () : env t = fun env st -> (env, st)
 
-let remove_edge hd tl =
-  match Hashtbl.find edges hd with
-  | None -> ()
-  | Some tls ->
-      Hashtbl.remove edges hd;
-      Hashtbl.add_exn edges ~key:hd ~data:(Set.remove tls tl)
+    let local d (f : env -> env) (m : 'a t) : 'a t =
+     fun env ({ cnt; _ } as st) ->
+      let ({ v; vids; _ } as env') = f env in
+      let vids', cnt' =
+        if Map.mem vids v then (vids, cnt)
+        else (Map.add_exn vids ~key:v ~data:cnt, cnt + 1)
+      in
+      m { env' with vids = vids' } { st with cnt = cnt' }
 
-let add_sibling p n =
-  match Hashtbl.find siblings p with
-  | None -> Hashtbl.add_exn siblings ~key:p ~data:(String.Set.singleton n)
-  | Some ns ->
-      Hashtbl.remove siblings p;
-      Hashtbl.add_exn siblings ~key:p ~data:(Set.add ns n)
+    let get () : state t = fun _ st -> (st, st)
+    let get_vid v : int t = fun { vids; _ } st -> (Map.find_exn vids v, st)
 
-let remove_sibling p n =
-  match Hashtbl.find siblings p with
-  | None -> ()
-  | Some ns ->
-      Hashtbl.remove siblings p;
-      Hashtbl.add_exn siblings ~key:p ~data:(Set.remove ns n)
+    let get_sid s : int t =
+     fun _ ({ sids; _ } as st) -> (Map.find_exn sids s, st)
 
-let op_symbol = function
-  | LPlusAtom _ -> "+"
-  | LMinusAtom _ -> "-"
-  | LMultAtom _ -> "*"
-  | LEqAtom _ -> "="
-  | LAndAtom _ -> "&&"
-  | LOrAtom _ -> "||"
-  | LNotAtom _ -> "!"
-  | LGeAtom _ -> ">="
-  | LGtAtom _ -> ">"
-  | LLeAtom _ -> "<="
-  | LLtAtom _ -> "<"
-  | _ -> raise Unreachable
+    let set_s s : unit t =
+     fun _ ({ sids; cnt; _ } as st) ->
+      let sids', cnt' =
+        if Map.mem sids s then (sids, cnt)
+        else (Map.add_exn sids ~key:s ~data:cnt, cnt + 1)
+      in
+      ((), { st with s; sids = sids'; cnt = cnt' })
 
-let next_label = ref 100000
+    let set_cache c : unit t = fun _ st -> ((), { st with c })
+  end
 
-let get_next_label () =
-  incr next_label;
-  !next_label
+  include T
+  include Monad.Make (T)
+end
 
-let rec label_prim =
-  List.map ~f:(function
-    | Atom.IntAtom i -> LIntAtom (i, get_next_label ())
-    | BoolAtom b -> LBoolAtom (b, get_next_label ())
-    | FunAtom (e, l, s) -> LFunAtom (e, l, s)
-    | PlusAtom (r1, r2) ->
-        LPlusAtom (label_prim r1, label_prim r2, get_next_label ())
-    | MinusAtom (r1, r2) ->
-        LMinusAtom (label_prim r1, label_prim r2, get_next_label ())
-    | MultAtom (r1, r2) ->
-        LMultAtom (label_prim r1, label_prim r2, get_next_label ())
-    | EqAtom (r1, r2) ->
-        LEqAtom (label_prim r1, label_prim r2, get_next_label ())
-    | GeAtom (r1, r2) ->
-        LGeAtom (label_prim r1, label_prim r2, get_next_label ())
-    | GtAtom (r1, r2) ->
-        LGtAtom (label_prim r1, label_prim r2, get_next_label ())
-    | LeAtom (r1, r2) ->
-        LLeAtom (label_prim r1, label_prim r2, get_next_label ())
-    | LtAtom (r1, r2) ->
-        LLtAtom (label_prim r1, label_prim r2, get_next_label ())
-    | AndAtom (r1, r2) ->
-        LAndAtom (label_prim r1, label_prim r2, get_next_label ())
-    | OrAtom (r1, r2) ->
-        LOrAtom (label_prim r1, label_prim r2, get_next_label ())
-    | NotAtom r -> LNotAtom (label_prim r, get_next_label ())
-    | AssertAtom (id, r, assn) -> LAssertAtom (id, label_prim r, assn)
-    | LResAtom (r, st) -> LLResAtom (label_prim r, st, get_next_label ())
-    | EResAtom (r, st) -> LEResAtom (label_prim r, st, get_next_label ())
-    | PathCondAtom ((r_cond, b), r) ->
-        LPathCondAtom ((label_prim r_cond, b), label_prim r)
-    | LStubAtom st -> LLStubAtom (st, get_next_label ())
-    | EStubAtom st -> LEStubAtom (st, get_next_label ())
-    | RecAtom entries ->
-        LRecAtom
-          ( List.map entries ~f:(fun (id, r) -> (id, label_prim r)),
-            get_next_label () )
-    | ProjAtom (r, id) -> LProjAtom (label_prim r, id)
-    | _ as a ->
-        Format.printf "%a" Grammar.Atom.pp a;
-        failwith "unimplemented:290")
+let prune_sigma ?(k = 2) s = List.filteri s ~f:(fun i _ -> i < k)
 
-let dot_of_result ?(display_path_cond = true) test_num r =
-  let r = label_prim r in
-  (* Logs.info (fun m -> m "AST: %a" pp_lres r); *)
-  (* p is the parent *atom* of a *)
-  (* l is the label of the enclosing labeled result, if any *)
-  (* any cycle (particularly its start) should be unique in
-     each path condition subtree *)
-  (* TODO: add parent res *)
-  let rec dot_of_atom a p pid pr cycles =
-    let aid = ida a in
-    match a with
-    | LIntAtom (i, _) -> add_node (Format.sprintf "%s [label=\"%d\"];" aid i)
-    | LBoolAtom (b, _) -> add_node (Format.sprintf "%s [label=\"%b\"];" aid b)
-    | LPlusAtom (r1, r2, _)
-    | LMinusAtom (r1, r2, _)
-    | LEqAtom (r1, r2, _)
-    | LMultAtom (r1, r2, _)
-    | LGeAtom (r1, r2, _)
-    | LGtAtom (r1, r2, _)
-    | LLeAtom (r1, r2, _)
-    | LLtAtom (r1, r2, _)
-    | LAndAtom (r1, r2, _)
-    | LOrAtom (r1, r2, _) ->
-        add_node (Format.sprintf "%s [label=\"%s\"];" aid (op_symbol a));
-        add_edge aid (idr r1);
-        add_edge aid (idr r2);
-        dot_of_res r1 (Some a) (Some aid) pr cycles;
-        dot_of_res r2 (Some a) (Some aid) pr cycles
-    | LNotAtom (r, _) ->
-        add_node (Format.sprintf "%s [label=\"%s\"];" aid (op_symbol a));
-        add_edge aid (idr r);
-        dot_of_res r (Some a) (Some aid) pr cycles
-    | LLResAtom (r, st, _) ->
-        (* always point to the lowest instance of such a disjunction *)
-        add_node (Format.sprintf "%s [label=\"|\", shape=\"diamond\"];" aid);
-        add_edge aid (idr r);
-        let lst = St.Lstate st in
-        dot_of_res r (Some a) (Some aid) pr
-          (Map.add_exn (Map.remove cycles lst) ~key:lst ~data:aid)
-    | LEResAtom (r, st, _) ->
-        add_node (Format.sprintf "%s [label=\"|\", shape=\"diamond\"];" aid);
-        add_edge aid (idr r);
-        let est = St.Estate st in
-        dot_of_res r (Some a) (Some aid) pr
-          (Map.add_exn (Map.remove cycles est) ~key:est ~data:aid)
-    | LLStubAtom (st, _) -> (
-        add_node (Format.sprintf "%s [label=\"stub\"];" aid);
-        match Map.find cycles (St.Lstate st) with
-        | Some dom_node ->
-            let aid = Format.sprintf "%s" aid in
-            let eid = edge_id dom_node aid in
-            add_edge dom_node aid;
-            add_edge_prop eid ("dir", "back")
-        | None -> failwith "lone stub"
-        (* Logs.debug (fun m -> m "Lone stub: %s" (St.show_lstate st)) *))
-    | LEStubAtom (st, _) -> (
-        add_node (Format.sprintf "%s [label=\"stub\"];" aid);
-        match Map.find cycles (St.Estate st) with
-        | Some dom_node ->
-            let aid = Format.sprintf "%s" aid in
-            let eid = edge_id dom_node aid in
-            add_edge dom_node aid;
-            add_edge_prop eid ("dir", "back")
-        | None -> failwith "lone stub"
-        (* Logs.debug (fun m -> m "Lone stub: %s" (St.show_estate st)) *)
-        (* Format.printf "Lone stub: %s\n" (St.show_estate st) *)
-        (* failwith "Lone stub!" *))
-    | LAssertAtom (Ident x, r, rv) ->
-        add_node (Format.sprintf "%s [label=\"assert\"];" aid);
-        let xid = Format.sprintf "%s_x" aid in
-        add_node (Format.asprintf "%s [label=\"%s\"];" xid x);
-        add_edge aid xid;
-        let rid = idr r in
-        add_edge xid rid;
-        let rvid = Format.sprintf "%s_assn" aid in
-        add_node
-          (Format.asprintf "%s [label=\"%a\"];" rvid Interp.Pp.pp_res_val_fv rv);
-        add_edge aid rvid;
-        (* add_sibling aid xid;
-           add_sibling aid rvid; *)
-        dot_of_res r (Some a) (Some aid) pr cycles
-    | LPathCondAtom ((r, b), r0) -> (
-        (* add_node (Format.sprintf "%s [label=\"⊩\"];" aid);
-           let p = Some a in
-           let pid = Some aid in
-           (if b then (
-              let rid = idr r in
-              add_edge aid rid;
-              pc_switch := aid;
-              dot_of_res r p pid cycles)
-            else
-              match r with
-              | [ LEqAtom (r1, r2, _) ] ->
-                  let a' = LNotAtom (r, get_next_label ()) in
-                  add_edge aid (ida a');
-                  dot_of_atom a' p pid pr cycles
-              | [ LGeAtom (r1, r2, _) ] ->
-                  let a' = LLtAtom (r1, r2, get_next_label ()) in
-                  add_edge aid (ida a');
-                  dot_of_atom a' p pid pr cycles
-              | [ LGtAtom (r1, r2, _) ] ->
-                  let a' = LLeAtom (r1, r2, get_next_label ()) in
-                  add_edge aid (ida a');
-                  dot_of_atom a' p pid pr cycles
-              | [ LLeAtom (r1, r2, _) ] ->
-                  let a' = LGtAtom (r1, r2, get_next_label ()) in
-                  add_edge aid (ida a');
-                  dot_of_atom a' p pid pr cycles
-              | [ LLtAtom (r1, r2, _) ] ->
-                  let a' = LGeAtom (r1, r2, get_next_label ()) in
-                  add_edge aid (ida a');
-                  dot_of_atom a' p pid pr cycles
-              | [ LBoolAtom (b, _) ] ->
-                  let a' = LBoolAtom (not b, get_next_label ()) in
-                  add_edge aid (ida a');
-                  dot_of_atom a' p pid pr cycles
-              | _ ->
-                  Format.printf "%a\n" pp_lres r;
-                  raise Unreachable);
-           add_edge aid (idr r0);
-           dot_of_res r0 p pid cycles *)
-        (* if Option.is_some pr then ( *)
-        (* Logs.debug (fun m -> m "Atom: %a\n" ppp_latom a);
-           Logs.debug (fun m -> m "Atom: %a\n" pp_latom a);
-           Logs.debug (fun m -> m "Parent: %a\n" ppp_lres pr);
-           Logs.debug (fun m -> m "Parent: %a\n" pp_lres pr); *)
-        (* Format.printf "Atom: %a\n" ppp_latom a;
-           Format.printf "Parent: %a\n" ppp_lres pr;
-           Format.printf "Parent: %a\n" pp_lres pr; *)
-        match pr with
-        | Some pr ->
-            (* TODO *)
-            (* let pr = idr pr in *)
-            (* remove_edge pr aid; *)
-            (* add_edge pr (ida (List.hd_exn r0)); *)
-            dot_of_res r0 p pid (Some pr) cycles
-        | None -> (
-            match p with
-            | Some p ->
-                let pid' = ida p in
-                add_edge pid' (idr r0);
-                dot_of_res r0 (Some p) pid pr cycles
-            | None -> failwith "wtf"))
-    | LRecAtom (rs, _) ->
-        if List.is_empty rs then
-          add_node
-            (Format.sprintf "%s [label=\"&#123;&#125;\", shape=\"record\"]" aid)
-        else
-          add_node
-            (Format.sprintf "%s [label=\"%s\", shape=\"record\"]" aid
-               (String.concat ~sep:"|"
-                  (List.mapi rs ~f:(fun i (Ident x, r) ->
-                       let pid = Format.sprintf "%s:%s" aid x in
-                       add_edge pid (idr r);
-                       dot_of_res r (Some a) (Some pid) pr cycles;
-                       Format.sprintf
-                         (if i = 0 then "<%s>&#123; %s"
-                          else if i = List.length rs - 1 then "<%s> %s &#125;"
-                          else "<%s> %s")
-                         x x))))
-    | _ -> raise Unreachable
-  and dot_of_res r p pid pr pl =
-    let rid = idr r in
-    match p with
-    | None ->
-        if List.length r = 1 then dot_of_atom (List.hd_exn r) None None None pl
-        else
-          List.iter r ~f:(function a ->
-              dot_of_atom a None None (Some r) pl;
-              add_node
-                (Format.sprintf "%s [label=\"|\", shape=\"diamond\"];" rid)
-              (* add_edge rid (ida a) *))
-    | Some p -> (
-        let pid' = ida p in
-        match p with
-        | LLResAtom _ | LEResAtom _ ->
-            remove_edge pid' rid;
-            List.iter r ~f:(function
-              | LPathCondAtom _ as a ->
-                  (* Format.printf "%a\n" ppp_lres r; *)
-                  dot_of_atom a (Some p) pid None pl
-              | a ->
-                  let aid = ida a in
-                  add_edge pid' aid;
-                  add_sibling pid' aid;
-                  dot_of_atom a (Some p) pid None pl)
-        | LRecAtom _ ->
-            if List.length r = 1 then (
-              let a = List.hd_exn r in
-              match a with
-              | LPathCondAtom _ ->
-                  let pid = Option.value_exn pid in
-                  remove_edge pid rid;
-                  dot_of_atom a (Some p) (Some pid) None pl
-              | _ ->
-                  let aid = ida a in
-                  let pid = Option.value_exn pid in
-                  remove_edge pid rid;
-                  add_edge pid aid;
-                  dot_of_atom a (Some p) (Some pid) None pl)
-            else
-              List.iter r ~f:(function
-                | LPathCondAtom _ as a ->
-                    dot_of_atom a (Some p) pid (Some r) pl;
-                    add_node
-                      (Format.sprintf "%s [label=\"|\", shape=\"diamond\"];" rid)
-                | a ->
-                    dot_of_atom a (Some p) pid (Some r) pl;
-                    add_node
-                      (Format.sprintf "%s [label=\"|\", shape=\"diamond\"];" rid);
-                    add_edge rid (ida a))
-        | _ ->
-            add_sibling pid' rid;
-            if List.length r = 1 then (
-              let a = List.hd_exn r in
-              match a with
-              (* | LPathCondAtom _ ->
-                  remove_edge pid' rid;
-                  remove_sibling pid' rid;
-                  (* needs to be called last to remove edges to PathCondAtoms *)
-                  dot_of_atom a (Some p) pid (Some r) pl *)
-              | _ ->
-                  let aid = ida a in
-                  remove_edge pid' rid;
-                  remove_sibling pid' rid;
-                  (* TODO *)
-                  if Option.is_some pr then
-                    (* Format.printf "%s\n" pid';
-                       Format.printf "%a\n" pp_latom a; *)
-                    (* add_edge pid' aid; *)
-                    add_edge (idr (Option.value_exn pr)) (ida a)
-                  else (
-                    add_edge pid' aid;
-                    add_sibling pid' aid);
-                  (* needs to be called last to remove edges to PathCondAtoms *)
-                  dot_of_atom a (Some p) pid None pl)
-            else
-              List.iter r ~f:(function
-                  (* | LPathCondAtom _ as a ->
-                      remove_edge pid' rid;
-                      remove_sibling pid' rid;
-                      remove_node rid;
-                      (* Format.printf "%s\n" (idr r); *)
-                      dot_of_atom a (Some p) pid (Some r) pl *)
-                  | a ->
-                  dot_of_atom a (Some p) pid (Some r) pl;
-                  add_node
-                    (Format.sprintf "%s [label=\"|\", shape=\"diamond\"];" rid)
-                  (* add_edge rid (ida a) *)))
-  in
-  dot_of_res r None None None (Map.empty (module St));
-  (* Hashtbl.iteri atom_to_id ~f:(fun ~key ~data ->
-         Format.printf "%a -> %d\n" ppp_latom key data);
-     Hashtbl.iteri res_to_id ~f:(fun ~key ~data ->
-         Format.printf "%a -> %d\n" ppp_lres key data); *)
-  let nodes_str = Hashset.fold (Format.sprintf "%s\n%s") nodes "" in
-  (* let ranks_str =
-       Hashtbl.fold siblings ~init:"" ~f:(fun ~key ~data acc ->
-           (* https://stackoverflow.com/questions/44274518/how-can-i-control-within-level-node-order-in-graphvizs-dot/44274606#44274606 *)
-           let rank2 = Format.sprintf "%s_rank2" key in
-           if Set.length data = 1 then acc
-           else
-             Format.sprintf
-               "%s\n\
-                %s [style=invis];\n\
-                {rank=same; rankdir=LR; %s -> %s [style=invis];}" acc rank2 rank2
-               (String.concat ~sep:" -> " (Set.to_list data)))
-     in *)
-  let ranks_str = "" in
-  let edges_str =
-    Hashtbl.fold edges ~init:"" ~f:(fun ~key ~data acc ->
-        Set.fold data ~init:acc ~f:(fun acc n ->
-            let id = Format.sprintf "%s_%s" key n in
-            let props =
-              match Hashtbl.find edge_props id with
-              | None -> ""
-              | Some ps ->
-                  Format.sprintf "[%s]"
-                    (String.concat ~sep:"," (Set.to_list ps))
-            in
-            Format.sprintf "%s\n%s -> %s %s" acc key n props))
-  in
-  let dot_file = Format.sprintf "graph%d.dot" test_num in
-  Out_channel.write_all dot_file
-    ~data:
-      (Format.sprintf
-         "digraph G {\n\
-          node [fontname=\"Monospace\"]\n\
-          edge [fontname=\"Monospace\"]\n\
-          %s%s\n\
-          %s\n\
-          }"
-         nodes_str ranks_str edges_str);
-  Hashtbl.clear res_to_id;
-  Hashtbl.clear atom_to_id;
-  Hashset.clear nodes;
-  Hashtbl.clear edges;
-  Hashtbl.clear edge_props;
-  Hashtbl.clear siblings;
-  fresh_id := -1
+let rec starts_with sigma_parent sigma_child =
+  match (sigma_parent, sigma_child) with
+  | _, [] -> true
+  | [], _ -> false
+  | l_parent :: ls_parent, l_child :: ls_child ->
+      l_parent = l_child && starts_with ls_parent ls_child
+
+let suffixes l sigma s =
+  s
+  |> Set.filter_map
+       (module Sigma)
+       ~f:(function
+         | l' :: sigma_sigma' when l = l' && starts_with sigma_sigma' sigma ->
+             Some sigma_sigma'
+         | _ -> None)
+  |> Set.elements

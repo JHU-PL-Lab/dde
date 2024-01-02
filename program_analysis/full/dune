@@ -2,12 +2,10 @@
  (name pa)
  (public_name dde.pa)
  (preprocess
-  (pps bisect_ppx ppx_deriving.show ppx_let ppx_jane landmarks-ppx --auto))
+  (pps bisect_ppx ppx_deriving.show ppx_let ppx_jane))
  (instrumentation
   (backend bisect_ppx --bisect-file _build/bisect))
- (instrumentation
-  (backend landmarks --auto))
- (modules lib grammar solver simplifier utils debug_utils exns)
+ (modules lib utils solver simplifier graph debug_utils exns)
  (libraries dde.interp hashset core z3 logs logs.fmt))
 
 (executable

@@ -96,35 +96,6 @@ module V = struct
   include Comparable.Make (T)
 end
 
-module Cache_key = struct
-  module T = struct
-    type t = expr * sigma * int * int [@@deriving compare, sexp]
-    (* type t = expr * sigma * Set.M(V_key).t * Set.M(Sigma).t
-       [@@deriving compare, sexp] *)
-    (* type t = expr * sigma * int * Set.M(Sigma).t [@@deriving compare, sexp] *)
-    (* type t = expr * sigma * V.t * int [@@deriving compare, sexp] *)
-
-    let pp fmt (expr, sigma, vid, sid) =
-      Format.fprintf fmt "(%a, %a, %d, %d)" Interp.Pp.pp_expr expr Sigma.pp
-        sigma vid sid
-
-    let show (expr, sigma, vid, sid) =
-      Format.asprintf "(%a, %a, %d, %d)" Interp.Pp.pp_expr expr Sigma.pp sigma
-        vid sid
-
-    (* let pp fmt (expr, sigma, v, sid) =
-         Format.fprintf fmt "(%a, %a, %a, %d)" Interp.Pp.pp_expr expr Sigma.pp
-           sigma V.pp v sid
-
-       let show (expr, sigma, v, sid) =
-         Format.asprintf "(%a, %a, %a, %d)" Interp.Pp.pp_expr expr Sigma.pp sigma
-           V.pp v sid *)
-  end
-
-  include T
-  include Comparable.Make (T)
-end
-
 module Freq_key = struct
   module T = struct
     type t = expr * sigma * int * int [@@deriving compare, sexp]
@@ -222,6 +193,59 @@ end = struct
   let show (r : t) = Format.asprintf "%a" pp r
 end
 
+module Cache_key = struct
+  module T = struct
+    type t = expr * sigma * int * int [@@deriving compare, sexp]
+    (* type t = expr * sigma * int [@@deriving compare, sexp] *)
+
+    let pp fmt (expr, sigma, vid, sid) =
+      Format.fprintf fmt "(%a, %a, %d, %d)" Interp.Pp.pp_expr expr Sigma.pp
+        sigma vid sid
+
+    let show (expr, sigma, vid, sid) =
+      Format.asprintf "(%a, %a, %d, %d)" Interp.Pp.pp_expr expr Sigma.pp sigma
+        vid sid
+
+    (* let pp fmt (expr, sigma, sid) =
+         Format.fprintf fmt "(%a, %a, %d)" Interp.Pp.pp_expr expr Sigma.pp sigma
+           sid
+
+       let show (expr, sigma, sid) =
+         Format.asprintf "(%a, %a, %d)" Interp.Pp.pp_expr expr Sigma.pp sigma sid *)
+
+    (*
+               type lkey = int * sigma * int * int [@@deriving compare, sexp]
+       type ekey = expr * sigma * int * int [@@deriving compare, sexp]
+       type t = Lkey of lkey | Ekey of ekey [@@deriving compare, sexp]
+
+       let pp_lkey fmt (l, sigma, vid, sid) =
+         Format.fprintf fmt "(%d, %a, %d, %d)" l Sigma.pp sigma vid sid
+
+       let show_lkey (l, sigma, vid, sid) =
+         Format.asprintf "(%d, %a, %d, %d)" l Sigma.pp sigma vid sid
+
+       let pp_ekey fmt (expr, sigma, vid, sid) =
+         Format.fprintf fmt "(%a, %a, %d, %d)" Interp.Pp.pp_expr expr Sigma.pp
+           sigma vid sid
+
+       let show_ekey (expr, sigma, vid, sid) =
+         Format.asprintf "(%a, %a, %d, %d)" Interp.Pp.pp_expr expr Sigma.pp sigma
+           vid sid
+
+       let pp fmt = function
+         | Lkey lkey -> pp_lkey fmt lkey
+         | Ekey ekey -> pp_ekey fmt ekey
+
+       let show = function
+         | Lkey lkey -> show_lkey lkey
+         | Ekey ekey -> show_ekey ekey
+    *)
+  end
+
+  include T
+  include Comparable.Make (T)
+end
+
 let empty_res = Set.empty (module Res_key)
 let single_res = Set.singleton (module Res_key)
 
@@ -231,8 +255,8 @@ module ReaderState = struct
     type cache = Res.t Map.M(Cache_key).t
     type vids = int Map.M(V).t
     type sids = int Map.M(S).t
-    type freqs = int64 Map.M(Freq_key).t
-    type env = { v : V.t; vids : vids; rerun : bool; iter : int }
+    type freqs = int Map.M(Freq_key).t
+    type env = { v : V.t; vids : vids }
     type state = { s : S.t; c : cache; freqs : freqs; sids : sids; cnt : int }
     type 'a t = env -> state -> 'a * state
 
@@ -275,12 +299,11 @@ module ReaderState = struct
      fun _ ({ freqs; _ } as st) ->
       let freqs' =
         match Map.find freqs freq_key with
-        | None -> Map.add_exn freqs ~key:freq_key ~data:1L
+        | None -> Map.add_exn freqs ~key:freq_key ~data:1
         | Some freq ->
             Map.add_exn
               (Map.remove freqs freq_key)
-              ~key:freq_key
-              ~data:Int64.(freq + 1L)
+              ~key:freq_key ~data:(freq + 1)
       in
       ((), { st with freqs = freqs' })
   end

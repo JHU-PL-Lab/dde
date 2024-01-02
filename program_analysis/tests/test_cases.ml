@@ -9,18 +9,6 @@ type test_case = {
   verif : Z3.FuncDecl.func_decl -> Z3.Expr.expr;
 }
 
-let read_input file_name =
-  In_channel.read_all
-    (Format.sprintf
-       "/Users/robertzhang/projects/research/dde/program_analysis/tests/inputs/%s"
-       file_name)
-
-let read_output file_name =
-  In_channel.read_all
-    (Format.sprintf
-       "/Users/robertzhang/projects/research/dde/program_analysis/tests/outputs/%s"
-       file_name)
-
 let basic =
   [|
     "letassert x = 1 in true";

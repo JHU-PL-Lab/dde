@@ -6,7 +6,7 @@
  (instrumentation
   (backend bisect_ppx --bisect-file _build/bisect))
  (modules lexer parser ast lib pp debugutils)
- (libraries core hashcons))
+ (libraries core))
 
 (ocamllex
  (modules lexer))

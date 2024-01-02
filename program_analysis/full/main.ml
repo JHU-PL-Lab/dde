@@ -19,8 +19,8 @@ let toplevel_loop =
   in
   let safe_analyze_and_print ast =
     try
-      let r = Lib.analyze ast in
-      Format.printf "==> %a\n" Grammar.Res.pp r
+      let r, _ = Lib.analyze ast in
+      Format.printf "==> %a\n" Utils.Res.pp r
     with ex -> print_exception ex
   in
   while true do

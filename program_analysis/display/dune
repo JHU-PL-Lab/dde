@@ -2,11 +2,9 @@
  (name display_pa)
  (public_name dde.display_pa)
  (preprocess
-  (pps bisect_ppx ppx_deriving.show ppx_let ppx_jane landmarks-ppx --auto))
+  (pps bisect_ppx ppx_deriving.show ppx_let ppx_jane))
  (instrumentation
   (backend bisect_ppx --bisect-file _build/bisect))
- (instrumentation
-  (backend landmarks --auto))
  (modules lib grammar debugutils utils simplifier)
  (libraries core logs logs.fmt core_unix dde.dinterp dde.pa))
 

@@ -28,7 +28,7 @@ type expr =
   | Plus of expr * expr [@quickcheck.weight 0.05]
   | Minus of expr * expr [@quickcheck.weight 0.05]
   | Mult of expr * expr [@quickcheck.weight 0.05]
-  | Equal of expr * expr [@quickcheck.weight 0.05]
+  | Eq of expr * expr [@quickcheck.weight 0.05]
   | And of expr * expr [@quickcheck.weight 0.05]
   | Or of expr * expr [@quickcheck.weight 0.05]
   | Ge of expr * expr [@quickcheck.weight 0.05]
@@ -118,7 +118,7 @@ let rec build_myfun e outer =
   | Plus (e1, e2)
   | Minus (e1, e2)
   | Mult (e1, e2)
-  | Equal (e1, e2)
+  | Eq (e1, e2)
   | And (e1, e2)
   | Or (e1, e2)
   | Ge (e1, e2)
@@ -181,7 +181,7 @@ let build_var ident =
 let build_plus e1 e2 = Plus (e1, e2)
 let build_minus e1 e2 = Minus (e1, e2)
 let build_mult e1 e2 = Mult (e1, e2)
-let build_equal e1 e2 = Equal (e1, e2)
+let build_eq e1 e2 = Eq (e1, e2)
 let build_and e1 e2 = And (e1, e2)
 let build_or e1 e2 = Or (e1, e2)
 let build_ge e1 e2 = Ge (e1, e2)
@@ -237,7 +237,7 @@ let rec trans_let x e' e =
   | Plus (e1, e2) -> Plus (trans_let x e' e1, trans_let x e' e2)
   | Minus (e1, e2) -> Minus (trans_let x e' e1, trans_let x e' e2)
   | Mult (e1, e2) -> Mult (trans_let x e' e1, trans_let x e' e2)
-  | Equal (e1, e2) -> Equal (trans_let x e' e1, trans_let x e' e2)
+  | Eq (e1, e2) -> Eq (trans_let x e' e1, trans_let x e' e2)
   | And (e1, e2) -> And (trans_let x e' e1, trans_let x e' e2)
   | Or (e1, e2) -> Or (trans_let x e' e1, trans_let x e' e2)
   | Ge (e1, e2) -> Ge (trans_let x e' e1, trans_let x e' e2)
@@ -288,7 +288,7 @@ let rec transform_let e =
   | Plus (e1, e2) -> Plus (transform_let e1, transform_let e2)
   | Minus (e1, e2) -> Minus (transform_let e1, transform_let e2)
   | Mult (e1, e2) -> Mult (transform_let e1, transform_let e2)
-  | Equal (e1, e2) -> Equal (transform_let e1, transform_let e2)
+  | Eq (e1, e2) -> Eq (transform_let e1, transform_let e2)
   | Ge (e1, e2) -> Ge (transform_let e1, transform_let e2)
   | Gt (e1, e2) -> Gt (transform_let e1, transform_let e2)
   | Le (e1, e2) -> Le (transform_let e1, transform_let e2)

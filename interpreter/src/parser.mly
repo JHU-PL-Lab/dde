@@ -89,7 +89,7 @@ expr:
   | NOT expr
       { build_not $2 }
   | expr EQUAL expr
-      { build_equal $1 $3 }
+      { build_eq $1 $3 }
   | FUNCTION ident_decl GOESTO expr %prec prec_fun
       { build_function $2 $4 }
   | LET ident_decl EQUAL expr IN expr %prec prec_let

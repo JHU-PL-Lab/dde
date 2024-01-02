@@ -10,13 +10,7 @@
   dde.pa
   dde.simple_pa
   dde.display_pa
-  fbdk.fb
-  ounit2
-  landmarks)
- (preprocess
-  (pps landmarks-ppx --auto))
- (instrumentation
-  (backend landmarks --auto)))
+  ounit2))
 
 ; (rule
 ;  ;  (alias test)

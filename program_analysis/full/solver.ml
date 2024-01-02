@@ -1,6 +1,5 @@
 open Core
 open Z3
-open Grammar
 open Utils
 
 exception Unreachable

@@ -1,7 +1,7 @@
 open Core
 open Interp.Ast
-open Grammar
-open Grammar.Atom
+open Utils
+open Utils.Atom
 open Exns
 
 let rec exists_stub r label =

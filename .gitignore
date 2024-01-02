@@ -4,3 +4,5 @@ _coverage
 .DS_Store
 .lia.cache
 logs
+*.dot
+*.png
