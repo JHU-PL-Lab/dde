@@ -95,8 +95,6 @@ let cache d key data =
       m "[Level %d] Add: %s\n->\n%s" d (Cache_key.show key) (Res.show data));
   return data
 
-(* let cache a b c = return c *)
-
 let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
   let%bind { v; _ } = ask () in
   let%bind { c; s; sids; _ } = get () in
@@ -107,24 +105,13 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
      debug (fun m -> m "S length: %d" (Set.length s)); *)
   let%bind vid = get_vid v in
   let%bind sid = get_sid s in
-  (* debug (fun m -> m "SID: %d" sid); *)
-  (* let cache_key = (expr, sigma, vid, sid) in *)
-  (* let cache_key = (expr, sigma, sid) in *)
-  (* match Map.find c cache_key with
-     | Some r when caching ->
-         debug (fun m ->
-             m "[Level %d] Hit: %s\n->\n%s" d (Cache_key.show cache_key)
-               (Res.show r));
-         return r
-     | _ ->
-         let%bind r = *)
   let%bind r =
     match expr with
     | Int i -> return (single_res (IntAtom i))
     | Bool b -> return (single_res (BoolAtom b))
     | Function (_, _, l) -> return (single_res (FunAtom (expr, l, sigma)))
     | Appl (e, _, l) -> (
-        let cache_key = (expr, sigma, vid, sid) in
+        let cache_key = Cache_key.Lkey (l, sigma, vid, sid) in
         match Map.find c cache_key with
         | Some r when caching ->
             debug (fun m ->
@@ -141,8 +128,7 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
               debug (fun m -> m "Stubbed");
               info (fun m ->
                   m "[Level %d] *** App (%a, %d) ***" d Interp.Pp.pp_expr expr l);
-              cache d cache_key (single_res (LStubAtom cycle_label))
-              (* return (single_res (LStubAtom cycle_label)) *))
+              cache d cache_key (single_res (LStubAtom cycle_label)))
             else (
               (* App *)
               debug (fun m -> m "Didn't stub");
@@ -188,10 +174,9 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
               debug (fun m -> m "[App] r2: %a" Res.pp r2);
               info (fun m ->
                   m "[Level %d] *** App (%a, %d) ***" d Interp.Pp.pp_expr expr l);
-              cache d cache_key r2
-              (* return r2 *)))
+              cache d cache_key r2))
     | Var (Ident x, l) -> (
-        let cache_key = (expr, sigma, vid, sid) in
+        let cache_key = Cache_key.Ekey (expr, sigma, vid, sid) in
         match Map.find c cache_key with
         | Some r when caching ->
             debug (fun m ->
@@ -208,8 +193,7 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
               debug (fun m -> m "Stubbed");
               info (fun m ->
                   m "[Level %d] *** Var (%a) ***" d Interp.Pp.pp_expr expr);
-              cache d cache_key (single_res (EStubAtom cycle_label))
-              (* return (single_res (EStubAtom cycle_label)) *))
+              cache d cache_key (single_res (EStubAtom cycle_label)))
             else (
               debug (fun m -> m "Didn't stub");
               match get_myfun l with
@@ -262,7 +246,6 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                             m "[Level %d] *** Var (%a) ***" d Interp.Pp.pp_expr
                               expr);
                         cache d cache_key r1
-                        (* return r1 *)
                     | _ -> raise Unreachable [@coverage off])
                   else (
                     (* Var Non-Local *)
@@ -284,9 +267,7 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                                 Interp.Pp.pp_expr expr);
                           info (fun m ->
                               m "[Level %d] *** Var (%s, %d) ***" d x l);
-                          cache d (e1, sigma, sid, vid)
-                            (single_res (EStubAtom (e1, sigma)))
-                          (* return (single_res (EStubAtom (e1, sigma))) *))
+                          cache d cache_key (single_res (EStubAtom (e1, sigma))))
                         else
                           let sigma_tl = List.tl_exn sigma in
                           debug (fun m -> m "Begin stitching stacks");
@@ -359,7 +340,6 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                           let r2 = elim_stub r2 (St.Estate cycle_label) in
                           debug (fun m -> m "[Var Non-Local] r2: %a" Res.pp r2);
                           cache d cache_key r2
-                        (* return r2 *)
                     | _ -> raise Unreachable [@coverage off])
               | _ -> raise Unreachable [@coverage off]))
     | If (e, e_true, e_false, l) -> (
@@ -459,7 +439,7 @@ let analyze ?(caching = true) e =
   let empty_s = Set.empty (module Sigma) in
 
   let start_time = Stdlib.Sys.time () in
-  let r, { sids; freqs; _ } =
+  let r, { sids; _ } =
     analyze_aux ~caching 0 e []
       { v = empty_v; vids = Map.singleton (module V) empty_v 0 }
       {
@@ -467,7 +447,6 @@ let analyze ?(caching = true) e =
         s = empty_s;
         sids = Map.singleton (module S) empty_s 1;
         cnt = 2;
-        freqs = Map.empty (module Freq_key);
       }
   in
   let end_time = Stdlib.Sys.time () in
@@ -475,9 +454,7 @@ let analyze ?(caching = true) e =
 
   debug (fun m -> m "Result: %a" Res.pp r);
 
-  (* debug (fun m -> m "freqs:");
-     log_freqs freqs;
-     debug (fun m -> m "sids:");
+  (* debug (fun m -> m "sids:");
      log_sids sids ~size:false; *)
   clean_up ();
 

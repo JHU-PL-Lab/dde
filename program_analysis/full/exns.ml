@@ -1,3 +1,4 @@
 exception Unreachable
-exception BadAssert
+exception Bad_assert
 exception Runtime_error
+exception Verification_error of string

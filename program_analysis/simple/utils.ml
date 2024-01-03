@@ -195,51 +195,31 @@ end
 
 module Cache_key = struct
   module T = struct
-    type t = expr * sigma * int * int [@@deriving compare, sexp]
-    (* type t = expr * sigma * int [@@deriving compare, sexp] *)
+    type lkey = int * sigma * int * int [@@deriving compare, sexp]
+    type ekey = expr * sigma * int * int [@@deriving compare, sexp]
+    type t = Lkey of lkey | Ekey of ekey [@@deriving compare, sexp]
 
-    let pp fmt (expr, sigma, vid, sid) =
+    let pp_lkey fmt (l, sigma, vid, sid) =
+      Format.fprintf fmt "(%d, %a, %d, %d)" l Sigma.pp sigma vid sid
+
+    let show_lkey (l, sigma, vid, sid) =
+      Format.asprintf "(%d, %a, %d, %d)" l Sigma.pp sigma vid sid
+
+    let pp_ekey fmt (expr, sigma, vid, sid) =
       Format.fprintf fmt "(%a, %a, %d, %d)" Interp.Pp.pp_expr expr Sigma.pp
         sigma vid sid
 
-    let show (expr, sigma, vid, sid) =
+    let show_ekey (expr, sigma, vid, sid) =
       Format.asprintf "(%a, %a, %d, %d)" Interp.Pp.pp_expr expr Sigma.pp sigma
         vid sid
 
-    (* let pp fmt (expr, sigma, sid) =
-         Format.fprintf fmt "(%a, %a, %d)" Interp.Pp.pp_expr expr Sigma.pp sigma
-           sid
+    let pp fmt = function
+      | Lkey lkey -> pp_lkey fmt lkey
+      | Ekey ekey -> pp_ekey fmt ekey
 
-       let show (expr, sigma, sid) =
-         Format.asprintf "(%a, %a, %d)" Interp.Pp.pp_expr expr Sigma.pp sigma sid *)
-
-    (*
-               type lkey = int * sigma * int * int [@@deriving compare, sexp]
-       type ekey = expr * sigma * int * int [@@deriving compare, sexp]
-       type t = Lkey of lkey | Ekey of ekey [@@deriving compare, sexp]
-
-       let pp_lkey fmt (l, sigma, vid, sid) =
-         Format.fprintf fmt "(%d, %a, %d, %d)" l Sigma.pp sigma vid sid
-
-       let show_lkey (l, sigma, vid, sid) =
-         Format.asprintf "(%d, %a, %d, %d)" l Sigma.pp sigma vid sid
-
-       let pp_ekey fmt (expr, sigma, vid, sid) =
-         Format.fprintf fmt "(%a, %a, %d, %d)" Interp.Pp.pp_expr expr Sigma.pp
-           sigma vid sid
-
-       let show_ekey (expr, sigma, vid, sid) =
-         Format.asprintf "(%a, %a, %d, %d)" Interp.Pp.pp_expr expr Sigma.pp sigma
-           vid sid
-
-       let pp fmt = function
-         | Lkey lkey -> pp_lkey fmt lkey
-         | Ekey ekey -> pp_ekey fmt ekey
-
-       let show = function
-         | Lkey lkey -> show_lkey lkey
-         | Ekey ekey -> show_ekey ekey
-    *)
+    let show = function
+      | Lkey lkey -> show_lkey lkey
+      | Ekey ekey -> show_ekey ekey
   end
 
   include T
@@ -255,9 +235,8 @@ module ReaderState = struct
     type cache = Res.t Map.M(Cache_key).t
     type vids = int Map.M(V).t
     type sids = int Map.M(S).t
-    type freqs = int Map.M(Freq_key).t
     type env = { v : V.t; vids : vids }
-    type state = { s : S.t; c : cache; freqs : freqs; sids : sids; cnt : int }
+    type state = { s : S.t; c : cache; sids : sids; cnt : int }
     type 'a t = env -> state -> 'a * state
 
     let return (a : 'a) : 'a t = fun _ st -> (a, st)
@@ -294,18 +273,6 @@ module ReaderState = struct
       ((), { st with s; sids = sids'; cnt = cnt' })
 
     let set_cache c : unit t = fun _ st -> ((), { st with c })
-
-    let inc_freq freq_key : unit t =
-     fun _ ({ freqs; _ } as st) ->
-      let freqs' =
-        match Map.find freqs freq_key with
-        | None -> Map.add_exn freqs ~key:freq_key ~data:1
-        | Some freq ->
-            Map.add_exn
-              (Map.remove freqs freq_key)
-              ~key:freq_key ~data:(freq + 1)
-      in
-      ((), { st with freqs = freqs' })
   end
 
   include T
@@ -334,31 +301,19 @@ let suffixes l sigma s =
 (** max recursion depth ever reached by execution *)
 let max_d = ref 0
 
-let log_freqs ?(sort = true) freqs =
-  freqs |> Map.to_alist |> fun freqs ->
-  (if not sort then freqs
-   else
-     List.sort freqs ~compare:(fun (_, freq1) (_, freq2) ->
-         Int64.descending freq1 freq2))
-  |> List.iter ~f:(fun ((e, sigma, vid, sid), freq) ->
-         debug (fun m ->
-             m "(%a, %a, %s, %s) -> %Ld\n" Interp.Pp.pp_expr e pp_sigma sigma
-               vid sid freq))
-
 let log_vids ?(size = false) ?(sort = false) vids =
   vids |> Map.to_alist |> fun vids ->
   (if not sort then vids
    else
-     List.sort vids ~compare:(fun (_, id1) (_, id2) ->
-         String.descending id1 id2))
+     List.sort vids ~compare:(fun (_, id1) (_, id2) -> Int.descending id1 id2))
   |> List.iter ~f:(fun (key, data) ->
-         if size then debug (fun m -> m "%d -> %s\n" (Set.length key) data)
-         else debug (fun m -> m "%a -> %s\n" V.pp key data))
+         if size then debug (fun m -> m "%d -> %d\n" (Set.length key) data)
+         else debug (fun m -> m "%a -> %d\n" V.pp key data))
 
 let log_sids ?(size = false) =
   Map.iteri ~f:(fun ~key ~data ->
-      if size then debug (fun m -> m "%d -> %s\n" (Set.length key) data)
-      else debug (fun m -> m "%a -> %s\n" S.pp key data))
+      if size then debug (fun m -> m "%d -> %d\n" (Set.length key) data)
+      else debug (fun m -> m "%a -> %d\n" S.pp key data))
 
 let bool_tf_res = Set.of_list (module Res_key) [ BoolAtom true; BoolAtom false ]
 

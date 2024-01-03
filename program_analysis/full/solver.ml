@@ -1,53 +1,8 @@
 open Core
 open Z3
 open Utils
+open Exns
 
-exception Unreachable
-exception BadAssert
-
-let res_to_id = Hashtbl.create (module Tmp_res_key)
-let atom_to_id = Hashtbl.create (module Atom)
-let fresh_id = ref (-1)
-
-let idr r =
-  Format.sprintf "P%d"
-    (Hashtbl.find_or_add res_to_id r ~default:(fun () ->
-         incr fresh_id;
-         !fresh_id))
-
-let ida a =
-  let data =
-    (* any well-formed pairs of labeled result and stub is
-       such that the latter must have already been visited
-       by the time we get to the former *)
-    match a with
-    | Atom.LResAtom (_, st) -> (
-        match Hashtbl.find atom_to_id (LStubAtom st) with
-        | Some id -> Some id
-        (* if a stub is not found, then `a` is not involved
-           in any cycle *)
-        | None -> Hashtbl.find atom_to_id a)
-    | EResAtom (_, st) -> (
-        match Hashtbl.find atom_to_id (EStubAtom st) with
-        | Some id -> Some id
-        | None -> Hashtbl.find atom_to_id a)
-    | _ -> Hashtbl.find atom_to_id a
-  in
-  let id =
-    match data with
-    | Some id ->
-        (* still add an entry; won't change the table if
-           key already exists *)
-        ignore (Hashtbl.add atom_to_id ~key:a ~data:id);
-        id
-    | None ->
-        incr fresh_id;
-        Hashtbl.add_exn atom_to_id ~key:a ~data:!fresh_id;
-        !fresh_id
-  in
-  Format.sprintf "P%d" id
-
-let id_to_decl = Hashtbl.create (module String)
 let ctx = mk_context []
 let isort = Arithmetic.Integer.mk_sort ctx
 let bsort = Boolean.mk_sort ctx
@@ -75,37 +30,149 @@ let ( |. ) vars body =
   Quantifier.expr_of_quantifier
     (Quantifier.mk_forall_const ctx vars body None [] [] None None)
 
-let solver = Solver.mk_solver_s ctx "HORN"
-let chcs = Hash_set.create (module Z3ExprKey)
-let list_of_chcs () = Hash_set.to_list chcs
-let entry_decl = ref None
+module Rids_key = struct
+  module T = struct
+    type t = Res.t [@@deriving compare, sexp]
+  end
 
-let find_or_add aid sort =
-  match Hashtbl.find id_to_decl aid with
-  (* TODO: does the same leaf atom need to be assigned different predicates? *)
-  | Some pa -> pa
-  | None ->
-      let pa = zdecl aid [ sort ] bsort in
-      Hashtbl.add_exn id_to_decl ~key:aid ~data:pa;
-      pa
+  include T
+  include Comparable.Make (T)
+end
 
-let reset () =
-  Hashtbl.clear res_to_id;
-  Hashtbl.clear atom_to_id;
-  Hashtbl.clear id_to_decl;
-  Hash_set.clear chcs;
-  Solver.reset solver;
-  entry_decl := None;
-  fresh_id := -1
+module Aids_key = struct
+  module T = struct
+    type t = Atom.t [@@deriving compare, sexp]
+  end
+
+  include T
+  include Comparable.Make (T)
+end
+
+module Chcs_key = struct
+  module T = struct
+    open Z3
+
+    type t = Expr.expr
+
+    let compare = Expr.compare
+    let sexp_of_t e = e |> Expr.ast_of_expr |> AST.to_sexpr |> Sexp.of_string
+    let t_of_sexp s = failwith "unimplemented"
+  end
+
+  include T
+  include Comparable.Make (T)
+end
+
+module State = struct
+  module T = struct
+    type state = {
+      rids : string Map.M(Rids_key).t;
+      aids : string Map.M(Aids_key).t;
+      chcs : Core.Set.M(Chcs_key).t;
+      decls : FuncDecl.func_decl String.Map.t;
+      cnt : int;
+      entry_decl : FuncDecl.func_decl Option.t;
+    }
+
+    type 'a t = state -> 'a * state
+
+    let return (a : 'a) : 'a t = fun st -> (a, st)
+
+    let bind (m : 'a t) ~(f : 'a -> 'b t) : 'b t =
+     fun st ->
+      let a, st' = m st in
+      f a st'
+
+    let map = `Define_using_bind
+    let get () : state t = fun st -> (st, st)
+
+    let get_rid r : string t =
+     fun ({ rids; cnt; _ } as st) ->
+      match Map.find rids r with
+      | Some rid -> (rid, st)
+      | None ->
+          let rid = Format.sprintf "P%d" cnt in
+          let rids' = Map.add_exn rids ~key:r ~data:rid in
+          (rid, { st with rids = rids'; cnt = cnt + 1 })
+
+    let get_aid a : string t =
+     fun ({ aids; cnt; _ } as st) ->
+      let data =
+        (* any well-formed cycle is such that the stub must
+           have already been visited before the labeled result *)
+        match a with
+        | Atom.LResAtom (_, st) -> (
+            match Map.find aids (LStubAtom st) with
+            | Some id -> Some id
+            (* if no stub , then `a` doesn't start a cycle *)
+            | None -> Map.find aids a)
+        | EResAtom (_, st) -> (
+            match Map.find aids (EStubAtom st) with
+            | Some id -> Some id
+            | None -> Map.find aids a)
+        | _ -> Map.find aids a
+      in
+      match data with
+      | Some id ->
+          let aids' = Map.add_exn (Map.remove aids a) ~key:a ~data:id in
+          (id, { st with aids = aids' })
+      | None ->
+          let aid = Format.sprintf "P%d" cnt in
+          let aids' = Map.add_exn aids ~key:a ~data:aid in
+          (aid, { st with aids = aids'; cnt = cnt + 1 })
+
+    let add_chc e : unit t =
+     fun ({ chcs; _ } as st) -> ((), { st with chcs = Core.Set.add chcs e })
+
+    let find_decl aid sort : FuncDecl.func_decl t =
+     fun ({ decls; _ } as st) ->
+      match Map.find decls aid with
+      | Some pa -> (pa, st)
+      | None ->
+          let pa = zdecl aid [ sort ] bsort in
+          let decls' = Map.add_exn decls ~key:aid ~data:pa in
+          (pa, { st with decls = decls' })
+
+    let add_decl aid decl : unit t =
+     fun ({ decls; _ } as st) ->
+      match Map.find decls aid with
+      | Some _ -> ((), st)
+      | None -> ((), { st with decls = Map.add_exn decls ~key:aid ~data:decl })
+
+    let get_decl aid : FuncDecl.func_decl t =
+     fun ({ decls; _ } as st) -> (Map.find_exn decls aid, st)
+
+    let set_entry decl : unit t =
+     fun st -> ((), { st with entry_decl = Some decl })
+
+    let run (m : 'a t) =
+      m
+        {
+          rids = Map.empty (module Rids_key);
+          aids = Map.empty (module Aids_key);
+          chcs = Core.Set.empty (module Chcs_key);
+          decls = String.Map.empty;
+          cnt = 0;
+          entry_decl = None;
+        }
+  end
+
+  include T
+  include Monad.Make (T)
+end
+
+open State
+open State.Let_syntax
 
 (** can assume good form due to call to `eval_assert` *)
-let chcs_of_assert r1 (r2 : Interp.Ast.res_val_fv) =
-  let p = Hashtbl.find_exn id_to_decl (idr r1) in
+let chcs_of_assert r1 (r2 : Interp.Ast.res_val_fv) : unit T.t =
+  let%bind r1id = get_rid r1 in
+  let%bind p = get_decl r1id in
   let ri = zconst "r" isort in
   let rb = zconst "r" bsort in
   match r2 with
-  | BoolResFv b -> Hash_set.add chcs ([ ri ] |. (p <-- [ ri ]) --> zbool b)
-  | VarResFv id' -> Hash_set.add chcs ([ rb ] |. (p <-- [ rb ]) --> rb === ztrue)
+  | BoolResFv b -> add_chc ([ ri ] |. (p <-- [ ri ]) --> zbool b)
+  | VarResFv id' -> add_chc ([ rb ] |. (p <-- [ rb ]) --> rb === ztrue)
   | EqResFv (v1, IntResFv i)
   | GeResFv (v1, IntResFv i)
   | GtResFv (v1, IntResFv i)
@@ -121,51 +188,56 @@ let chcs_of_assert r1 (r2 : Interp.Ast.res_val_fv) =
         | _ -> raise Unreachable
       in
       match v1 with
-      | VarResFv _ ->
-          Hash_set.add chcs ([ ri ] |. (p <-- [ ri ]) --> op ri (zint i))
+      | VarResFv _ -> add_chc ([ ri ] |. (p <-- [ ri ]) --> op ri (zint i))
       | ProjResFv (VarResFv _, Ident x) ->
-          let p =
+          let%bind p =
             let r1_hd = List.hd_exn r1 in
             match r1_hd with
-            | Atom.RecAtom _ -> Hashtbl.find_exn id_to_decl (ida r1_hd ^ "_" ^ x)
+            | Atom.RecAtom _ ->
+                let%bind r1_hd_id = get_aid r1_hd in
+                get_decl (r1_hd_id ^ "_" ^ x)
             | LResAtom ([ a ], _) ->
-                Hashtbl.find_exn id_to_decl (ida a ^ "_" ^ x)
+                let%bind aid = get_aid a in
+                get_decl (aid ^ "_" ^ x)
             | _ -> raise Unreachable
           in
-          Hash_set.add chcs ([ ri ] |. (p <-- [ ri ]) --> op ri (zint i))
+          add_chc ([ ri ] |. (p <-- [ ri ]) --> op ri (zint i))
       | _ -> raise Unreachable)
-  | NotResFv _ ->
-      Hash_set.add chcs ([ rb ] |. (p <-- [ rb ]) --> (rb === zfalse))
-  | _ -> raise BadAssert
+  | NotResFv _ -> add_chc ([ rb ] |. (p <-- [ rb ]) --> (rb === zfalse))
+  | _ -> raise Bad_assert
 
-let rec cond pis =
-  if List.is_empty pis then ([], ztrue)
+let rec cond pis : 'a T.t =
+  if List.is_empty pis then return ([], ztrue)
   else
-    let conjs =
-      List.foldi pis
-        ~f:(fun i conjs (r, b) ->
+    let%bind conjs =
+      List.foldi pis ~init:(return ztrue) ~f:(fun i conjs (r, b) ->
+          let%bind conjs = conjs in
           let c = zconst (Format.sprintf "c%d" i) bsort in
-          let pr = zdecl (idr r) [ bsort ] bsort in
-          pr <-- [ c ] &&& (c === zbool b) &&& conjs)
-        ~init:ztrue
+          let%bind rid = get_rid r in
+          let pr = zdecl rid [ bsort ] bsort in
+          return (pr <-- [ c ] &&& (c === zbool b) &&& conjs))
     in
-    (List.mapi pis ~f:(fun i _ -> zconst (Format.sprintf "c%d" i) bsort), conjs)
+    return
+      ( List.mapi pis ~f:(fun i _ -> zconst (Format.sprintf "c%d" i) bsort),
+        conjs )
 
 and chcs_of_atom ?(pis = []) ?(stub_sort = isort)
-    ?(p = Core.Set.empty (module St)) a =
+    ?(p = Core.Set.empty (module St)) a : unit T.t =
   match a with
   | Atom.IntAtom i ->
-      let cond_quants, cond_body = cond pis in
-      let pa = find_or_add (ida a) isort in
+      let%bind cond_quants, cond_body = cond pis in
+      let%bind aid = get_aid a in
+      let%bind pa = find_decl aid isort in
       let body = pa <-- [ zint i ] in
-      Hash_set.add chcs
+      add_chc
         (if List.is_empty cond_quants then body
          else cond_quants |. cond_body --> body)
   | BoolAtom b ->
-      let cond_quants, cond_body = cond pis in
-      let pa = find_or_add (ida a) bsort in
+      let%bind cond_quants, cond_body = cond pis in
+      let%bind aid = get_aid a in
+      let%bind pa = find_decl aid bsort in
       let body = pa <-- [ zbool b ] in
-      Hash_set.add chcs
+      add_chc
         (if List.is_empty cond_quants then body
          else cond_quants |. cond_body --> body)
   | PlusAtom (r1, r2)
@@ -178,7 +250,9 @@ and chcs_of_atom ?(pis = []) ?(stub_sort = isort)
   | GtAtom (r1, r2)
   | LeAtom (r1, r2)
   | LtAtom (r1, r2) ->
-      let aid, rid1, rid2 = (ida a, idr r1, idr r2) in
+      let%bind aid = get_aid a in
+      let%bind r1id = get_rid r1 in
+      let%bind r2id = get_rid r2 in
       let is_int_arith =
         match a with
         | PlusAtom _ | MinusAtom _ | MultAtom _ -> true
@@ -207,31 +281,30 @@ and chcs_of_atom ?(pis = []) ?(stub_sort = isort)
         | _ -> bsort
       in
       let pr1, pr2 =
-        (zdecl rid1 [ param_sort ] bsort, zdecl rid2 [ param_sort ] bsort)
+        (zdecl r1id [ param_sort ] bsort, zdecl r2id [ param_sort ] bsort)
       in
       let r1_, r2_ = (zconst "r1" param_sort, zconst "r2" param_sort) in
-      ignore
-        ( Hashtbl.add id_to_decl ~key:aid ~data:pa,
-          Hashtbl.add id_to_decl ~key:rid1 ~data:pr1,
-          Hashtbl.add id_to_decl ~key:rid2 ~data:pr2 );
-      let cond_quants, cond_body = cond pis in
-      chcs_of_res r1 ~pis ~stub_sort:param_sort ~p;
-      chcs_of_res r2 ~pis ~stub_sort:param_sort ~p;
-      Hash_set.add chcs
+      let%bind () = add_decl aid pa in
+      let%bind () = add_decl r1id pr1 in
+      let%bind () = add_decl r2id pr2 in
+      let%bind cond_quants, cond_body = cond pis in
+      let%bind () = chcs_of_res r1 ~pis ~stub_sort:param_sort ~p in
+      let%bind () = chcs_of_res r2 ~pis ~stub_sort:param_sort ~p in
+      add_chc
         (r1_ :: r2_ :: cond_quants
         |. (pr1 <-- [ r1_ ] &&& (pr2 <-- [ r2_ ]) &&& cond_body)
            --> (pa <-- [ zop r1_ r2_ ]))
   | NotAtom r ->
-      let aid, rid = (ida a, idr r) in
+      let%bind aid = get_aid a in
+      let%bind rid = get_rid r in
       let pa = zdecl aid [ bsort ] bsort in
       let pr = zdecl rid [ bsort ] bsort in
       let r_ = zconst "r" bsort in
-      ignore
-        ( Hashtbl.add id_to_decl ~key:aid ~data:pa,
-          Hashtbl.add id_to_decl ~key:rid ~data:pr );
-      let cond_quants, cond_body = cond pis in
-      chcs_of_res r ~pis ~stub_sort:bsort ~p;
-      Hash_set.add chcs
+      let%bind () = add_decl aid pa in
+      let%bind () = add_decl rid pr in
+      let%bind cond_quants, cond_body = cond pis in
+      let%bind () = chcs_of_res r ~pis ~stub_sort:bsort ~p in
+      add_chc
         ((r_ :: cond_quants |. (pr <-- [ r_ ]) &&& cond_body)
         --> (pa <-- [ znot r_ ]))
   | LResAtom (r, st) ->
@@ -239,143 +312,134 @@ and chcs_of_atom ?(pis = []) ?(stub_sort = isort)
          the concrete disjuncts, which is sound on any proper,
          terminating programs. *)
       let p = Core.Set.add p (St.Lstate st) in
-      let sort =
-        List.fold r ~init:None ~f:(fun t a ->
-            (* this may assign an ID for stub to be later inherited by
-               its enclosing res atom but will trigger a lookup failure
-               (caught) at stub's (non-existent) Z3 decl *)
-            chcs_of_atom a ~pis ~stub_sort ~p;
-            match Hashtbl.find id_to_decl (ida a) with
-            | Some pa ->
-                (* TODO: assert that all disjuncts are of the same type *)
-                Some (pa |> FuncDecl.get_domain |> List.hd_exn)
-            | None -> t (* should hit this case at least once *))
-        |> function
-        | Some t -> t
-        | None ->
-            Format.printf "%a\n" Res.pp r;
-            raise Unreachable
+      let%bind sort =
+        match%bind
+          List.fold r ~init:(return None) ~f:(fun t a ->
+              (* this may assign an ID for stub to be later inherited by
+                 its enclosing res atom but will trigger a lookup failure
+                 (caught) at stub's (non-existent) Z3 decl *)
+              let%bind () = chcs_of_atom a ~pis ~stub_sort ~p in
+              let%bind aid = get_aid a in
+              let%bind { decls; _ } = get () in
+              match Map.find decls aid with
+              | Some pa ->
+                  let%bind _ = t in
+                  (* TODO: assert that all disjuncts are of the same type *)
+                  return (Some (pa |> FuncDecl.get_domain |> List.hd_exn))
+              | None -> t (* should hit this case at least once *))
+        with
+        | Some t -> return t
+        | None -> raise Unreachable
       in
-      let aid = ida a in
+      let%bind aid = get_aid a in
       let pa = zdecl aid [ sort ] bsort in
-      ignore (Hashtbl.add id_to_decl ~key:aid ~data:pa);
-      let rid = idr r in
+      let%bind () = add_decl aid pa in
+      let%bind rid = get_rid r in
       let pr = zdecl rid [ sort ] bsort in
-      ignore (Hashtbl.add id_to_decl ~key:rid ~data:pr);
+      let%bind () = add_decl rid pr in
       (* most of this is repetitive work, but necessary *)
-      chcs_of_res r ~pis ~stub_sort ~p;
+      let%bind () = chcs_of_res r ~pis ~stub_sort ~p in
       let r_ = zconst "r" sort in
-      Hash_set.add chcs ([ r_ ] |. (pr <-- [ r_ ]) --> (pa <-- [ r_ ]))
+      add_chc ([ r_ ] |. (pr <-- [ r_ ]) --> (pa <-- [ r_ ]))
   | EResAtom (r, st) ->
       let p = Core.Set.add p (St.Estate st) in
-      let sort =
-        List.fold r ~init:None ~f:(fun t a ->
-            chcs_of_atom a ~pis ~stub_sort ~p;
-            match Hashtbl.find id_to_decl (ida a) with
-            | Some pa ->
-                (* TODO: assert that all disjuncts are of the same type *)
-                Some (pa |> FuncDecl.get_domain |> List.hd_exn)
-            | None -> t)
-        |> function
-        | Some t -> t
+      let%bind sort =
+        match%bind
+          List.fold r ~init:(return None) ~f:(fun t a ->
+              let%bind () = chcs_of_atom a ~pis ~stub_sort ~p in
+              let%bind aid = get_aid a in
+              let%bind { decls; _ } = get () in
+              match Map.find decls aid with
+              | Some pa ->
+                  let%bind _ = t in
+                  (* TODO: assert that all disjuncts are of the same type *)
+                  return (Some (pa |> FuncDecl.get_domain |> List.hd_exn))
+              | None -> t)
+        with
+        | Some t -> return t
         | None ->
             Format.printf "%a\n" Res.pp r;
             raise Unreachable
       in
-      let aid = ida a in
+      let%bind aid = get_aid a in
       let pa = zdecl aid [ sort ] bsort in
-      ignore (Hashtbl.add id_to_decl ~key:aid ~data:pa);
-      let rid = idr r in
+      let%bind () = add_decl aid pa in
+      let%bind rid = get_rid r in
       let pr = zdecl rid [ sort ] bsort in
-      ignore (Hashtbl.add id_to_decl ~key:rid ~data:pr);
-      chcs_of_res r ~pis ~stub_sort ~p;
+      let%bind () = add_decl rid pr in
+      let%bind () = chcs_of_res r ~pis ~stub_sort ~p in
       let r_ = zconst "r" sort in
-      Hash_set.add chcs ([ r_ ] |. (pr <-- [ r_ ]) --> (pa <-- [ r_ ]))
+      add_chc ([ r_ ] |. (pr <-- [ r_ ]) --> (pa <-- [ r_ ]))
   | PathCondAtom (((r, _) as pi), r0) -> (
       (* generate CHCs for current path condition using
          the previous path conditions *)
-      chcs_of_res r ~pis ~stub_sort ~p;
-      chcs_of_res r0 ~pis:(pi :: pis) ~stub_sort ~p;
+      let%bind () = chcs_of_res r ~pis ~stub_sort ~p in
+      let%bind () = chcs_of_res r0 ~pis:(pi :: pis) ~stub_sort ~p in
       (* chcs_of_res r0 ~pis ~stub_sort; *)
       (* point self at the same decl *)
-      match Hashtbl.find id_to_decl (idr r0) with
-      | Some decl -> ignore (Hashtbl.add id_to_decl ~key:(ida a) ~data:decl)
-      | None -> ())
-  | FunAtom _ -> ()
+      let%bind r0id = get_rid r0 in
+      let%bind { decls; _ } = get () in
+      match Map.find decls r0id with
+      | Some decl ->
+          let%bind aid = get_aid a in
+          add_decl aid decl
+      | None -> return ())
+  | FunAtom _ -> return ()
   | LStubAtom ((l, s) as st) ->
-      let aid = ida a in
+      let%bind aid = get_aid a in
       let pa = zdecl aid [ stub_sort ] bsort in
-      ignore (Hashtbl.add id_to_decl ~key:aid ~data:pa);
+      let%bind () = add_decl aid pa in
       if not (Core.Set.mem p (St.Lstate st)) then
-        (* Format.printf "lstub: %s\n" aid; *)
         let r_ = zconst "r" stub_sort in
-        Hash_set.add chcs ([ r_ ] |. (pa <-- [ r_ ]))
+        add_chc ([ r_ ] |. (pa <-- [ r_ ]))
+      else return ()
   | EStubAtom ((e, s) as st) ->
-      let aid = ida a in
+      let%bind aid = get_aid a in
       let pa = zdecl aid [ stub_sort ] bsort in
-      ignore (Hashtbl.add id_to_decl ~key:aid ~data:pa);
+      let%bind () = add_decl aid pa in
       if not (Core.Set.mem p (St.Estate st)) then
-        (* Format.printf "estub: %s\n" aid; *)
         let r_ = zconst "r" stub_sort in
-        Hash_set.add chcs ([ r_ ] |. (pa <-- [ r_ ]))
+        add_chc ([ r_ ] |. (pa <-- [ r_ ]))
+      else return ()
   | AssertAtom (id, r1, r2) ->
-      chcs_of_res r1 ~pis ~stub_sort ~p;
+      let%bind () = chcs_of_res r1 ~pis ~stub_sort ~p in
       chcs_of_assert r1 r2
   (* records are good for: subsumes shape analysis *)
-  | RecAtom _ -> ()
+  | RecAtom _ -> return ()
   | ProjAtom _ | InspAtom _ -> raise Unreachable
 
 and chcs_of_res ?(pis = []) ?(stub_sort = isort)
-    ?(p = Core.Set.empty (module St)) r =
-  let rid = idr r in
-  List.iter r ~f:(fun a ->
-      chcs_of_atom a ~pis ~stub_sort ~p;
-      let aid = ida a in
-      let cond_quants, cond_body = cond pis in
-      match Hashtbl.find id_to_decl aid with
+    ?(p = Core.Set.empty (module St)) r : unit T.t =
+  let%bind rid = get_rid r in
+  List.fold r ~init:(return ()) ~f:(fun acc a ->
+      let%bind () = chcs_of_atom a ~pis ~stub_sort ~p in
+      let%bind aid = get_aid a in
+      let%bind cond_quants, cond_body = cond pis in
+      let%bind { decls; _ } = get () in
+      match Map.find decls aid with
       | Some pa ->
+          let%bind _ = acc in
           let dom = FuncDecl.get_domain pa in
           let pr = zdecl rid dom bsort in
           (* at if conditions, the root assertion is always P0 *)
-          if String.(rid = "P0") then entry_decl := Some pr;
-          ignore (Hashtbl.add id_to_decl ~key:rid ~data:pr);
+          let%bind () =
+            if String.(rid = "P0") then set_entry pr else return ()
+          in
+          let%bind () = add_decl rid pr in
           let r = zconst "r" (List.hd_exn dom) in
           (* TODO: add flag to leave all path conditions out *)
-          Hash_set.add chcs
+          add_chc
             (r :: cond_quants |. (pa <-- [ r ] &&& cond_body) --> (pr <-- [ r ]))
-      | None ->
-          (* AssertAtom *)
-          (* Format.printf "%a\n" Grammar.pp_atom a *)
-          ())
+      (* AssertAtom *)
+      | None -> acc)
 
 let verify_result r =
-  (* let solver = Z3.Solver.mk_solver_s ctx "HORN" in *)
-  chcs_of_res r;
-  (* Format.printf "atom_to_id\n";
-     Hashtbl.iteri atom_to_id ~f:(fun ~key ~data ->
-         Format.printf "%a -> %d\n" pp_atom key data);
-     Format.printf "res_to_id\n";
-     Hashtbl.iteri res_to_id ~f:(fun ~key ~data ->
-         Format.printf "%a -> %d\n" pp_res key data); *)
-  let chcs = list_of_chcs () in
+  let solver = Solver.mk_solver_s ctx "HORN" in
+  let (), { chcs; _ } = run (chcs_of_res r) in
+  let chcs = Core.Set.elements chcs in
   Z3.Solver.add solver chcs;
-
-  (* let start = Stdlib.Sys.time () in *)
-  let status = Z3.Solver.check solver [] in
-
-  (* Format.printf "verification time: %f\n" (Stdlib.Sys.time () -. start); *)
-  (* List.iter chcs ~f:(fun chc -> Format.printf "%s\n" (Z3.Expr.to_string chc)); *)
-  (* solver |> Z3.Solver.to_string |> Format.printf "Solver:\n%s"; *)
-  match status with
-  | SATISFIABLE ->
-      (* Format.printf "sat" *)
-      (* let model = solver |> Z3.Solver.get_model |> Core.Option.value_exn in
-         model |> Z3.Model.to_string |> pf "Model:\n%s\n\n"; *)
-      (* solver |> Z3.Solver.to_string |> Format.printf "Solver:\n%s"; *)
-      reset ()
+  match Z3.Solver.check solver [] with
+  | SATISFIABLE -> ()
   | UNSATISFIABLE ->
-      reset ();
-      failwith "unsat"
-  | UNKNOWN ->
-      reset ();
-      failwith "unknown"
+      raise (Verification_error "unsat: result doesn't satisfy constraint")
+  | UNKNOWN -> raise (Verification_error "Z3 gives unknown")

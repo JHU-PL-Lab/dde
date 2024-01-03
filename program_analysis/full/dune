@@ -6,7 +6,7 @@
  (instrumentation
   (backend bisect_ppx --bisect-file _build/bisect))
  (modules lib utils solver simplifier graph debug_utils exns)
- (libraries dde.interp hashset core z3 logs logs.fmt))
+ (libraries dde.interp core z3 logs logs.fmt))
 
 (executable
  (name main)

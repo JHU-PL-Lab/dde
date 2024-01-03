@@ -29,7 +29,7 @@ module rec Latom : sig
     | LProjAtom of Lres.t * ident
     | LInspAtom of ident * Lres.t
     | LAssertAtom of ident * Lres.t * Interp.Ast.res_val_fv
-  [@@deriving hash, sexp, compare, show { with_path = false }]
+  [@@deriving sexp, compare, show { with_path = false }]
 
   val mk : Atom.t -> t
   val get_symbol : t -> string
@@ -58,7 +58,7 @@ end = struct
     | LProjAtom of Lres.t * ident
     | LInspAtom of ident * Lres.t
     | LAssertAtom of ident * Lres.t * Interp.Ast.res_val_fv
-  [@@deriving hash, sexp, compare, show { with_path = false }]
+  [@@deriving sexp, compare, show { with_path = false }]
 
   let rec pp fmt = function
     | Latom.LIntAtom (x, _) -> ff fmt "%d" x
@@ -130,10 +130,9 @@ end = struct
         LPathCondAtom ((Lres.mk r_cond, b), Lres.mk r)
     | LStubAtom st -> LLStubAtom (st, get_next_label ())
     | EStubAtom st -> LEStubAtom (st, get_next_label ())
-    | RecAtom entries ->
+    | RecAtom es ->
         LRecAtom
-          ( List.map entries ~f:(fun (id, r) -> (id, Lres.mk r)),
-            get_next_label () )
+          (List.map es ~f:(fun (id, r) -> (id, Lres.mk r)), get_next_label ())
     | ProjAtom (r, id) -> LProjAtom (Lres.mk r, id)
     | _ as a ->
         Format.printf "%a" Atom.pp a;
@@ -155,13 +154,11 @@ end = struct
 end
 
 and Lres : sig
-  type t = Latom.t list
-  [@@deriving hash, sexp, compare, show { with_path = false }]
+  type t = Latom.t list [@@deriving sexp, compare, show { with_path = false }]
 
   val mk : Res.t -> t
 end = struct
-  type t = Latom.t list
-  [@@deriving hash, sexp, compare, show { with_path = false }]
+  type t = Latom.t list [@@deriving sexp, compare, show { with_path = false }]
 
   let rec pp fmt = function
     | [] -> ()
@@ -173,7 +170,7 @@ end
 
 module Latom_key = struct
   module T = struct
-    type t = Latom.t [@@deriving hash, sexp, compare]
+    type t = Latom.t [@@deriving sexp, compare]
   end
 
   include T
@@ -182,7 +179,7 @@ end
 
 module Lres_key = struct
   module T = struct
-    type t = Lres.t [@@deriving hash, sexp, compare]
+    type t = Lres.t [@@deriving sexp, compare]
   end
 
   include T
@@ -330,13 +327,13 @@ end
 open State
 open State.Let_syntax
 
-let dot_of_result ?(display_path_cond = true) test_num r =
+let dot_of_result ?(display_path_cond = true) r =
   let r = Lres.mk r in
   (* p is the parent *atom* of a *)
   (* l is the label of the enclosing labeled result, if any *)
   (* any cycle (particularly its start) should be unique in
      each path condition subtree *)
-  let rec dot_of_atom a p pid pr cycles : 'a T.t =
+  let rec dot_of_atom a p pid pr cycles : unit T.t =
     let%bind aid = get_aid a in
     match a with
     | LIntAtom (i, _) -> add_node (Format.sprintf "%s [label=\"%d\"];" aid i)
@@ -455,13 +452,14 @@ let dot_of_result ?(display_path_cond = true) test_num r =
           |> Format.sprintf "%s [label=\"%s\", shape=\"record\"]" aid
           |> add_node
     | _ -> raise Unreachable
-  and dot_of_res r p pid pr pl : 'a T.t =
+  and dot_of_res r p pid pr pl : unit T.t =
     let%bind rid = get_rid r in
     match p with
     | None ->
         if List.length r = 1 then dot_of_atom (List.hd_exn r) None None None pl
         else
-          List.fold r ~init:(return ()) ~f:(fun _ a ->
+          List.fold r ~init:(return ()) ~f:(fun acc a ->
+              let%bind _ = acc in
               let%bind () = dot_of_atom a None None (Some r) pl in
               add_node
                 (Format.sprintf "%s [label=\"|\", shape=\"diamond\"];" rid))
@@ -470,13 +468,15 @@ let dot_of_result ?(display_path_cond = true) test_num r =
         match p with
         | LLResAtom _ | LEResAtom _ ->
             let%bind () = remove_edge pid' rid in
-            List.fold r ~init:(return ()) ~f:(fun _ -> function
-              | LPathCondAtom _ as a -> dot_of_atom a (Some p) pid None pl
-              | a ->
-                  let%bind aid = get_aid a in
-                  let%bind () = add_edge pid' aid in
-                  let%bind () = add_sibling pid' aid in
-                  dot_of_atom a (Some p) pid None pl)
+            List.fold r ~init:(return ()) ~f:(fun acc a ->
+                let%bind _ = acc in
+                match a with
+                | LPathCondAtom _ -> dot_of_atom a (Some p) pid None pl
+                | _ ->
+                    let%bind aid = get_aid a in
+                    let%bind () = add_edge pid' aid in
+                    let%bind () = add_sibling pid' aid in
+                    dot_of_atom a (Some p) pid None pl)
         | LRecAtom _ ->
             if List.length r = 1 then
               let a = List.hd_exn r in
@@ -492,20 +492,23 @@ let dot_of_result ?(display_path_cond = true) test_num r =
                   let%bind () = add_edge pid aid in
                   dot_of_atom a (Some p) (Some pid) None pl
             else
-              List.fold r ~init:(return ()) ~f:(fun _ -> function
-                | LPathCondAtom _ as a ->
-                    let%bind () = dot_of_atom a (Some p) pid (Some r) pl in
-                    add_node
-                      (Format.sprintf "%s [label=\"|\", shape=\"diamond\"];" rid)
-                | a ->
-                    let%bind () = dot_of_atom a (Some p) pid (Some r) pl in
-                    let%bind () =
+              List.fold r ~init:(return ()) ~f:(fun acc a ->
+                  let%bind _ = acc in
+                  match a with
+                  | LPathCondAtom _ ->
+                      let%bind () = dot_of_atom a (Some p) pid (Some r) pl in
                       add_node
                         (Format.sprintf "%s [label=\"|\", shape=\"diamond\"];"
                            rid)
-                    in
-                    let%bind aid = get_aid a in
-                    add_edge rid aid)
+                  | _ ->
+                      let%bind () = dot_of_atom a (Some p) pid (Some r) pl in
+                      let%bind () =
+                        add_node
+                          (Format.sprintf "%s [label=\"|\", shape=\"diamond\"];"
+                             rid)
+                      in
+                      let%bind aid = get_aid a in
+                      add_edge rid aid)
         | _ ->
             let%bind () = add_sibling pid' rid in
             if List.length r = 1 then
@@ -524,14 +527,15 @@ let dot_of_result ?(display_path_cond = true) test_num r =
               (* needs to be called last to remove edges to PathCondAtoms *)
               dot_of_atom a (Some p) pid None pl
             else
-              List.fold r ~init:(return ()) ~f:(fun _ a ->
+              List.fold r ~init:(return ()) ~f:(fun acc a ->
+                  let%bind _ = acc in
                   let%bind () = dot_of_atom a (Some p) pid (Some r) pl in
                   add_node
                     (Format.sprintf "%s [label=\"|\", shape=\"diamond\"];" rid))
         )
   in
 
-  let (), { nodes; edges; edge_props; _ } =
+  let (), { nodes; edges; edge_props; siblings; _ } =
     dot_of_res r None None None
       (Map.empty (module St))
       {
@@ -546,7 +550,7 @@ let dot_of_result ?(display_path_cond = true) test_num r =
   in
   let nodes_str = nodes |> Set.elements |> String.concat ~sep:"\n" in
   (* let ranks_str =
-       Hashtbl.fold siblings ~init:"" ~f:(fun ~key ~data acc ->
+       Map.fold siblings ~init:"" ~f:(fun ~key ~data acc ->
            (* https://stackoverflow.com/questions/44274518/how-can-i-control-within-level-node-order-in-graphvizs-dot/44274606#44274606 *)
            let rank2 = Format.sprintf "%s_rank2" key in
            if Set.length data = 1 then acc
@@ -571,8 +575,7 @@ let dot_of_result ?(display_path_cond = true) test_num r =
             in
             Format.sprintf "%s\n%s -> %s %s" acc key n props))
   in
-  let dot_file = Format.sprintf "graph%d.dot" test_num in
-  Out_channel.write_all dot_file
+  Out_channel.write_all "graph.dot"
     ~data:
       (Format.sprintf
          "digraph G {\n\

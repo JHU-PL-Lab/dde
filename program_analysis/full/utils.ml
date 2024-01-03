@@ -5,7 +5,7 @@ let ff = Format.fprintf
 
 module Sigma = struct
   module T = struct
-    type t = sigma [@@deriving compare, sexp, show { with_path = false }, hash]
+    type t = sigma [@@deriving compare, sexp, show { with_path = false }]
   end
 
   include T
@@ -15,13 +15,13 @@ end
 module St = struct
   module T = struct
     type lstate = int * sigma
-    [@@deriving compare, sexp, hash, show { with_path = false }]
+    [@@deriving compare, sexp, show { with_path = false }]
 
     type estate = expr * sigma
-    [@@deriving compare, sexp, hash, show { with_path = false }]
+    [@@deriving compare, sexp, show { with_path = false }]
 
     type t = Lstate of lstate | Estate of estate
-    [@@deriving compare, sexp, hash, show { with_path = false }]
+    [@@deriving compare, sexp, show { with_path = false }]
   end
 
   include T
@@ -30,7 +30,7 @@ end
 
 module S = struct
   module T = struct
-    type t = Set.M(Sigma).t [@@deriving compare, sexp, hash]
+    type t = Set.M(Sigma).t [@@deriving compare, sexp]
 
     let pp fmt (s : t) =
       s |> Set.elements |> List.map ~f:Sigma.show |> String.concat ~sep:", "
@@ -47,7 +47,7 @@ end
 
 module V_key = struct
   module T = struct
-    type lstate = int * sigma * int [@@deriving compare, sexp, hash]
+    type lstate = int * sigma * int [@@deriving compare, sexp]
 
     let pp_lstate fmt (l, sigma, sid) =
       Format.fprintf fmt "(%d, %a, %d)" l Sigma.pp sigma sid
@@ -55,7 +55,7 @@ module V_key = struct
     let show_lstate (l, sigma, sid) =
       Format.sprintf "(%d, %s, %d)" l (Sigma.show sigma) sid
 
-    type estate = expr * sigma * int [@@deriving compare, sexp, hash]
+    type estate = expr * sigma * int [@@deriving compare, sexp]
 
     let pp_estate fmt (e, sigma, sid) =
       Format.fprintf fmt "(%a, %a, %d)" Interp.Pp.pp_expr e Sigma.pp sigma sid
@@ -63,8 +63,7 @@ module V_key = struct
     let show_estate (e, sigma, sid) =
       Format.asprintf "(%a, %s, %d)" Interp.Ast.pp_expr e (Sigma.show sigma) sid
 
-    type t = Lstate of lstate | Estate of estate
-    [@@deriving compare, sexp, hash]
+    type t = Lstate of lstate | Estate of estate [@@deriving compare, sexp]
 
     let pp fmt (k : t) =
       match k with
@@ -81,7 +80,7 @@ end
 
 module V = struct
   module T = struct
-    type t = Set.M(V_key).t [@@deriving compare, sexp, hash]
+    type t = Set.M(V_key).t [@@deriving compare, sexp]
 
     let pp fmt (v : t) =
       v |> Set.elements |> List.map ~f:V_key.show |> String.concat ~sep:", "
@@ -121,7 +120,7 @@ module rec Atom : sig
     | ProjAtom of Res.t * ident
     | InspAtom of ident * Res.t
     | AssertAtom of ident * Res.t * res_val_fv
-  [@@deriving hash, sexp, compare]
+  [@@deriving sexp, compare]
 
   val pp : Format.formatter -> t -> unit
 end = struct
@@ -149,7 +148,7 @@ end = struct
     | ProjAtom of Res.t * ident
     | InspAtom of ident * Res.t
     | AssertAtom of ident * Res.t * res_val_fv
-  [@@deriving hash, sexp, compare]
+  [@@deriving sexp, compare]
 
   let rec pp_record fmt = function
     | [] -> ()
@@ -199,12 +198,12 @@ end = struct
 end
 
 and Res : sig
-  type t = Atom.t list [@@deriving hash, sexp, compare]
+  type t = Atom.t list [@@deriving sexp, compare]
 
   val pp : Format.formatter -> t -> unit
   val show : t -> string
 end = struct
-  type t = Atom.t list [@@deriving hash, sexp, compare]
+  type t = Atom.t list [@@deriving sexp, compare]
 
   let rec pp_aux fmt = function
     | [] -> ()
@@ -217,16 +216,16 @@ end = struct
 end
 
 type pi = (Res.t * bool) option
-[@@deriving hash, sexp, compare, show { with_path = false }]
+[@@deriving sexp, compare, show { with_path = false }]
 
 module Res_key : sig
-  type t = Atom.t [@@deriving hash, compare, sexp]
+  type t = Atom.t [@@deriving compare, sexp]
   type comparator_witness
 
   val comparator : (t, comparator_witness) Comparator.t
 end = struct
   module T = struct
-    type t = Atom.t [@@deriving hash, compare, sexp]
+    type t = Atom.t [@@deriving compare, sexp]
   end
 
   include T
@@ -235,40 +234,33 @@ end
 
 module Cache_key = struct
   module T = struct
-    type t = expr * sigma * int * int * pi [@@deriving hash, compare, sexp]
+    type lkey = int * sigma * int * int * pi [@@deriving compare, sexp]
+    type ekey = expr * sigma * int * int * pi [@@deriving compare, sexp]
+    type t = Lkey of lkey | Ekey of ekey [@@deriving compare, sexp]
 
-    let pp fmt (expr, sigma, vid, sid, pi) =
+    let pp_lkey fmt (l, sigma, vid, sid, pi) =
+      Format.fprintf fmt "(%d, %a, %d, %d, %a)" l Sigma.pp sigma vid sid pp_pi
+        pi
+
+    let show_lkey (l, sigma, vid, sid, pi) =
+      Format.asprintf "(%d, %a, %d, %d, %s)" l Sigma.pp sigma vid sid
+        (show_pi pi)
+
+    let pp_ekey fmt (expr, sigma, vid, sid, pi) =
       Format.fprintf fmt "(%a, %a, %d, %d, %a)" Interp.Pp.pp_expr expr Sigma.pp
         sigma vid sid pp_pi pi
 
-    let show (expr, sigma, vid, sid, pi) =
+    let show_ekey (expr, sigma, vid, sid, pi) =
       Format.asprintf "(%a, %a, %d, %d, %s)" Interp.Pp.pp_expr expr Sigma.pp
         sigma vid sid (show_pi pi)
-  end
 
-  include T
-  include Comparable.Make (T)
-end
+    let pp fmt = function
+      | Lkey lkey -> pp_lkey fmt lkey
+      | Ekey ekey -> pp_ekey fmt ekey
 
-module Tmp_res_key = struct
-  module T = struct
-    type t = Res.t [@@deriving hash, compare, sexp]
-  end
-
-  include T
-  include Comparable.Make (T)
-end
-
-module Z3ExprKey = struct
-  module T = struct
-    open Z3
-
-    type t = Expr.expr
-
-    let compare = Expr.compare
-    let sexp_of_t e = e |> Expr.ast_of_expr |> AST.to_sexpr |> Sexp.of_string
-    let t_of_sexp s = failwith "unimplemented"
-    let hash e = e |> Expr.ast_of_expr |> AST.hash
+    let show = function
+      | Lkey lkey -> show_lkey lkey
+      | Ekey ekey -> show_ekey ekey
   end
 
   include T
