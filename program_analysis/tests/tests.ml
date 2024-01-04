@@ -56,11 +56,6 @@ let currying_thunked =
 
 let test_currying _ = gen_test currying_thunked
 
-(* TODO: add input atom (random integer); check DDSE benchmarks;
-   forall x. true *)
-(* TODO: use record for variants and other DS: trees, list *)
-(* TODO: PL assignment examples, e.g. array multiplications *)
-(* TODO: Racket/Van Horn examples *)
 let recursion_thunked =
   [
     (fun _ -> ("(1 + (1 + ((1 + ((1 + stub) | 0)) | 0)))", pau' recursion.(0)));
@@ -223,10 +218,10 @@ let ddpa_simple_thunked =
          ( "Int | 18 | 19 | 20 | stub",
            pau' ~name:"loop2-1" (read_input "loop2-1.ml") ));
        (fun _ -> ("2", pau' ~name:"mj09" (read_input "mj09.ml"))); *)
-    (* (fun _ ->
-       ( "{ hd = 8; tl = { hd = 9 | 10; tl = {} | { hd = 9 | 10; tl = {} | { hd \
-          = 9 | 10; tl = stub } } } }",
-         pau' ~name:"map" (read_input "map.ml") )); *)
+    (fun _ ->
+      ( "{ hd = 8; tl = { hd = 9 | 10; tl = {} | { hd = 9 | 10; tl = {} | { hd \
+         = 9 | 10; tl = stub } } } }",
+        pau' ~name:"map" (read_input "map.ml") ));
     (* (fun _ -> ("15", pau' ~name:"primtest" (read_input "primtest.ml"))); *)
     (* (fun _ -> ("false", pau' ~name:"rsa" (read_input "rsa.ml"))); *)
     (* (fun _ -> ("false | true", pau' ~name:"sat-1" (read_input "sat-1.ml"))); *)
@@ -234,7 +229,7 @@ let ddpa_simple_thunked =
     (* (fun _ -> ("false | true", pau' ~name:"sat-3" (read_input "sat-3.ml"))); *)
     (* (fun _ -> ("false | true", pau' ~name:"sat-4" (read_input "sat-4.ml"))); *)
     (* (fun _ -> ("true", pau' ~name:"sat-5" (read_input "sat-5.ml"))); *)
-    (fun _ -> ("Int | 2", pau' ~name:"ack" (read_input "ack.ml")));
+    (* (fun _ -> ("Int | 2", pau' ~name:"ack" (read_input "ack.ml"))); *)
     (* (fun _ -> ("stub", pau' ~name:"mack" (read_input "mack.ml"))); *)
     (* (fun _ -> ("15", pau' ~name:"tak" (read_input "tak.ml"))); *)
     (* (fun _ ->
@@ -258,8 +253,8 @@ let test_pa =
     (* "Lists" >:: test_lists; *)
     (* "pruned_d" >:: test_prune_d; *)
     (* "Polynomial" >:: test_poly; *)
-    (* "DDPA (simple)" >: test_long test_ddpa_simple; *)
-    "DDPA (full)" >: test_long test_ddpa;
+    "DDPA (simple)" >: test_long test_ddpa_simple;
+    (* "DDPA (full)" >: test_long test_ddpa; *)
     (* "DDPA (display)" >: test_long test_ddpa_display; *)
   ]
 
@@ -303,8 +298,4 @@ let _ =
     (fun _ -> ())
     "";
 
-  (* Format.printf "report_runtime: %b\n" !Utils.report_runtime; *)
   run_test_tt_main tests
-
-(* TODO: more tests, more projections than available *)
-(* TODO: functions in records (Point, ColorPoint from class), 99 problems OCaml redblack trees *)

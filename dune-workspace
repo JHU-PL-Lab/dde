@@ -6,5 +6,3 @@
  (_
   (flags
    (:standard -w -27-33-39))))
-
-(instrument_with bisect_ppx)

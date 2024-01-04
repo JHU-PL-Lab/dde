@@ -6,8 +6,6 @@
 
 (using coq 0.7)
 
-(generate_opam_files true)
-
 (authors "JHU PL Lab <scott@cs.jhu.edu>")
 
 (maintainers "JHU PL Lab <scott@cs.jhu.edu>")
@@ -29,12 +27,12 @@
    (>= 20220210))
   (ounit2
    (>= 2.2.7))
-  ; (core
-  ;  (= 0.15.1))
-  ; (core_unix
-  ;  (= 0.15.2))
-  ; (core_bench
-  ;  (= 0.15.0))
+  (core
+   (= 0.15.1))
+  (core_unix
+   (= 0.15.2))
+  (core_bench
+   (= 0.15.0))
   (ppx_let
    (>= 0.15.0))
   (ppx_deriving

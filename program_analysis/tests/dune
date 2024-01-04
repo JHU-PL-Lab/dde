@@ -1,20 +1,12 @@
 (test
  (name tests)
+ (deps
+  (source_tree cases))
  (modules test_cases tests bench utils)
  (libraries
   core
   core_bench
   core_unix.command_unix
-  dde.interp
   dde.pa
   dde.simple_pa
   ounit2))
-
-; (rule
-;  ;  (alias test)
-;  (target adapted2.ml)
-;  (deps progs/adapted2.ml)
-;  (action
-;   (copy# %{deps} %{target})))
-
-(data_only_dirs progs)
