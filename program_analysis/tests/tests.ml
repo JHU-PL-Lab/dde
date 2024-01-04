@@ -12,8 +12,6 @@ let basic_thunked =
     (fun _ -> ("(1 + 2)", pau basic.(2)));
   ]
 
-let test_basic _ = gen_test basic_thunked
-
 let nonlocal_lookup_thunked =
   [
     (fun _ -> ("(1 + 2)", pau nonlocal_lookup.(0)));
@@ -21,16 +19,12 @@ let nonlocal_lookup_thunked =
     (fun _ -> ("((3 + 1) + 2)", pau nonlocal_lookup.(2)));
   ]
 
-let test_nonlocal_lookup _ = gen_test nonlocal_lookup_thunked
-
+(* stack stitching is also needed at Var Local *)
 let local_stitching_thunked =
   [
     (fun _ -> ("((1 + 1) + (1 + 1))", pau local_stitching.(0)));
     (fun _ -> ("((0 + 1) + 2)", pau local_stitching.(1)));
   ]
-
-(* stack stitching is also needed at Var Local *)
-let test_local_stitching _ = gen_test local_stitching_thunked
 
 let conditional_thunked =
   [
@@ -40,8 +34,6 @@ let conditional_thunked =
     (* (fun _ -> ("1", pau  conditional.(3))); *)
     (* (fun _ -> ("false", pau  conditional.(4))); *)
   ]
-
-let test_conditional _ = gen_test conditional_thunked
 
 let currying_thunked =
   [
@@ -53,8 +45,6 @@ let currying_thunked =
       ( "(((((1 + 1) + (1 + 2)) + (1 + 3)) + (1 + 4)) + (1 + 5))",
         pau currying.(4) ));
   ]
-
-let test_currying _ = gen_test currying_thunked
 
 let recursion_thunked =
   [
@@ -92,8 +82,6 @@ let recursion_thunked =
          pau   recursion.(13) )); *)
   ]
 
-let test_recursion _ = gen_test recursion_thunked
-
 let church_basic_thunked =
   [
     (fun _ -> ("(0 + 1)", pau church_basic.(0)));
@@ -102,8 +90,6 @@ let church_basic_thunked =
     (fun _ -> ("((((0 + 1) + 1) + 1) + 1)", pau church_basic.(3)));
   ]
 
-let test_church_basic _ = gen_test church_basic_thunked
-
 let church_binop_thunked =
   [
     (* (fun _ -> ("(0 + 1)", pau  church_binop.(0))); *)
@@ -111,8 +97,6 @@ let church_binop_thunked =
     (fun _ -> ("", pau church_binop.(2)));
     (* (fun _ -> ("", pau   church_binop.(3))); *)
   ]
-
-let test_church_binop _ = gen_test church_binop_thunked
 
 let lists_thunked =
   [
@@ -123,8 +107,6 @@ let lists_thunked =
     (* (fun _ -> ("", pau'   lists.(4))); *)
     (* (fun _ -> ("", pau'   lists.(5))); *)
   ]
-
-let test_lists _ = gen_test lists_thunked
 
 let poly_thunked =
   [
@@ -159,8 +141,6 @@ let poly_thunked =
           "let fact = fun self -> fun n -> if n = 0 then 1 else n * self self \
            (n - 1) in fact fact 100" ));
   ]
-
-let test_poly _ = gen_test poly_thunked
 
 let ddpa_thunked =
   [
@@ -203,8 +183,6 @@ let ddpa_thunked =
     (* (fun _ -> ("", pau  ~name:"cpstak" (read_input "cpstak.ml"))); *)
   ]
 
-let test_ddpa _ = gen_test ddpa_thunked
-
 let ddpa_simple_thunked =
   [
     (* (fun _ -> ("Int | 2 | 3", pau' ~name:"id" recursion.(0))); *)
@@ -218,16 +196,16 @@ let ddpa_simple_thunked =
          ( "Int | 18 | 19 | 20 | stub",
            pau' ~name:"loop2-1" (read_input "loop2-1.ml") ));
        (fun _ -> ("2", pau' ~name:"mj09" (read_input "mj09.ml"))); *)
-    (fun _ ->
-      ( "{ hd = 8; tl = { hd = 9 | 10; tl = {} | { hd = 9 | 10; tl = {} | { hd \
-         = 9 | 10; tl = stub } } } }",
-        pau' ~name:"map" (read_input "map.ml") ));
+    (* (fun _ ->
+       ( "{ hd = 8; tl = { hd = 9 | 10; tl = {} | { hd = 9 | 10; tl = {} | { hd \
+          = 9 | 10; tl = stub } } } }",
+         pau' ~name:"map" (read_input "map.ml") )); *)
     (* (fun _ -> ("15", pau' ~name:"primtest" (read_input "primtest.ml"))); *)
     (* (fun _ -> ("false", pau' ~name:"rsa" (read_input "rsa.ml"))); *)
     (* (fun _ -> ("false | true", pau' ~name:"sat-1" (read_input "sat-1.ml"))); *)
     (* (fun _ -> ("false | true", pau' ~name:"sat-2" (read_input "sat-2.ml"))); *)
     (* (fun _ -> ("false | true", pau' ~name:"sat-3" (read_input "sat-3.ml"))); *)
-    (* (fun _ -> ("false | true", pau' ~name:"sat-4" (read_input "sat-4.ml"))); *)
+    (fun _ -> ("false | true", pau' ~name:"sat-4" (read_input "sat-4.ml")));
     (* (fun _ -> ("true", pau' ~name:"sat-5" (read_input "sat-5.ml"))); *)
     (* (fun _ -> ("Int | 2", pau' ~name:"ack" (read_input "ack.ml"))); *)
     (* (fun _ -> ("stub", pau' ~name:"mack" (read_input "mack.ml"))); *)
@@ -237,7 +215,24 @@ let ddpa_simple_thunked =
          pau' ~name:"cpstak" (read_input "cpstak.ml") )); *)
   ]
 
+let custom_thunked =
+  [ (* (fun _ ->
+       ( "your test result",
+         pau ~name:"your test name" (read_input "your_test.ml") )); *) ]
+
+let test_basic _ = gen_test basic_thunked
+let test_nonlocal_lookup _ = gen_test nonlocal_lookup_thunked
+let test_local_stitching _ = gen_test local_stitching_thunked
+let test_conditional _ = gen_test conditional_thunked
+let test_currying _ = gen_test currying_thunked
+let test_recursion _ = gen_test recursion_thunked
+let test_church_basic _ = gen_test church_basic_thunked
+let test_church_binop _ = gen_test church_binop_thunked
+let test_lists _ = gen_test lists_thunked
+let test_poly _ = gen_test poly_thunked
+let test_ddpa _ = gen_test ddpa_thunked
 let test_ddpa_simple _ = gen_test ddpa_simple_thunked
+let test_custom _ = gen_test custom_thunked
 
 let test_pa =
   [
@@ -255,7 +250,7 @@ let test_pa =
     (* "Polynomial" >:: test_poly; *)
     "DDPA (simple)" >: test_long test_ddpa_simple;
     (* "DDPA (full)" >: test_long test_ddpa; *)
-    (* "DDPA (display)" >: test_long test_ddpa_display; *)
+    (* "Custom" >: test_long test_custom; *)
   ]
 
 let tests_thunked = ddpa_simple_thunked
@@ -273,7 +268,6 @@ let enable_logging log_file =
 let _ =
   Arg.parse
     [
-      ("--bench", Arg.Unit (fun _ -> Bench.run tests_thunked), "Run benchmarks");
       ("--log", Arg.Unit (fun _ -> enable_logging "logs"), "Log to default file");
       ("-log", Arg.String enable_logging, "Log to custom file");
       ( "--runtime",
@@ -294,8 +288,8 @@ let _ =
       ( "--graph",
         Arg.Unit (fun _ -> Pa.Debug_utils.graph := true),
         "Visualize final result" );
+      ("--bench", Arg.Unit (fun _ -> Bench.run tests_thunked), "Run benchmarks");
     ]
-    (fun _ -> ())
-    "";
+    Fn.ignore "Program analysis tests";
 
   run_test_tt_main tests

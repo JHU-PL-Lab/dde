@@ -36,9 +36,7 @@ let memo_cache = Hashtbl.create 10000
 (* laziness + memoization *)
 let rec eval_aux e sigma ~should_cache =
   match Hashtbl.find_opt memo_cache (e, sigma) with
-  | Some res when should_cache ->
-      (* Format.printf "cache hit\n"; *)
-      res
+  | Some res when should_cache -> res
   | _ ->
       let eval_res =
         match e with
@@ -117,9 +115,7 @@ let rec eval_aux e sigma ~should_cache =
             | RecordResult entries ->
                 BoolResult (List.exists (fun (x', _) -> x = x') entries)
             | _ -> raise TypeMismatch)
-        | LetAssert (_, e, _) ->
-            (* TODO: still assert *)
-            eval_aux e sigma ~should_cache
+        | LetAssert (_, e, _) -> eval_aux e sigma ~should_cache
         | Let _ -> raise Unreachable
       in
       if should_cache then Hashtbl.replace memo_cache (e, sigma) eval_res;

@@ -155,11 +155,8 @@ let tests =
        ]
 
 let () =
-  (* let out_file = Core.Out_channel.create "logs" in
-     Logs.set_reporter
-       (Logs_fmt.reporter ~dst:(Format.formatter_of_out_channel out_file) ());
-     Logs.set_level (Some Logs.Debug); *)
-  let bench = ref false in
-  Arg.parse [ ("--bench", Arg.Set bench, "run benchmarks") ] (fun _ -> ()) "";
-  (* if !bench then Bench.fib_bench (); *)
+  Arg.parse
+    [ ("--bench", Arg.Unit (fun _ -> Bench.fib_bench ()), "run benchmarks") ]
+    (fun _ -> ())
+    "";
   run_test_tt_main tests

@@ -1,7 +1,7 @@
 (test
  (name tests)
- (deps
-  (source_tree cases))
+ ; (deps
+ ;  (source_tree cases))
  (modules test_cases tests bench utils)
  (libraries
   core
