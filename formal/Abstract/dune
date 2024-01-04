@@ -1,4 +1,0 @@
-(coq.theory
- (name DDE.Abstract)
- (modules Pure AllPaths Common)
- (theories DDE.Common))

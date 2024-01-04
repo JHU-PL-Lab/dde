@@ -348,7 +348,7 @@ let rec analyze_aux ?(caching = true) d expr sigma pi : Res.t T.t =
                         let r1 = Set.elements r1 in
                         let r1 = elim_stub r1 (St.Estate cycle_label) in
                         cache cache_key [ EResAtom (r1, cycle_label) ]
-                    | _ -> raise Unreachable [@coverage off])
+                    | _ -> raise Unreachable)
                   else (
                     (* Var Non-Local *)
                     info (fun m ->
@@ -433,8 +433,8 @@ let rec analyze_aux ?(caching = true) d expr sigma pi : Res.t T.t =
                           let r2 = elim_stub r2 (St.Estate cycle_label) in
                           (* let r2 = [ EResAtom (r2, stub_key) ] in *)
                           cache cache_key r2
-                    | _ -> raise Unreachable [@coverage off])
-              | _ -> raise Unreachable [@coverage off]))
+                    | _ -> raise Unreachable)
+              | _ -> raise Unreachable))
     | If (e, e_true, e_false, l) -> (
         (* let r_true, s_true = analyze_aux ~caching d e_true sigma None s v in
            info (fun m -> m "Evaluating: %a" Interpreter.Pp.pp_expr e_false);
@@ -518,7 +518,7 @@ let rec analyze_aux ?(caching = true) d expr sigma pi : Res.t T.t =
             | Gt _ -> GtAtom (r1, r2)
             | Le _ -> LeAtom (r1, r2)
             | Lt _ -> LtAtom (r1, r2)
-            | _ -> raise Unreachable [@coverage off]);
+            | _ -> raise Unreachable);
           ]
     | Not e ->
         let%bind r = analyze_aux ~caching d e sigma pi in
@@ -542,7 +542,7 @@ let rec analyze_aux ?(caching = true) d expr sigma pi : Res.t T.t =
         let%bind r1 = analyze_aux ~caching d e1 sigma pi in
         let r2 = eval_assert e2 id in
         return [ AssertAtom (id, r1, r2) ]
-    | Let _ -> raise Unreachable [@coverage off]
+    | Let _ -> raise Unreachable
   in
   return (simplify r)
 

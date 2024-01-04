@@ -2,9 +2,7 @@
  (name interp)
  (public_name dde.interp)
  (preprocess
-  (pps ppx_deriving.show bisect_ppx ppx_jane))
- (instrumentation
-  (backend bisect_ppx --bisect-file _build/bisect))
+  (pps ppx_deriving.show ppx_jane))
  (modules lexer parser ast lib pp debugutils)
  (libraries core))
 

@@ -131,57 +131,6 @@ let lists_thunked =
 
 let test_lists _ = gen_test lists_thunked
 
-let test_prune_d _ =
-  let open Dinterp.Ast in
-  let open Dinterp.Interp in
-  let open Display_pa.Lib in
-  assert_equal ((0, DNil) => DNil) (prune_d ((0, DNil) => DNil));
-  assert_equal
-    ((0, (1, DNil) => DNil) => DNil)
-    (prune_d ((0, (1, DNil) => DNil) => DNil));
-  assert_equal
-    ((0, (1, DNil) => DNil) => DNil)
-    (prune_d ((0, (1, (2, DNil) => DNil) => DNil) => DNil));
-  (* [ 0^[ 1^[ 2 ], 3^[ 3 ] ] ] -> [ 0^[ 1, 3^[ 3 ] ] ] *)
-  assert_equal
-    ((0, (1, DNil) => ((3, DNil) => DNil)) => DNil)
-    (prune_d ((0, (1, (2, DNil) => DNil) => ((3, DNil) => DNil)) => DNil));
-  assert_equal true (matches_d ((0, DNil) => DNil) ((1, DNil) => DNil));
-  assert_equal true
-    (matches_d ((0, DNil) => DNil) ((1, (2, DNil) => DNil) => DNil));
-  assert_equal false
-    (matches_d ((1, (2, DNil) => DNil) => DNil) ((0, DNil) => DNil));
-  assert_equal
-    ~printer:(Format.asprintf "%a" Dinterp.Pp.pp_d)
-    ((0, (1, DNil) => ((3, DNil) => DNil)) => DNil)
-    (prune_d ((0, DNil) => ((1, DNil) => ((2, DNil) => ((3, DNil) => DNil)))))
-
-let ddpa_display_thunked =
-  [
-    (* (fun _ -> ("true", pau'' (read_input "blur.ml"))); *)
-    (* (fun _ -> ("false", pau'' (read_input "eta.ml"))); *)
-    (* (fun _ -> ("false", pau'' (read_input "kcfa2.ml"))); *)
-    (* (fun _ -> ("false", pau'' (read_input "kcfa3.ml"))); *)
-    (* (fun _ -> ("Int", pau'' (read_input "mj09.ml"))); *)
-    (* (fun _ ->
-       ( "{ hd = Int; tl = { hd = Int; tl = { hd = Int; tl = { hd = Int; tl = \
-          stub } | {} } | {} } }",
-         pau'' (read_input "map.ml") )); *)
-    (* (fun _ -> ("Int", pau'' (read_input "facehugger.ml"))); *)
-    (* (fun _ -> ("false | true", pau'' (read_input "sat-1.ml"))); *)
-    (fun _ -> ("Int", pau'' (read_input "primtest.ml")));
-    (* (fun _ -> ("Int", pau'' (read_input "loop2-1.ml"))); *)
-    (* (fun _ -> ("Int", pau'' (read_input "loop2'.ml"))); *)
-    (* (fun _ -> ("true", pau'' (read_input "sat-2.ml"))); *)
-    (* (fun _ -> ("true", pau'' (read_input "sat-3.ml"))); *)
-    (* (fun _ -> ("(false | true)", pau'' (read_input "rsa.ml"))); *)
-    (* (fun _ -> ("Int", pau'' (read_input "ack.ml"))); *)
-    (* (fun _ -> ("Int", pau'' (read_input "tak.ml"))); *)
-    (* (fun _ -> ("Int", pau'' (read_input "fact.ml"))); *)
-  ]
-
-let test_ddpa_display _ = gen_test ddpa_display_thunked
-
 let poly_thunked =
   [
     (* (fun _ ->
@@ -220,7 +169,7 @@ let test_poly _ = gen_test poly_thunked
 
 let ddpa_thunked =
   [
-    (* (fun _ -> ("(3 + (1 + stub) | 0) | 2", pau ~name:"id" recursion.(0))); *)
+    (fun _ -> ("(3 + (1 + stub) | 0) | 2", pau ~name:"id" recursion.(0)));
     (* (fun _ -> ("true", pau  ~name:"blur" (read_input "blur.ml")));
        (fun _ -> ("false", pau  ~name:"eta" (read_input "eta.ml")));
        (fun _ ->
@@ -250,7 +199,7 @@ let ddpa_thunked =
     (* (fun _ -> ("15", pau ~name:"primtest" (read_input "primtest.ml"))); *)
     (* (fun _ -> ("false", pau  ~name:"rsa" (read_input "rsa.ml"))); *)
     (* (fun _ -> ("", pau  ~name:"church" (read_input "church.ml"))); *)
-    (fun _ -> ("(false | true)", pau ~name:"sat-1" (read_input "sat-1.ml")));
+    (* (fun _ -> ("(false | true)", pau ~name:"sat-1" (read_input "sat-1.ml"))); *)
     (* (fun _ -> ("(false | true)", pau ~name:"sat-2" (read_input "sat-2.ml"))); *)
     (* (fun _ -> ("(false | true)", pau ~name:"sat-3" (read_input "sat-3.ml"))); *)
     (* (fun _ -> ("(false | true)", pau ~name:"sat-5" (read_input "sat-5.ml"))); *)
@@ -350,7 +299,6 @@ let _ =
       ( "--graph",
         Arg.Unit (fun _ -> Pa.Debug_utils.graph := true),
         "Visualize final result" );
-      (* ("--pbt", Arg.Unit (fun _ -> Pbt.run ()), "Run property-based tests"); *)
     ]
     (fun _ -> ())
     "";

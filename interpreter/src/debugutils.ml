@@ -1,5 +1,3 @@
-[@@@coverage off]
-
 let is_debug_mode = ref false
 let should_simplify = ref false
 let eval = Lib.eval

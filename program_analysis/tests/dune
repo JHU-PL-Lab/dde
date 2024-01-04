@@ -1,15 +1,13 @@
 (test
  (name tests)
- (modules test_cases tests pbt bench utils)
+ (modules test_cases tests bench utils)
  (libraries
   core
   core_bench
   core_unix.command_unix
   dde.interp
-  dde.dinterp
   dde.pa
   dde.simple_pa
-  dde.display_pa
   ounit2))
 
 ; (rule

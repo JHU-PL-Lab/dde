@@ -13,35 +13,28 @@ type ident =
 [@@deriving show { with_path = false }, quickcheck, compare, sexp, hash]
 
 type expr =
-  | Int of int [@quickcheck.weight 0.05]
-  | Bool of bool [@quickcheck.weight 0.05]
-  | Function of ident * expr * int [@quickcheck.weight 0.05]
-  | Var of ident * int [@quickcheck.weight 0.2]
-  | Appl of
-      expr
-      (*[@quickcheck.generator
-        Generator.filter quickcheck_generator_expr ~f:(function
-          | Function _ | Appl _ | If _ | Var _ -> true
-          | _ -> false)]*)
-      * expr
-      * int [@quickcheck.weight 0.3]
-  | Plus of expr * expr [@quickcheck.weight 0.05]
-  | Minus of expr * expr [@quickcheck.weight 0.05]
-  | Mult of expr * expr [@quickcheck.weight 0.05]
-  | Eq of expr * expr [@quickcheck.weight 0.05]
-  | And of expr * expr [@quickcheck.weight 0.05]
-  | Or of expr * expr [@quickcheck.weight 0.05]
-  | Ge of expr * expr [@quickcheck.weight 0.05]
-  | Gt of expr * expr [@quickcheck.weight 0.05]
-  | Le of expr * expr [@quickcheck.weight 0.05]
-  | Lt of expr * expr [@quickcheck.weight 0.05]
-  | Not of expr [@quickcheck.weight 0.05]
-  | If of expr * expr * expr * int [@quickcheck.weight 0.05]
-  | Let of ident * expr * expr * int [@quickcheck.do_not_generate]
-  | LetAssert of ident * expr * expr [@quickcheck.do_not_generate]
-  | Record of (ident * expr) list [@quickcheck.do_not_generate]
-  | Projection of expr * ident [@quickcheck.do_not_generate]
-  | Inspection of ident * expr [@quickcheck.do_not_generate]
+  | Int of int
+  | Bool of bool
+  | Function of ident * expr * int
+  | Var of ident * int
+  | Appl of expr * expr * int
+  | Plus of expr * expr
+  | Minus of expr * expr
+  | Mult of expr * expr
+  | Eq of expr * expr
+  | And of expr * expr
+  | Or of expr * expr
+  | Ge of expr * expr
+  | Gt of expr * expr
+  | Le of expr * expr
+  | Lt of expr * expr
+  | Not of expr
+  | If of expr * expr * expr * int
+  | Let of ident * expr * expr * int
+  | LetAssert of ident * expr * expr
+  | Record of (ident * expr) list
+  | Projection of expr * ident
+  | Inspection of ident * expr
 [@@deriving show { with_path = false }, quickcheck, compare, sexp, hash]
 
 type sigma = int list
@@ -253,7 +246,6 @@ let rec trans_let x e' e =
   | Int _ | Bool _ -> e
 
 let rec transform_let e =
-  (* TODO: more cases *)
   match e with
   | Int _ | Bool _ | Var _ -> e
   | Function (ident, e, l) ->

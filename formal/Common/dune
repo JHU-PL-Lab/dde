@@ -1,3 +1,0 @@
-(coq.theory
- (name DDE.Common)
- (modules Maps Lang Tactics))

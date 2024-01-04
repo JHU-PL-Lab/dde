@@ -53,7 +53,7 @@ let rec eval_aux e sigma ~should_cache =
                 (* make sure e2 doesn't diverge - call-by-value-ish *)
                 let _ = eval_aux e2 sigma ~should_cache in
                 eval_aux e (app_l :: sigma) ~should_cache
-            | _ -> raise Unreachable [@coverage off])
+            | _ -> raise Unreachable)
         | Var (Ident x, l) -> (
             match get_myfun l with
             | Some (Function (Ident x', _, _)) -> (
@@ -61,7 +61,7 @@ let rec eval_aux e sigma ~should_cache =
                   (* Var Local *)
                   match get_myexpr (List.hd sigma) with
                   | Appl (_, e2, _) -> eval_aux e2 (List.tl sigma) ~should_cache
-                  | _ -> raise Unreachable [@coverage off]
+                  | _ -> raise Unreachable
                 else
                   (* Var Non-Local *)
                   match get_myexpr (List.hd sigma) with
@@ -69,9 +69,9 @@ let rec eval_aux e sigma ~should_cache =
                       match eval_aux e1 (List.tl sigma) ~should_cache with
                       | FunResult { f; l = l1; sigma = sigma1 } ->
                           eval_aux (Var (Ident x, l1)) sigma1 ~should_cache
-                      | _ -> raise Unreachable [@coverage off])
-                  | _ -> raise Unreachable [@coverage off])
-            | _ -> raise Unreachable [@coverage off])
+                      | _ -> raise Unreachable)
+                  | _ -> raise Unreachable)
+            | _ -> raise Unreachable)
         | Plus (e1, e2)
         | Minus (e1, e2)
         | Mult (e1, e2)
@@ -96,7 +96,7 @@ let rec eval_aux e sigma ~should_cache =
               | Gt _ -> GtOp (r1, r2)
               | Le _ -> LeOp (r1, r2)
               | Lt _ -> LtOp (r1, r2)
-              | _ -> raise Unreachable [@coverage off])
+              | _ -> raise Unreachable)
         | Not e -> OpResult (NotOp (eval_aux e sigma ~should_cache))
         | If (e1, e2, e3, _) ->
             let r = eval_aux e1 sigma ~should_cache in
@@ -120,7 +120,7 @@ let rec eval_aux e sigma ~should_cache =
         | LetAssert (_, e, _) ->
             (* TODO: still assert *)
             eval_aux e sigma ~should_cache
-        | Let _ -> raise Unreachable [@coverage off]
+        | Let _ -> raise Unreachable
       in
       if should_cache then Hashtbl.replace memo_cache (e, sigma) eval_res;
       eval_res
@@ -157,7 +157,7 @@ let rec result_value_to_expr (r : result_value) : expr =
           | GtOp _ -> Gt (e1, e2)
           | LeOp _ -> Le (e1, e2)
           | LtOp _ -> Lt (e1, e2)
-          | NotOp _ -> raise Unreachable [@coverage off])
+          | NotOp _ -> raise Unreachable)
       | NotOp r -> Not (result_value_to_expr r))
   | RecordResult entries ->
       Record (List.map (fun (x, v) -> (x, result_value_to_expr v)) entries)
@@ -205,7 +205,7 @@ let rec subst_free_vars e target_l sigma seen ~should_cache =
       | Gt _ -> Gt (e1, e2)
       | Le _ -> Le (e1, e2)
       | Lt _ -> Lt (e1, e2)
-      | _ -> raise Unreachable [@coverage off])
+      | _ -> raise Unreachable)
   | Not e -> Not (subst_free_vars e target_l sigma seen ~should_cache)
   | If (e1, e2, e3, l) ->
       If
@@ -225,7 +225,7 @@ let rec subst_free_vars e target_l sigma seen ~should_cache =
       Inspection (x, subst_free_vars e target_l sigma seen ~should_cache)
   (* ignore letassert *)
   | LetAssert (_, e, _) -> subst_free_vars e target_l sigma seen ~should_cache
-  | Let _ -> raise Unreachable [@coverage off]
+  | Let _ -> raise Unreachable
 
 and eval_result_value r ~should_cache =
   match r with
@@ -245,7 +245,7 @@ and eval_result_value r ~should_cache =
               l;
               sigma;
             }
-      | _ -> raise Unreachable [@coverage off])
+      | _ -> raise Unreachable)
   | OpResult op -> (
       match op with
       | PlusOp (r1, r2)
@@ -269,8 +269,8 @@ and eval_result_value r ~should_cache =
               | GtOp _ -> BoolResult (i1 > i2)
               | LeOp _ -> BoolResult (i1 <= i2)
               | LtOp _ -> BoolResult (i1 < i2)
-              | _ -> raise Unreachable [@coverage off])
-          | _ -> raise TypeMismatch [@coverage off])
+              | _ -> raise Unreachable)
+          | _ -> raise TypeMismatch)
       | AndOp (r1, r2) | OrOp (r1, r2) -> (
           let v1 = eval_result_value r1 ~should_cache in
           let v2 = eval_result_value r2 ~should_cache in
@@ -279,13 +279,13 @@ and eval_result_value r ~should_cache =
               match op with
               | AndOp _ -> BoolResult (b1 && b2)
               | OrOp _ -> BoolResult (b1 || b2)
-              | _ -> raise Unreachable [@coverage off])
-          | _ -> raise TypeMismatch [@coverage off])
+              | _ -> raise Unreachable)
+          | _ -> raise TypeMismatch)
       | NotOp r -> (
           let v = eval_result_value r ~should_cache in
           match v with
           | BoolResult b -> BoolResult (not b)
-          | _ -> raise TypeMismatch [@coverage off]))
+          | _ -> raise TypeMismatch))
   | RecordResult entries ->
       RecordResult
         (List.map
@@ -309,14 +309,13 @@ let eval ?(should_cache = true) ~is_debug_mode ~should_simplify e =
   let e = trans_let None None e in
   let r = eval_aux e [] ~should_cache in
 
-  (if is_debug_mode then (
-     print_endline "****** Label Table ******";
-     print_myexpr myexpr;
-     print_endline "****** Label Table ******\n";
-     print_endline "****** MyFun Table ******";
-     print_myfun myfun;
-     print_endline "****** MyFun Table ******\n"))
-  [@coverage off];
+  if is_debug_mode then (
+    print_endline "****** Label Table ******";
+    print_myexpr myexpr;
+    print_endline "****** Label Table ******\n";
+    print_endline "****** MyFun Table ******";
+    print_myfun myfun;
+    print_endline "****** MyFun Table ******\n");
 
   if should_simplify then (
     let v = eval_result_value r ~should_cache in

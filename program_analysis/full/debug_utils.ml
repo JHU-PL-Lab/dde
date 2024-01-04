@@ -1,5 +1,3 @@
-[@@@coverage off]
-
 let report_runtime = ref false
 let caching = ref true
 let verify = ref false

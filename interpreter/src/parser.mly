@@ -1,6 +1,5 @@
 %{
 
-[@@@coverage off]
 open Ast;;
 
 %}

@@ -1,5 +1,3 @@
-[@@@coverage off]
-
 open Ast
 
 let ff = Format.fprintf
@@ -13,7 +11,8 @@ let rec pp_expr fmt = function
   | Int i -> ff fmt "%d" i
   | Bool b -> ff fmt "%b" b
   | Function (Ident i, x, l) -> ff fmt "@[<hv>fun %s ->@;<1 2>%a@]" i pp_expr x
-  | Var (Ident x, l) -> ff fmt "%s/%d" x l
+  | Var (Ident x, _) -> ff fmt "%s" x
+  (* | Var (Ident x, l) -> ff fmt "%s/%d" x l *)
   | Appl (e1, e2, _) ->
       let is_compound_exprL = function
         | Appl _ -> false
@@ -88,14 +87,7 @@ and pp_record_result fmt = function
   | (Ident x, v) :: rest ->
       Format.fprintf fmt "%s = %a; %a" x pp_result_value v pp_record_result rest
 
-let rec pp_fbtype fmt = function
-  | TArrow (t1, t2) ->
-      let is_arrow = function TArrow (_, _) -> true | _ -> false in
-      ff fmt "%a -> %a" (paren_if is_arrow pp_fbtype) t1 pp_fbtype t2
-  | TVar s -> ff fmt "%s" s
-
 let show_expr (le : expr) = Format.asprintf "%a" pp_expr le
-let show_fbtype t = Format.asprintf "%a" pp_fbtype t
 
 let rec pp_res_val_fv fmt = function
   | IntResFv i -> ff fmt "%d" i

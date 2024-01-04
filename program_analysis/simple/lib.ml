@@ -246,7 +246,7 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                             m "[Level %d] *** Var (%a) ***" d Interp.Pp.pp_expr
                               expr);
                         cache d cache_key r1
-                    | _ -> raise Unreachable [@coverage off])
+                    | _ -> raise Unreachable)
                   else (
                     (* Var Non-Local *)
                     info (fun m ->
@@ -340,8 +340,8 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                           let r2 = elim_stub r2 (St.Estate cycle_label) in
                           debug (fun m -> m "[Var Non-Local] r2: %a" Res.pp r2);
                           cache d cache_key r2
-                    | _ -> raise Unreachable [@coverage off])
-              | _ -> raise Unreachable [@coverage off]))
+                    | _ -> raise Unreachable)
+              | _ -> raise Unreachable))
     | If (e, e_true, e_false, l) -> (
         debug (fun m -> m "[Level %d] === If ===" d);
         let%bind r_cond = analyze_aux ~caching d e sigma in
@@ -392,7 +392,7 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
           | Gt _ -> all_combs_bool' r1 r2 ( > )
           | Le _ -> all_combs_bool' r1 r2 ( <= )
           | Lt _ -> all_combs_bool' r1 r2 ( < )
-          | _ -> raise Unreachable [@coverage off])
+          | _ -> raise Unreachable)
     | Not e ->
         let%bind r = analyze_aux ~caching d e sigma in
         return
@@ -425,7 +425,7 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
         let%bind r1 = analyze_aux ~caching d e1 sigma in
         let r2 = eval_assert e2 id in
         return (single_res (AssertAtom (id, r1, r2)))
-    | Let _ -> raise Unreachable [@coverage off]
+    | Let _ -> raise Unreachable
   in
   return (simplify r)
 

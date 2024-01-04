@@ -1,6 +1,0 @@
-(executable
- (name extract_stats)
- (modes
-  (byte exe))
- (modules extract_stats)
- (libraries core core_unix.sys_unix))
