@@ -31,7 +31,12 @@ let rec exists_stub r label =
     | OrAtom (r1, r2) ->
         exists_stub r1 label || exists_stub r2 label)
 
-let int_op = function
+let int_arith_op = function
+  | PlusAtom _ -> ( + )
+  | MinusAtom _ -> ( - )
+  | _ -> raise Unreachable
+
+let int_cmp_op = function
   | EqAtom _ -> ( = )
   | GeAtom _ -> ( >= )
   | GtAtom _ -> ( > )
@@ -51,16 +56,10 @@ let rec simplify ?(pa = None) r =
         | IntAtom _ | BoolAtom _ | LStubAtom _ | EStubAtom _ | FunAtom _ ->
             Some [ a ]
         | PlusAtom (r1, r2) | MinusAtom (r1, r2) ->
-            (* TODO: if either r1/r2 is stub, see if there's | upstream *)
-            let int_op =
-              match a with
-              | PlusAtom _ -> ( + )
-              | MinusAtom _ -> ( - )
-              | _ -> raise Unreachable
-            in
             Some
               (match (r1, r2) with
-              | [ IntAtom i1 ], [ IntAtom i2 ] -> [ IntAtom (int_op i1 i2) ]
+              | [ IntAtom i1 ], [ IntAtom i2 ] ->
+                  [ IntAtom (int_arith_op a i1 i2) ]
               (* associative *)
               | [ IntAtom i1 ], [ PlusAtom ([ IntAtom i2 ], r2) ] ->
                   [
@@ -109,13 +108,7 @@ let rec simplify ?(pa = None) r =
                     PathCondAtom
                       ( pc,
                         List.map r ~f:(function
-                          | IntAtom i' ->
-                              IntAtom
-                                ((match a with
-                                 | PlusAtom _ -> ( + )
-                                 | MinusAtom _ -> ( - )
-                                 | _ -> raise Unreachable)
-                                   i i')
+                          | IntAtom i' -> IntAtom (int_arith_op a i i')
                           | a' -> (
                               match a with
                               | PlusAtom _ -> PlusAtom ([ IntAtom i ], [ a' ])
@@ -148,13 +141,7 @@ let rec simplify ?(pa = None) r =
                   ]
               | [ IntAtom i ], r ->
                   List.map r ~f:(function
-                    | IntAtom i' ->
-                        IntAtom
-                          ((match a with
-                           | PlusAtom _ -> ( + )
-                           | MinusAtom _ -> ( - )
-                           | _ -> raise Unreachable)
-                             i i')
+                    | IntAtom i' -> IntAtom (int_arith_op a i i')
                     | a' -> (
                         match a with
                         | PlusAtom _ -> PlusAtom ([ IntAtom i ], [ a' ])
@@ -162,13 +149,7 @@ let rec simplify ?(pa = None) r =
                         | _ -> raise Unreachable))
               | r, [ IntAtom i ] ->
                   List.map r ~f:(function
-                    | IntAtom i' ->
-                        IntAtom
-                          ((match a with
-                           | PlusAtom _ -> ( + )
-                           | MinusAtom _ -> ( - )
-                           | _ -> raise Unreachable)
-                             i' i)
+                    | IntAtom i' -> IntAtom (int_arith_op a i' i)
                     | a' -> (
                         match a with
                         | PlusAtom _ -> PlusAtom ([ a' ], [ IntAtom i ])
@@ -204,7 +185,7 @@ let rec simplify ?(pa = None) r =
         | LtAtom (r1, r2) -> (
             match (r1, r2) with
             | [ IntAtom i1 ], [ IntAtom i2 ] ->
-                Some [ BoolAtom (int_op a i1 i2) ]
+                Some [ BoolAtom (int_cmp_op a i1 i2) ]
             | _ ->
                 let r1', r2' =
                   (simplify r1 ~pa:(Some a), simplify r2 ~pa:(Some a))

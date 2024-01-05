@@ -12,7 +12,7 @@ let parse_eval s =
   |> Lib.eval ~is_debug_mode:!is_debug_mode ~should_simplify:!should_simplify
        ~caching:!caching
   |> fun (r, runtime) ->
-  if !report_runtime then Format.printf "runtime: %f\n" runtime;
+  if !report_runtime then Format.printf "runtime: %fs\n" runtime;
   r
 
 let unparse = Format.asprintf "%a" Pp.pp_result_value

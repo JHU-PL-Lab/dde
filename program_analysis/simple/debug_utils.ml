@@ -7,7 +7,7 @@ let parse s =
 
 let parse_analyze ?(name = "test") s =
   s |> parse |> Lib.analyze ~caching:!caching |> fun (r, runtime) ->
-  if !report_runtime then Format.printf "%s: %f\n" name runtime;
+  if !report_runtime then Format.printf "%s: %fs\n" name runtime;
   r
 
 let unparse = Format.asprintf "%a" Utils.Res.pp

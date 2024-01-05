@@ -106,7 +106,7 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
   let%bind sid = get_sid s in
   let%bind r =
     match expr with
-    | Int i -> return (single_res (IntAtom i))
+    | Int i -> return (single_res IntAnyAtom)
     | Bool b -> return (single_res (BoolAtom b))
     | Fun (_, _, l) -> return (single_res (FunAtom (expr, l, sigma)))
     | App (e, _, l) -> (

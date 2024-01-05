@@ -21,7 +21,7 @@ let toplevel_loop is_debug_mode should_simplify =
   (* Interpret and print. Exceptions are caught and reported. But the toploop is not aborted *)
   let safe_interpret_and_print ast =
     try
-      let result = Lib.eval ast ~is_debug_mode ~should_simplify in
+      let result, _ = Lib.eval ast ~is_debug_mode ~should_simplify in
       Format.printf "==> %a\n" Pp.pp_result_value result
     with ex -> print_exception ex
   in
@@ -40,7 +40,7 @@ let run_file filename is_debug_mode should_simplify =
   let fin = open_in filename in
   let lexbuf = Lexing.from_channel fin in
   let ast = Parser.main Lexer.token lexbuf in
-  let result = Lib.eval ast ~is_debug_mode ~should_simplify in
+  let result, _ = Lib.eval ast ~is_debug_mode ~should_simplify in
   Format.printf "%a\n" Pp.pp_result_value result;
   Format.print_flush ()
 

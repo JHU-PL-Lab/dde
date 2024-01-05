@@ -164,11 +164,6 @@ end = struct
     | EResAtom (choices, _) -> ff fmt "%a" Res.pp choices
     | LStubAtom _ -> ff fmt "stub"
     | EStubAtom _ -> ff fmt "stub"
-    (* | LResAtom (choices, (l, _)) -> ff fmt "(%a)^%d" Res.pp choices l
-       | EResAtom (choices, (e, _)) ->
-           ff fmt "(%a)^%a" Res.pp choices Interp.Pp.pp_expr e
-       | LStubAtom (l, _) -> ff fmt "stub@%d" l
-       | EStubAtom (e, _) -> ff fmt "(stub@%a)" Interp.Pp.pp_expr e *)
     | PlusAtom (r1, r2) -> ff fmt "(%a + %a)" Res.pp r1 Res.pp r2
     | MinusAtom (r1, r2) -> ff fmt "(%a - %a)" Res.pp r1 Res.pp r2
     | MultAtom (r1, r2) -> ff fmt "(%a * %a)" Res.pp r1 Res.pp r2
@@ -180,12 +175,6 @@ end = struct
     | LeAtom (r1, r2) -> ff fmt "(%a <= %a)" Res.pp r1 Res.pp r2
     | LtAtom (r1, r2) -> ff fmt "(%a < %a)" Res.pp r1 Res.pp r2
     | NotAtom r1 -> ff fmt "(not %a)" Res.pp r1
-    (* | EquivStubAtom (s, l) ->
-        ff fmt "{%s}[%d]"
-          (s |> Set.elements
-          |> List.map ~f:(fun st -> Format.sprintf "%s" (St.show st))
-          |> String.concat ~sep:", ")
-          l *)
     | PathCondAtom (_, r) -> ff fmt "%a" Res.pp r
     (* | PathCondAtom ((r, b), r') -> ff fmt "(%a = %b ⊩ %a)" Res.pp r b Res.pp r' *)
     | RecAtom entries ->
@@ -208,7 +197,7 @@ end = struct
   let rec pp_aux fmt = function
     | [] -> ()
     | [ a ] -> ff fmt "%a" Atom.pp a
-    | a :: _as -> ff fmt "%a | %a" Atom.pp a pp_aux _as
+    | a :: _as -> ff fmt "(%a | %a)" Atom.pp a pp_aux _as
 
   and pp fmt r = if List.is_empty r then ff fmt "#" else ff fmt "%a" pp_aux r
 

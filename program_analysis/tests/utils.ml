@@ -1,7 +1,7 @@
 open Core
 open OUnit2
 
-let read_input file_name =
+let read_case file_name =
   In_channel.read_all
     (Format.sprintf "program_analysis/tests/cases/%s" file_name)
 
@@ -13,4 +13,10 @@ let gen_test ls =
       let expected, actual = f () in
       assert_equal ~printer:Fn.id expected actual)
 
-let test_long = test_case ~length:(OUnitTest.Custom_length 90.)
+let gen_labeled_test ls =
+  List.iter ls ~f:(fun (_, f) ->
+      let expected, actual = f () in
+      assert_equal ~printer:Fn.id expected actual)
+
+(* times out after 5 minutes *)
+let test_long = test_case ~length:(OUnitTest.Custom_length 300.)

@@ -130,7 +130,7 @@ let () =
         "Turn off caching" );
       ( "--runtime",
         Arg.Unit (fun _ -> Utils.report_runtime := true),
-        "Report accurate runtime" );
+        "Report runtime (processor time)" );
     ]
     (fun _ -> ())
     "Interpreter tests";

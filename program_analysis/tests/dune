@@ -2,7 +2,7 @@
  (name tests)
  ; (deps
  ;  (source_tree cases))
- (modules test_cases tests bench utils)
+ (modules tests utils)
  (libraries
   core
   core_bench

@@ -1,81 +1,124 @@
-# Pure Demand Operational Semantics
+# Artifact Overview
 
-[![Build & test
-project](https://github.com/JHU-PL-Lab/dde/actions/workflows/build.yml/badge.svg)](https://github.com/JHU-PL-Lab/dde/actions/workflows/build.yml)
+Artifact for paper #150, A Pure Demand Operational Semantics with Applications
+to Program Analysis.
 
-This repo contains pure demand [concrete](./interpreter) and
-[abstract](./program_analysis) interpreters, as well as
-[formalizations](./formal) in Coq.
+## Introduction
 
-## Set up
+This artifact facilitates building, testing, and benchmarking the interpreter
+and program analysis presented in the paper. In addition, it includes a
+simplified version of the program analysis that does not use Z3 for path
+sensitivity and deriving recurrences.
 
-Before building the project (the concrete interpreter part), install `fbdk`
-locally so that it is visible to this project:
+TODO: list claims
 
-```sh
-cd PATH_TO_FbDK_REPO
-git checkout fbenv # checkout to the fbenv branch first
-opam install .
-```
+## Hardware Dependencies
 
-Then `dune build` this project.
+This artifact is packaged using Docker, so there is no hardware dependency
+besides those required to [install
+Docker](https://docs.docker.com/engine/install) on your OS.
 
-> Note that you currently won't be able to run the interpreter tests if you
-> don't have access to `fbdk`. We will soon provide a polished, fully
-> executable artifact. For now, please build the program analysis separately
-> via `dune build program_analysis`.
+## Getting Started Guide
 
-## Develop
+Please follow the [official
+instructions](https://docs.docker.com/engine/install) to install Docker on your
+machine.
 
-### utop
-
-`dune utop` to start an interactive environment with all libraries loaded.
-Or, `dune utop program_analysis/full`, `dune utop interpreter/src` to run each separately.
-
-```ocaml
-open Interp;; (* first if only working with interpreter *)
-
-open Debugutils;; (* to simplify calling utility functions such as `peu` *)
-
-is_debug_mode := true;; (* to print debug information from the
-concrete interpretation. *)
-
-should_simplify := true;; (* to perform variable substitution, function
-application, etc. on the concrete interpretation result. *)
-```
-
-### Binary
-
-`dune exec interpreter/src/main.exe` to run the interpreter. Same applies
-to `program_analysis/full/main.exe`.
-
-Optionally pass in the `--debug` flag to print debug information from the
-evaluation:
+Then, you may retrieve the project's Docker image from Docker Hub:
 
 ```sh
-dune exec -- interpreter/src/main.exe --debug
+docker pull pure-demand
 ```
 
-Optionally pass in a file name to run the interpreter on the file:
+Once retrieved, run the image:
 
 ```sh
-dune exec -- interpreter/src/main.exe <path-to-file> --debug
+docker run --rm -it pure-demand
 ```
 
-Same applies to `--simplify`.
+This will enter into an interactive shell environment where you may run commands
+and edit files (using `vim`/`emacs`). Once you are done, you may quit the
+environment with Ctrl+D or type "exit".
 
-## Testing
+In fact, if you prefer a modern text editor/IDE, VS Code has a [Remote SSH
+extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh)
+that allows attaching to a running container. To do so, click on the icon of the
+extension at the bottom left of your VS Code window, select "Attach to running
+container..." from the dropdown menu, and then choose the "pure-demand"
+container. Note that all of this has to be done before you exit the container
+session.
 
-`dune test` to run the associated test suite *without* benchmarking.
+## Step by Step Instructions
 
-To also benchmark the interpreter's performance, pass in the `--bench` flag:
+This artifact is divided into two components - `interpreter` (Section 2.2 in
+paper) and `program_analysis` (Section 4.3). Below shows how to run their tests
+and benchmarks. All commands should be run in the project root directory
+(denoted by `.`).
+
+### Interpreter
+
+Base command:
 
 ```sh
-dune exec -- interpreter/tests/tests.exe --bench
-``` 
+dune exec -- interpreter/tests/tests.exe
+```
 
-`bisect-ppx-report html` or `bisect-ppx-report summary` to view coverage.
+There are several flags you can optionally specify, as listed below.
 
-# Formalizations
+| Flag | Description |
+| - | - | 
+| --runtime | Print the runtime (processor time) of each test to stdout |
+| --no-cache | Disable caching in the analysis |
 
-Please refer to [formal/README.md](./formal/README.md) for details.
+For example, you may execute `dune exec -- interpreter/tests/tests.exe --runtime` to see how long tests take to finish.
+
+### Program Analysis
+
+Base command:
+
+```sh
+dune exec -- program_analysis/tests/tests.exe
+```
+
+There are several flags you can optionally specify, as listed below.
+
+| Flag | Description |
+| - | - | 
+| --log | Log debug messages to a file, `./logs` |
+| -log PATH | Log debug messages to a custom file at PATH |
+| --runtime | Print the runtime (processor time) of each test to stdout |
+| --no-cache | Disable caching in the analysis |
+| --verify | Enable verification of final analysis result using Z3 |
+| --bench | Run benchmarks, which takes a while. More accurate than --runtime. |
+| --graph | Generate Graphviz source code visualizing the final analysis result, `./graph.dot`. |
+
+For example, you may execute `dune exec -- program_analysis/tests/tests.exe
+--runtime --no-cache` to see how long tests take to finish when caching is off.
+
+To run the benchmarks, only specify the `--bench` flag and observe the runtimes
+in the second column (Time/Run, in microseconds) of the resulting graph:
+
+```sh
+dune exec -- program_analysis/tests/tests.exe --bench
+```
+
+## Reusability Guide
+
+TODO
+
+### Program Analysis
+
+To add new tests, there are two options: (1) create a new test case under
+`./program_analysis/tests/cases` and (2) write the test as an inline string.
+
+For (1), after you have created the test case, modify the boilerplate
+`custom_thunked` in `./program_analysis/tests/tests.ml` to read in your file and
+run it. For (2), replace `read_input "your_test.ml"` with a string of your
+program.
+
+## Miscellaneous
+
+Due to the our language supporting both record inspection (`l in { l = 1 }`) and
+let binding (`let a = 1 in a`), you must insert parentheses around let
+definitions ending in a variable, to disambiguate from record inspections. E.g.,
+`let a = (fun x -> x) in a`.
