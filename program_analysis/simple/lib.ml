@@ -65,7 +65,7 @@ let eval_assert e id =
           | Le _ -> LeResFv (v1, v2)
           | Lt _ -> LtResFv (v1, v2)
           | _ -> raise Unreachable)
-      | Projection (e1, x) -> failwith "Not supported"
+      | Proj (e1, x) -> failwith "Not supported"
       | _ -> (
           let v1, v2 = (eval_assert_aux e1, eval_assert_aux e2) in
           match (v1, v2) with
@@ -78,7 +78,6 @@ let eval_assert e id =
               | Lt _ -> BoolResFv (i1 < i2)
               | _ -> raise Unreachable)
           | _ -> raise BadAssert))
-  (* TODO: support And/Or (low priority) *)
   | Not e' -> (
       match e' with
       | Var (id', _) when Stdlib.(id = id') -> NotResFv (VarResFv id')
@@ -109,8 +108,8 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
     match expr with
     | Int i -> return (single_res (IntAtom i))
     | Bool b -> return (single_res (BoolAtom b))
-    | Function (_, _, l) -> return (single_res (FunAtom (expr, l, sigma)))
-    | Appl (e, _, l) -> (
+    | Fun (_, _, l) -> return (single_res (FunAtom (expr, l, sigma)))
+    | App (e, _, l) -> (
         let cache_key = Cache_key.Lkey (l, sigma, vid, sid) in
         match Map.find c cache_key with
         | Some r when caching ->
@@ -154,7 +153,7 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                           d);
                     debug (fun m -> m "%a" Atom.pp a);
                     match a with
-                    | FunAtom (Function (_, e1, _), _, _) ->
+                    | FunAtom (Fun (_, e1, _), _, _) ->
                         debug (fun m ->
                             m
                               "[App] Evaluating body of function being \
@@ -197,7 +196,7 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
             else (
               debug (fun m -> m "Didn't stub");
               match get_myfun l with
-              | Some (Function (Ident x1, _, l_myfun)) ->
+              | Some (Fun (Ident x1, _, l_myfun)) ->
                   if String.(x = x1) then (
                     (* Var Local *)
                     info (fun m ->
@@ -206,7 +205,7 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                     debug (fun m -> m "sigma: %a" Sigma.pp sigma);
                     let s_hd, s_tl = (List.hd_exn sigma, List.tl_exn sigma) in
                     match get_myexpr s_hd with
-                    | Appl (_, e2, l') ->
+                    | App (_, e2, l') ->
                         debug (fun m -> m "Begin stitching stacks");
                         debug (fun m ->
                             m "Head of candidate fragments must be: %d" l');
@@ -255,9 +254,9 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                     debug (fun m -> m "sigma: %a" Sigma.pp sigma);
                     debug (fun m -> m "Reading App at front of sigma");
                     match get_myexpr (List.hd_exn sigma) with
-                    | Appl (e1, _, l2) ->
+                    | App (e1, _, l2) ->
                         debug (fun m ->
-                            m "Function being applied at front of sigma: %a"
+                            m "Fun being applied at front of sigma: %a"
                               Interp.Pp.pp_expr e1);
                         let e1st = V_key.Estate (e1, sigma, sid) in
                         if Set.mem v e1st then (
@@ -310,8 +309,7 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                                       d);
                                 debug (fun m -> m "%a" Atom.pp a);
                                 match a with
-                                | FunAtom
-                                    (Function (Ident x1', _, l1), _, sigma1) ->
+                                | FunAtom (Fun (Ident x1', _, l1), _, sigma1) ->
                                     if Stdlib.(x1 = x1') && l_myfun = l1 then (
                                       debug (fun m ->
                                           m
@@ -342,7 +340,7 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                           cache d cache_key r2
                     | _ -> raise Unreachable)
               | _ -> raise Unreachable))
-    | If (e, e_true, e_false, l) -> (
+    | If (e, e_true, e_false) -> (
         debug (fun m -> m "[Level %d] === If ===" d);
         let%bind r_cond = analyze_aux ~caching d e sigma in
         match Set.elements r_cond with
@@ -400,22 +398,22 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
           | [] -> empty_res
           | [ BoolAtom b ] -> single_res (BoolAtom (not b))
           | _ -> bool_tf_res)
-    | Record es ->
+    | Rec es ->
         es
-        |> List.fold_right ~init:(return []) ~f:(fun (id, ei) acc ->
+        |> List.fold ~init:(return []) ~f:(fun acc (id, ei) ->
                let%bind rs = acc in
                let%bind r = analyze_aux ~caching d ei sigma in
                return ((id, r) :: rs))
         |> fun rs ->
         let%bind rs = rs in
-        return (single_res (RecAtom rs))
-    | Projection (e, (Ident x as id)) ->
+        rs |> List.rev |> RecAtom |> single_res |> return
+    | Proj (e, (Ident x as id)) ->
         debug (fun m -> m "[Level %d] === Proj ===" d);
         let%bind r0 = analyze_aux ~caching d e sigma in
         debug (fun m -> m "[Level %d][Proj] r0: %a.%s" d Res.pp r0 x);
         debug (fun m -> m "[Level %d] *** Proj ***" d);
         return (single_res (ProjAtom (r0, id)))
-    | Inspection ((Ident x as id), e) ->
+    | Insp ((Ident x as id), e) ->
         debug (fun m -> m "[Level %d] === Insp ===" d);
         let%bind r0 = analyze_aux ~caching d e sigma in
         debug (fun m -> m "[Level %d][Insp] r0: %s in %a" d x Res.pp r0);
@@ -430,7 +428,7 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
   return (simplify r)
 
 let analyze ?(caching = true) e =
-  let e = transform_let e in
+  let e = trans_let None None e in
   build_myfun e None;
   debug (fun m -> m "%a" Interp.Pp.pp_expr e);
   debug (fun m -> m "%a" pp_expr e);
@@ -454,8 +452,6 @@ let analyze ?(caching = true) e =
 
   debug (fun m -> m "Result: %a" Res.pp r);
 
-  (* debug (fun m -> m "sids:");
-     log_sids sids ~size:false; *)
   clean_up ();
 
   (r, runtime)

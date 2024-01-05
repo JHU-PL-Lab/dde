@@ -1,4 +1,4 @@
 (test
  (name tests)
- (modules tests bench utils)
- (libraries ounit2 core_bench core_unix.command_unix dde.interp))
+ (modules tests utils)
+ (libraries ounit2 dde.interp))

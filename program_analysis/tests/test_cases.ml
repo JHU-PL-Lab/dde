@@ -83,9 +83,6 @@ let rec_eg_6 =
    = f x in if x = 1 then r 1 else if x = 0 then self self 1 else self self 0 \
    in loop loop "
 
-(* (((1 + ((1 + (((1 + ((stub@3)^3)^5) | 0))^5))^5))^12)^13
-   (((1 + ((1 + (((1 + stub@5) | 0))^5))^5))^12)^13 *)
-
 let recursion =
   [|
     (* (1 + (1 + (1 + ((1 + stub) | 0)))) *)
@@ -93,8 +90,8 @@ let recursion =
     "letassert x = let id = fun self -> fun n -> if n = 0 then 0 else 1 + self \
      self (n - 1) in id id 10 in x >= 2";
     (* (1 + (1 + (1 + ((1 + stub) | 0)))) *)
-    "letassert x = let id = fun self -> fun n -> if n = 10 then true else \
-     false or self self (n + 1) in id id 0 in x";
+    "letassert x = let id = fun self -> fun n -> if n = 0 then true else false \
+     or (self self (n - 1)) in id id 10 in x";
     (* (1 + (1 + (1 + (1 + stub)))) *)
     (* ((((-1 - 1) - 1) | ((((-1 - 1) - 1) | (stub - 1)) - 1)) = 0) *)
     "letassert _x = let id = fun self -> fun n -> if n = 0 then 0 else 1 + \

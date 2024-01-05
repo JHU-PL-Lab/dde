@@ -1,0 +1,3 @@
+exception TypeMismatch
+exception Unreachable
+exception Runtime_error

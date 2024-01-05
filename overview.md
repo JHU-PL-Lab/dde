@@ -65,7 +65,7 @@ There are several flags you can optionally specify, as listed below.
 
 | Flag | Description |
 | - | - | 
-| --runtime | Print the runtime of each test to stdout |
+| --runtime | Print the accurate runtime of each test to stdout |
 | --no-cache | Disable caching in the analysis |
 
 For example, you may execute `dune exec -- interpreter/tests/tests.exe --runtime` to see how long tests take to finish.
@@ -84,7 +84,7 @@ There are several flags you can optionally specify, as listed below.
 | - | - | 
 | --log | Log debug messages to a file, `./logs` |
 | -log PATH | Log debug messages to a custom file at PATH |
-| --runtime | Print the runtime of each test to stdout |
+| --runtime | Print the accurate runtime of each test to stdout |
 | --no-cache | Disable caching in the analysis |
 | --verify | Enable verification of final analysis result using Z3 |
 | --graph | Generate Graphviz source code visualizing the final analysis result, `./graph.dot`. |
@@ -102,3 +102,10 @@ run it. For (2), replace `read_input "your_test.ml"` with a string of your
 program.
 
 ## Reusability Guide
+
+## Miscellaneous
+
+Due to the our language supporting both record inspection (`l in { l = 1 }`) and
+let binding (`let a = 1 in a`), you must insert parentheses around let
+definitions ending in a variable, to disambiguate from record inspections. E.g.,
+`let a = (fun x -> x) in a`.

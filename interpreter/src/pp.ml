@@ -1,4 +1,5 @@
 open Ast
+open Core
 
 let ff = Format.fprintf
 
@@ -7,17 +8,17 @@ let paren_if cond pp fmt e =
 
 let is_compound_expr = function Var _ -> false | _ -> true
 
+let is_compound_exprL = function
+  | App _ -> false
+  | other -> is_compound_expr other
+
 let rec pp_expr fmt = function
   | Int i -> ff fmt "%d" i
   | Bool b -> ff fmt "%b" b
-  | Function (Ident i, x, l) -> ff fmt "@[<hv>fun %s ->@;<1 2>%a@]" i pp_expr x
+  | Fun (Ident i, x, l) -> ff fmt "@[<hv>fun %s ->@;<1 2>%a@]" i pp_expr x
   | Var (Ident x, _) -> ff fmt "%s" x
   (* | Var (Ident x, l) -> ff fmt "%s/%d" x l *)
-  | Appl (e1, e2, _) ->
-      let is_compound_exprL = function
-        | Appl _ -> false
-        | other -> is_compound_expr other
-      in
+  | App (e1, e2, _) ->
       ff fmt "%a %a"
         (paren_if is_compound_exprL pp_expr)
         e1
@@ -34,7 +35,7 @@ let rec pp_expr fmt = function
   | Le (e1, e2) -> ff fmt "(%a <= %a)" pp_expr e1 pp_expr e2
   | Lt (e1, e2) -> ff fmt "(%a < %a)" pp_expr e1 pp_expr e2
   | Not e1 -> ff fmt "(not %a)" pp_expr e1
-  | If (e1, e2, e3, _) ->
+  | If (e1, e2, e3) ->
       ff fmt "@[<hv>if %a then@;<1 2>%a@;<1 0>else@;<1 2>%a@]" pp_expr e1
         pp_expr e2 pp_expr e3
   | Let (Ident i, e1, e2, _) ->
@@ -43,12 +44,12 @@ let rec pp_expr fmt = function
   | LetAssert (Ident i, e1, e2) ->
       ff fmt "@[<hv>letassert %s =@;<1 4>%a@;<1 0>in@;<1 4>%a@]" i pp_expr e1
         pp_expr e2
-  | Record entries ->
+  | Rec entries ->
       ff fmt
         (if List.length entries = 0 then "{%a}" else "{ %a }")
         pp_record entries
-  | Projection (e, Ident x) -> ff fmt "(%a.%s)" pp_expr e x
-  | Inspection (Ident x, e) -> ff fmt "(%s in %a)" x pp_expr e
+  | Proj (e, Ident x) -> ff fmt "(%a.%s)" pp_expr e x
+  | Insp (Ident x, e) -> ff fmt "(%s in %a)" x pp_expr e
 
 and pp_record fmt = function
   | [] -> ()
@@ -56,30 +57,24 @@ and pp_record fmt = function
   | (Ident x, e) :: rest -> ff fmt "%s = %a; %a" x pp_expr e pp_record rest
 
 let rec pp_result_value fmt = function
-  | IntResult x -> ff fmt "%d" x
-  | BoolResult b -> ff fmt "%b" b
-  | FunResult { f; l; sigma } -> pp_expr fmt f
-  | OpResult op -> (
-      match op with
-      | PlusOp (r1, r2) ->
-          ff fmt "%a + %a" pp_result_value r1 pp_result_value r2
-      | MinusOp (r1, r2) ->
-          ff fmt "%a - %a" pp_result_value r1 pp_result_value r2
-      | MultOp (r1, r2) ->
-          ff fmt "%a * %a" pp_result_value r1 pp_result_value r2
-      | EqOp (r1, r2) -> ff fmt "%a = %a" pp_result_value r1 pp_result_value r2
-      | AndOp (r1, r2) ->
-          ff fmt "%a and %a" pp_result_value r1 pp_result_value r2
-      | OrOp (r1, r2) -> ff fmt "%a or %a" pp_result_value r1 pp_result_value r2
-      | GeOp (r1, r2) -> ff fmt "%a >= %a" pp_result_value r1 pp_result_value r2
-      | GtOp (r1, r2) -> ff fmt "%a > %a" pp_result_value r1 pp_result_value r2
-      | LeOp (r1, r2) -> ff fmt "%a <= %a" pp_result_value r1 pp_result_value r2
-      | LtOp (r1, r2) -> ff fmt "%a < %a" pp_result_value r1 pp_result_value r2
-      | NotOp r1 -> ff fmt "not %a" pp_result_value r1)
-  | RecordResult entries ->
+  | IntRes x -> ff fmt "%d" x
+  | BoolRes b -> ff fmt "%b" b
+  | FunRes { f; l; sigma } -> pp_expr fmt f
+  | RecRes es ->
       ff fmt
-        (if List.length entries = 0 then "{%a}" else "{ %a }")
-        pp_record_result entries
+        (if List.length es = 0 then "{%a}" else "{ %a }")
+        pp_record_result es
+  | PlusRes (r1, r2) -> ff fmt "%a + %a" pp_result_value r1 pp_result_value r2
+  | MinusRes (r1, r2) -> ff fmt "%a - %a" pp_result_value r1 pp_result_value r2
+  | MultRes (r1, r2) -> ff fmt "%a * %a" pp_result_value r1 pp_result_value r2
+  | EqRes (r1, r2) -> ff fmt "%a = %a" pp_result_value r1 pp_result_value r2
+  | AndRes (r1, r2) -> ff fmt "%a and %a" pp_result_value r1 pp_result_value r2
+  | OrRes (r1, r2) -> ff fmt "%a or %a" pp_result_value r1 pp_result_value r2
+  | GeRes (r1, r2) -> ff fmt "%a >= %a" pp_result_value r1 pp_result_value r2
+  | GtRes (r1, r2) -> ff fmt "%a > %a" pp_result_value r1 pp_result_value r2
+  | LeRes (r1, r2) -> ff fmt "%a <= %a" pp_result_value r1 pp_result_value r2
+  | LtRes (r1, r2) -> ff fmt "%a < %a" pp_result_value r1 pp_result_value r2
+  | NotRes r1 -> ff fmt "not %a" pp_result_value r1
 
 and pp_record_result fmt = function
   | [] -> ()
@@ -87,11 +82,19 @@ and pp_record_result fmt = function
   | (Ident x, v) :: rest ->
       Format.fprintf fmt "%s = %a; %a" x pp_result_value v pp_record_result rest
 
-let show_expr (le : expr) = Format.asprintf "%a" pp_expr le
-
 let rec pp_res_val_fv fmt = function
   | IntResFv i -> ff fmt "%d" i
   | BoolResFv b -> ff fmt "%b" b
   | VarResFv (Ident x) -> ff fmt "%s" x
   | GeResFv (v1, v2) -> ff fmt "%a > %a" pp_res_val_fv v1 pp_res_val_fv v2
   | _ -> ()
+
+let print_myexpr tbl =
+  Hashtbl.to_alist tbl
+  |> List.sort ~compare:(fun (k1, v1) (k2, v2) -> Int.compare k1 k2)
+  |> List.iter ~f:(fun (k, v) -> Format.printf "%d -> %a\n" k pp_expr v)
+
+let print_myfun tbl =
+  Hashtbl.iteri
+    ~f:(fun ~key ~data -> Format.printf "%d -> %s\n" key (show_expr data))
+    tbl

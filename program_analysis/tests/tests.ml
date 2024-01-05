@@ -196,16 +196,16 @@ let ddpa_simple_thunked =
          ( "Int | 18 | 19 | 20 | stub",
            pau' ~name:"loop2-1" (read_input "loop2-1.ml") ));
        (fun _ -> ("2", pau' ~name:"mj09" (read_input "mj09.ml"))); *)
-    (* (fun _ ->
-       ( "{ hd = 8; tl = { hd = 9 | 10; tl = {} | { hd = 9 | 10; tl = {} | { hd \
-          = 9 | 10; tl = stub } } } }",
-         pau' ~name:"map" (read_input "map.ml") )); *)
+    (fun _ ->
+      ( "{ hd = 8; tl = { hd = 9 | 10; tl = {} | { hd = 9 | 10; tl = {} | { hd \
+         = 9 | 10; tl = stub } } } }",
+        pau' ~name:"map" (read_input "map.ml") ));
     (* (fun _ -> ("15", pau' ~name:"primtest" (read_input "primtest.ml"))); *)
     (* (fun _ -> ("false", pau' ~name:"rsa" (read_input "rsa.ml"))); *)
     (* (fun _ -> ("false | true", pau' ~name:"sat-1" (read_input "sat-1.ml"))); *)
     (* (fun _ -> ("false | true", pau' ~name:"sat-2" (read_input "sat-2.ml"))); *)
     (* (fun _ -> ("false | true", pau' ~name:"sat-3" (read_input "sat-3.ml"))); *)
-    (fun _ -> ("false | true", pau' ~name:"sat-4" (read_input "sat-4.ml")));
+    (* (fun _ -> ("false | true", pau' ~name:"sat-4" (read_input "sat-4.ml"))); *)
     (* (fun _ -> ("true", pau' ~name:"sat-5" (read_input "sat-5.ml"))); *)
     (* (fun _ -> ("Int | 2", pau' ~name:"ack" (read_input "ack.ml"))); *)
     (* (fun _ -> ("stub", pau' ~name:"mack" (read_input "mack.ml"))); *)
@@ -248,8 +248,8 @@ let test_pa =
     (* "Lists" >:: test_lists; *)
     (* "pruned_d" >:: test_prune_d; *)
     (* "Polynomial" >:: test_poly; *)
-    "DDPA (simple)" >: test_long test_ddpa_simple;
-    (* "DDPA (full)" >: test_long test_ddpa; *)
+    (* "DDPA (simple)" >: test_long test_ddpa_simple; *)
+    "DDPA (full)" >: test_long test_ddpa;
     (* "Custom" >: test_long test_custom; *)
   ]
 
@@ -258,7 +258,7 @@ let tests_thunked = ddpa_simple_thunked
    @ conditional_thunked @ currying_thunked @ recursion_thunked
    @ church_basic_thunked @ church_binop_thunked @ lists_thunked *)
 
-let tests = "Program analysis tests" >::: test_pa
+let tests = "Pure demand program analysis tests" >::: test_pa
 
 let enable_logging log_file =
   let dst = log_file |> Out_channel.create |> Format.formatter_of_out_channel in

@@ -63,7 +63,7 @@ let rec eval_assert_aux e =
       Format.printf "%a" Interp.Pp.pp_expr e;
       raise Bad_assert
 
-(** only allows the following forms:
+(** we only allow the following forms:
     - arbitrary variable-free arithmetic
     - <var>
     - not <var>
@@ -84,7 +84,7 @@ let eval_assert e id =
           | Le _ -> LeResFv (v1, v2)
           | Lt _ -> LtResFv (v1, v2)
           | _ -> raise Unreachable)
-      | Projection (e1, x) -> failwith "Not supported"
+      | Proj (e1, x) -> failwith "Not supported"
       | _ -> (
           let v1, v2 = (eval_assert_aux e1, eval_assert_aux e2) in
           match (v1, v2) with
@@ -108,10 +108,10 @@ let log_v_set = Set.iter ~f:(fun st -> debug (fun m -> m "%s" (V_key.show st)))
 let rec fold_res_app ~init ~f l sigma d =
   List.fold ~init ~f:(fun acc a ->
       debug (fun m ->
-          m "[Level %d] [Appl] Evaluating 1 possible function being applied:" d);
+          m "[Level %d] [App] Evaluating 1 possible function being applied:" d);
       debug (fun m -> m "%a" pp a);
       match a with
-      | FunAtom (Function (_, e1, _), _, _) -> f acc e1
+      | FunAtom (Fun (_, e1, _), _, _) -> f acc e1
       | LStubAtom _ | EStubAtom _ -> acc
       | LResAtom (r, _) | EResAtom (r, _) | PathCondAtom (_, r) ->
           fold_res_app ~init:acc ~f l sigma d r
@@ -125,7 +125,7 @@ let rec fold_res_var ~init ~f expr sigma d r =
       debug (fun m -> m "[Level %d] Visiting 1 possible function for e1:" d);
       debug (fun m -> m "%a" pp a);
       match a with
-      | FunAtom (Function (Ident x1, _, l1), _, sigma1) -> f acc x1 l1 sigma1
+      | FunAtom (Fun (Ident x1, _, l1), _, sigma1) -> f acc x1 l1 sigma1
       | LStubAtom _ | EStubAtom _ -> acc
       | LResAtom (r, _) | EResAtom (r, _) ->
           fold_res_var ~init:acc ~f expr sigma d r
@@ -211,7 +211,7 @@ let cache key data =
       m "[Cache] Add: %s\n->\n%s" (Cache_key.show key) (Res.show data));
   return data
 
-let rec analyze_aux ?(caching = true) d expr sigma pi : Res.t T.t =
+let rec analyze_aux ~caching d expr sigma pi : Res.t T.t =
   let%bind { v; _ } = ask () in
   let%bind { c; s; sids; _ } = get () in
   let d = d + 1 in
@@ -222,8 +222,8 @@ let rec analyze_aux ?(caching = true) d expr sigma pi : Res.t T.t =
     match expr with
     | Int i -> return [ IntAtom i ]
     | Bool b -> return [ BoolAtom b ]
-    | Function (_, _, l) -> return [ FunAtom (expr, l, sigma) ]
-    | Appl (e, _, l) -> (
+    | Fun (_, _, l) -> return [ FunAtom (expr, l, sigma) ]
+    | App (e, _, l) -> (
         let cache_key = Cache_key.Lkey (l, sigma, vid, sid, pi) in
         match Map.find c cache_key with
         | Some r when caching ->
@@ -240,7 +240,7 @@ let rec analyze_aux ?(caching = true) d expr sigma pi : Res.t T.t =
             if Set.mem v v_state then (
               debug (fun m -> m "Stubbed");
               info (fun m ->
-                  m "[Level %d] *** Appl (%a) ***" d Interp.Pp.pp_expr expr);
+                  m "[Level %d] *** App (%a) ***" d Interp.Pp.pp_expr expr);
               cache cache_key [ LStubAtom cycle_label ])
             else (
               (* App *)
@@ -264,7 +264,7 @@ let rec analyze_aux ?(caching = true) d expr sigma pi : Res.t T.t =
                 fold_res_app ~init:(return empty_res) l sigma d r1
                   ~f:(fun acc e1 ->
                     debug (fun m ->
-                        m "[Appl] Evaluating body of function being applied: %a"
+                        m "[App] Evaluating body of function being applied: %a"
                           Interp.Pp.pp_expr e1);
                     let%bind rs = acc in
                     let%bind r0 =
@@ -302,7 +302,7 @@ let rec analyze_aux ?(caching = true) d expr sigma pi : Res.t T.t =
             else (
               debug (fun m -> m "Didn't stub");
               match get_myfun l with
-              | Some (Function (Ident x1, _, l_myfun)) ->
+              | Some (Fun (Ident x1, _, l_myfun)) ->
                   if String.(x = x1) then (
                     (* Var Local *)
                     info (fun m ->
@@ -311,7 +311,7 @@ let rec analyze_aux ?(caching = true) d expr sigma pi : Res.t T.t =
                     debug (fun m -> m "sigma: %a" Sigma.pp sigma);
                     let s_hd, s_tl = (List.hd_exn sigma, List.tl_exn sigma) in
                     match get_myexpr s_hd with
-                    | Appl (_, e2, l') ->
+                    | App (_, e2, l') ->
                         debug (fun m -> m "Begin stitching stacks");
                         debug (fun m ->
                             m "Head of candidate fragments must be: %d" l');
@@ -357,9 +357,9 @@ let rec analyze_aux ?(caching = true) d expr sigma pi : Res.t T.t =
                     debug (fun m -> m "sigma: %a" Sigma.pp sigma);
                     debug (fun m -> m "Reading App at front of sigma");
                     match get_myexpr (List.hd_exn sigma) with
-                    | Appl (e1, _, l2) ->
+                    | App (e1, _, l2) ->
                         debug (fun m ->
-                            m "Function being applied at front of sigma: %a"
+                            m "Fun being applied at front of sigma: %a"
                               Interp.Pp.pp_expr e1);
                         let e1st = V_key.Estate (e1, sigma, sid) in
                         if Set.mem v e1st then (
@@ -435,12 +435,12 @@ let rec analyze_aux ?(caching = true) d expr sigma pi : Res.t T.t =
                           cache cache_key r2
                     | _ -> raise Unreachable)
               | _ -> raise Unreachable))
-    | If (e, e_true, e_false, l) -> (
+    | If (e, e_true, e_false) -> (
         (* let r_true, s_true = analyze_aux ~caching d e_true sigma None s v in
            info (fun m -> m "Evaluating: %a" Interpreter.Pp.pp_expr e_false);
            let r_false, s_false = analyze_aux ~caching d e_false sigma None s v in
            (r_true @ r_false, Set.union s (Set.union s_true s_false)) *)
-        info (fun m -> m "[Level %d] === If (%d) ===" d l);
+        info (fun m -> m "[Level %d] === If ===" d);
         let%bind r_cond = analyze_aux ~caching d e sigma pi in
         debug (fun m -> m "r_cond: %a" Res.pp r_cond);
         debug (fun m -> m "v_set:");
@@ -457,7 +457,7 @@ let rec analyze_aux ?(caching = true) d expr sigma pi : Res.t T.t =
               analyze_aux ~caching d e_true sigma (Some pc_true)
             in
             info (fun m -> m "[Level %d] *** If True only ***" d);
-            debug (fun m -> m "[Level %d] *** If (%d) ***" d l);
+            debug (fun m -> m "[Level %d] *** If ***" d);
             return [ PathCondAtom (pc_true, r_true) ]
         | false, true ->
             info (fun m -> m "[Level %d] === If False only ===" d);
@@ -466,7 +466,7 @@ let rec analyze_aux ?(caching = true) d expr sigma pi : Res.t T.t =
               analyze_aux ~caching d e_false sigma (Some pc_false)
             in
             info (fun m -> m "[Level %d] *** If False only ***" d);
-            info (fun m -> m "[Level %d] *** If (%d) ***" d l);
+            info (fun m -> m "[Level %d] *** If ***" d);
             return [ PathCondAtom (pc_false, r_false) ]
         | _ ->
             info (fun m -> m "[Level %d] === If both  ===" d);
@@ -483,7 +483,7 @@ let rec analyze_aux ?(caching = true) d expr sigma pi : Res.t T.t =
             in
             info (fun m -> m "[Level %d] *** If False ***" d);
             info (fun m -> m "[Level %d] *** If both  ***" d);
-            info (fun m -> m "[Level %d] *** If (%d) ***" d l);
+            info (fun m -> m "[Level %d] *** If ***" d);
             let pc_false = PathCondAtom (pc_false, r_false) in
             let pc_true = PathCondAtom (pc_true, r_true) in
             return [ pc_true; pc_false ])
@@ -523,19 +523,19 @@ let rec analyze_aux ?(caching = true) d expr sigma pi : Res.t T.t =
     | Not e ->
         let%bind r = analyze_aux ~caching d e sigma pi in
         return [ NotAtom r ]
-    | Record es ->
+    | Rec es ->
         es
-        |> List.fold_right ~init:(return []) ~f:(fun (id, ei) acc ->
+        |> List.fold ~init:(return []) ~f:(fun acc (id, ei) ->
                let%bind rs = acc in
                let%bind r = analyze_aux ~caching d ei sigma pi in
                return ((id, r) :: rs))
         |> fun rs ->
         let%bind rs = rs in
-        return [ RecAtom rs ]
-    | Projection (e, x) ->
+        return [ RecAtom (List.rev rs) ]
+    | Proj (e, x) ->
         let%bind r0 = analyze_aux ~caching d e sigma pi in
         return [ ProjAtom (r0, x) ]
-    | Inspection (x, e) ->
+    | Insp (x, e) ->
         let%bind r0 = analyze_aux ~caching d e sigma pi in
         return [ InspAtom (x, r0) ]
     | LetAssert (id, e1, e2) ->
@@ -556,6 +556,7 @@ let analyze ?(verify = true) ?(caching = true) ?(graph = false) e =
   let empty_s = Set.empty (module Sigma) in
 
   let start_time = Stdlib.Sys.time () in
+  (* TODO: make run function *)
   let r, s =
     analyze_aux ~caching 0 e [] None
       { v = empty_v; vids = Map.singleton (module V) empty_v 0 }

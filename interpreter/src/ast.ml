@@ -4,20 +4,15 @@ open Core
 
 exception Unreachable
 
-type ident =
-  | Ident of
-      (string
-      [@quickcheck.generator
-        Generator.string_non_empty_of Generator.char_lowercase])
-[@@coverage off]
+type ident = Ident of string
 [@@deriving show { with_path = false }, quickcheck, compare, sexp, hash]
 
 type expr =
   | Int of int
   | Bool of bool
-  | Function of ident * expr * int
+  | Fun of ident * expr * int
   | Var of ident * int
-  | Appl of expr * expr * int
+  | App of expr * expr * int
   | Plus of expr * expr
   | Minus of expr * expr
   | Mult of expr * expr
@@ -29,36 +24,33 @@ type expr =
   | Le of expr * expr
   | Lt of expr * expr
   | Not of expr
-  | If of expr * expr * expr * int
+  | If of expr * expr * expr
   | Let of ident * expr * expr * int
   | LetAssert of ident * expr * expr
-  | Record of (ident * expr) list
-  | Projection of expr * ident
-  | Inspection of ident * expr
+  | Rec of (ident * expr) list
+  | Proj of expr * ident
+  | Insp of ident * expr
 [@@deriving show { with_path = false }, quickcheck, compare, sexp, hash]
 
 type sigma = int list
 [@@deriving show { with_path = false }, compare, sexp, hash]
 
-type op_result_value =
-  | PlusOp of result_value * result_value
-  | MinusOp of result_value * result_value
-  | MultOp of result_value * result_value
-  | EqOp of result_value * result_value
-  | AndOp of result_value * result_value
-  | OrOp of result_value * result_value
-  | GeOp of result_value * result_value
-  | GtOp of result_value * result_value
-  | LeOp of result_value * result_value
-  | LtOp of result_value * result_value
-  | NotOp of result_value
-
-and result_value =
-  | IntResult of int
-  | BoolResult of bool
-  | FunResult of { f : expr; l : int; sigma : int list }
-  | OpResult of op_result_value
-  | RecordResult of (ident * result_value) list
+type res =
+  | IntRes of int
+  | BoolRes of bool
+  | FunRes of { f : expr; l : int; sigma : int list }
+  | RecRes of (ident * res) list
+  | PlusRes of res * res
+  | MinusRes of res * res
+  | MultRes of res * res
+  | EqRes of res * res
+  | AndRes of res * res
+  | OrRes of res * res
+  | GeRes of res * res
+  | GtRes of res * res
+  | LeRes of res * res
+  | LtRes of res * res
+  | NotRes of res
 [@@deriving show { with_path = false }]
 
 (** result values that may contain free variables *)
@@ -66,25 +58,14 @@ type res_val_fv =
   | IntResFv of int
   | BoolResFv of bool
   | VarResFv of ident
-  | PlusResFv of res_val_fv * res_val_fv
-  | MinusResOpFv of res_val_fv * res_val_fv
   | EqResFv of res_val_fv * res_val_fv
-  | AndResFv of res_val_fv * res_val_fv
-  | OrResFv of res_val_fv * res_val_fv
   | GeResFv of res_val_fv * res_val_fv
   | GtResFv of res_val_fv * res_val_fv
   | LeResFv of res_val_fv * res_val_fv
   | LtResFv of res_val_fv * res_val_fv
   | NotResFv of res_val_fv
-  (* TODO: not even needed? *)
-  | FunResFv
-  | RecResFv of (ident * res_val_fv) list
   | ProjResFv of res_val_fv * ident
-  | InspResFv
 [@@deriving hash, sexp, compare, show { with_path = false }]
-
-type fbtype = TArrow of fbtype * fbtype | TVar of string
-[@@coverage off] [@@deriving show { with_path = false }]
 
 let myexpr = Hashtbl.create (module Int)
 let myfun = Hashtbl.create (module Int)
@@ -100,11 +81,11 @@ let rec build_myfun e outer =
   match e with
   | Int _ -> ()
   | Bool _ -> ()
-  | Function (_, e', l) ->
+  | Fun (_, e', l) ->
       add_myfun l outer;
       build_myfun e' (Some e)
   | Var (_, l) -> add_myfun l outer
-  | Appl (e1, e2, l) ->
+  | App (e1, e2, l) ->
       add_myfun l outer;
       build_myfun e1 outer;
       build_myfun e2 outer
@@ -121,14 +102,12 @@ let rec build_myfun e outer =
       build_myfun e1 outer;
       build_myfun e2 outer
   | Not e -> build_myfun e outer
-  | If (e1, e2, e3, l) ->
-      (* TODO: likely don't need this l *)
-      add_myfun l outer;
+  | If (e1, e2, e3) ->
       build_myfun e1 outer;
       build_myfun e2 outer;
       build_myfun e3 outer
-  | Record entries -> List.iter entries ~f:(fun (_, e) -> build_myfun e outer)
-  | Projection (e, _) | Inspection (_, e) -> build_myfun e outer
+  | Rec entries -> List.iter entries ~f:(fun (_, e) -> build_myfun e outer)
+  | Proj (e, _) | Insp (_, e) -> build_myfun e outer
   | LetAssert (_, e1, e2) ->
       build_myfun e1 outer;
       build_myfun e2 outer
@@ -155,13 +134,13 @@ let build_bool b = Bool b
 
 let build_function ident e =
   let label = get_next_label () in
-  let labeled_function = Function (ident, e, label) in
+  let labeled_function = Fun (ident, e, label) in
   add_myexpr label labeled_function;
   labeled_function
 
 let build_appl e1 e2 =
   let label = get_next_label () in
-  let labeled_appl = Appl (e1, e2, label) in
+  let labeled_appl = App (e1, e2, label) in
   add_myexpr label labeled_appl;
   labeled_appl
 
@@ -182,12 +161,7 @@ let build_gt e1 e2 = Gt (e1, e2)
 let build_le e1 e2 = Le (e1, e2)
 let build_lt e1 e2 = Lt (e1, e2)
 let build_not e = Not e
-
-let build_if e1 e2 e3 =
-  let label = get_next_label () in
-  let labeled_if = If (e1, e2, e3, label) in
-  add_myexpr label labeled_if;
-  labeled_if
+let build_if e1 e2 e3 = If (e1, e2, e3)
 
 let build_let id e1 e2 =
   let label = get_next_label () in
@@ -196,9 +170,9 @@ let build_let id e1 e2 =
   labeled_let
 
 let build_letassert id e1 e2 = LetAssert (id, e1, e2)
-let build_record entries = Record entries
-let build_projection e s = Projection (e, Ident s)
-let build_inspection s e = Inspection (Ident s, e)
+let build_record entries = Rec entries
+let build_projection e s = Proj (e, Ident s)
+let build_inspection s e = Insp (Ident s, e)
 
 let rec trans_let x e' e =
   match e with
@@ -213,20 +187,20 @@ let rec trans_let x e' e =
       if Option.is_some x && Stdlib.( = ) id (Option.value_exn x) then
         Option.value_exn e'
       else e
-  | Function (id, e1, l) ->
-      Function
+  | Fun (id, e1, l) ->
+      Fun
         ( id,
           (if Option.is_some x && Stdlib.( = ) id (Option.value_exn x) then e1
            else trans_let x e' e1),
           l )
-  | Appl (e1, e2, l) ->
-      let e = Appl (trans_let x e' e1, trans_let x e' e2, l) in
+  | App (e1, e2, l) ->
+      let e = App (trans_let x e' e1, trans_let x e' e2, l) in
       (* only sync expression of label here as function application is
          the only expression looked up by its label, besides a variable *)
       add_myexpr l e;
       e
-  | If (e1, e2, e3, l) ->
-      If (trans_let x e' e1, trans_let x e' e2, trans_let x e' e3, l)
+  | If (e1, e2, e3) ->
+      If (trans_let x e' e1, trans_let x e' e2, trans_let x e' e3)
   | Plus (e1, e2) -> Plus (trans_let x e' e1, trans_let x e' e2)
   | Minus (e1, e2) -> Minus (trans_let x e' e1, trans_let x e' e2)
   | Mult (e1, e2) -> Mult (trans_let x e' e1, trans_let x e' e2)
@@ -238,45 +212,45 @@ let rec trans_let x e' e =
   | Le (e1, e2) -> Le (trans_let x e' e1, trans_let x e' e2)
   | Lt (e1, e2) -> Lt (trans_let x e' e1, trans_let x e' e2)
   | Not e1 -> Not (trans_let x e' e1)
-  | Record entries ->
-      Record (List.map ~f:(fun (x1, e1) -> (x1, trans_let x e' e1)) entries)
-  | Projection (e1, id) -> Projection (trans_let x e' e1, id)
-  | Inspection (id, e1) -> Inspection (id, trans_let x e' e1)
+  | Rec entries ->
+      Rec (List.map ~f:(fun (x1, e1) -> (x1, trans_let x e' e1)) entries)
+  | Proj (e1, id) -> Proj (trans_let x e' e1, id)
+  | Insp (id, e1) -> Insp (id, trans_let x e' e1)
   | LetAssert (id, e1, e2) -> LetAssert (id, trans_let x e' e1, e2)
   | Int _ | Bool _ -> e
 
 let rec transform_let e =
   match e with
   | Int _ | Bool _ | Var _ -> e
-  | Function (ident, e, l) ->
+  | Fun (ident, e, l) ->
       let e' = transform_let e in
-      let f = Function (ident, e', l) in
+      let f = Fun (ident, e', l) in
       add_myexpr l f;
       f
   | Let (ident, e1, e2, let_l) ->
       let fun_l = get_next_label () in
       let e2' = transform_let e2 in
-      let f = Function (ident, e2', fun_l) in
+      let f = Fun (ident, e2', fun_l) in
       add_myexpr fun_l f;
       let e1' = transform_let e1 in
-      let appl = Appl (f, e1', let_l) in
+      let appl = App (f, e1', let_l) in
       add_myexpr let_l appl;
       appl
-  | Appl (e1, e2, l) ->
+  | App (e1, e2, l) ->
       let e1' = transform_let e1 in
       let e2' = transform_let e2 in
-      let appl = Appl (e1', e2', l) in
+      let appl = App (e1', e2', l) in
       add_myexpr l appl;
       appl
   | LetAssert (id, e1, e2) ->
       let e1' = transform_let e1 in
       let e2' = transform_let e2 in
       LetAssert (id, e1', e2')
-  | If (e1, e2, e3, l) ->
+  | If (e1, e2, e3) ->
       let e1' = transform_let e1 in
       let e2' = transform_let e2 in
       let e3' = transform_let e3 in
-      If (e1', e2', e3', l)
+      If (e1', e2', e3')
   | Plus (e1, e2) -> Plus (transform_let e1, transform_let e2)
   | Minus (e1, e2) -> Minus (transform_let e1, transform_let e2)
   | Mult (e1, e2) -> Mult (transform_let e1, transform_let e2)
@@ -288,6 +262,6 @@ let rec transform_let e =
   | And (e1, e2) -> And (transform_let e1, transform_let e2)
   | Or (e1, e2) -> Or (transform_let e1, transform_let e2)
   | Not e -> Not (transform_let e)
-  | Record es -> Record (List.map es ~f:(fun (id, e) -> (id, transform_let e)))
-  | Projection (e, id) -> Projection (transform_let e, id)
-  | Inspection (id, e) -> Inspection (id, transform_let e)
+  | Rec es -> Rec (List.map es ~f:(fun (id, e) -> (id, transform_let e)))
+  | Proj (e, id) -> Proj (transform_let e, id)
+  | Insp (id, e) -> Insp (id, transform_let e)

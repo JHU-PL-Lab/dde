@@ -3,7 +3,7 @@
  (public_name dde.interp)
  (preprocess
   (pps ppx_deriving.show ppx_jane))
- (modules lexer parser ast lib pp debugutils)
+ (modules lexer parser ast lib pp debug_utils exns)
  (libraries core))
 
 (ocamllex
@@ -17,11 +17,3 @@
  (modes byte)
  (modules main)
  (libraries interp))
-
-(toplevel
- (name toplevel)
- (libraries utop interp))
-
-(alias
- (name distributables)
- (deps main.bc toplevel.exe))

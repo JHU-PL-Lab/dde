@@ -8,7 +8,12 @@ let assert_equal = OUnit2.assert_equal ~printer:Fn.id
 let assert_unequal e1 e2 =
   OUnit2.assert_equal ~cmp:(fun a b -> String.(a <> b)) ~printer:Fn.id e1 e2
 
+let report_runtime = ref false
+let caching = ref true
+
 let peu ?(should_simplify = false) s =
   s |> Fn.flip ( ^ ) ";;" |> Lexing.from_string |> Parser.main Lexer.token
-  |> Lib.eval ~is_debug_mode:false ~should_simplify
-  |> Format.asprintf "%a" Pp.pp_result_value
+  |> Lib.eval ~is_debug_mode:false ~should_simplify ~caching:!caching
+  |> fun (r, runtime) ->
+  if !report_runtime then Format.printf "runtime: %f\n" runtime;
+  r |> Format.asprintf "%a" Pp.pp_result_value
