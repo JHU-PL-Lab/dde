@@ -27,13 +27,13 @@ machine.
 Then, you may retrieve the project's Docker image from Docker Hub:
 
 ```sh
-docker pull pure-demand
+docker pull puredemand/puredemand:0.1.0
 ```
 
 Once retrieved, run the image:
 
 ```sh
-docker run --rm -it pure-demand
+docker run --rm -it puredemand/puredemand:0.1.0
 ```
 
 This will enter into an interactive shell environment where you may run commands
