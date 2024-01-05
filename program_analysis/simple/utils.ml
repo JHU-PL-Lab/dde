@@ -273,6 +273,18 @@ module ReaderState = struct
       ((), { st with s; sids = sids'; cnt = cnt' })
 
     let set_cache c : unit t = fun _ st -> ((), { st with c })
+
+    let run (m : 'a t) =
+      let empty_v = Set.empty (module V_key) in
+      let empty_s = Set.empty (module Sigma) in
+      m
+        { v = empty_v; vids = Map.singleton (module V) empty_v 0 }
+        {
+          c = Map.empty (module Cache_key);
+          s = empty_s;
+          sids = Map.singleton (module S) empty_s 1;
+          cnt = 2;
+        }
   end
 
   include T

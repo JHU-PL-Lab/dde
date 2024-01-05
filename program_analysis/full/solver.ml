@@ -324,7 +324,6 @@ and chcs_of_atom ?(pis = []) ?(stub_sort = isort)
               match Map.find decls aid with
               | Some pa ->
                   let%bind _ = t in
-                  (* TODO: assert that all disjuncts are of the same type *)
                   return (Some (pa |> FuncDecl.get_domain |> List.hd_exn))
               | None -> t (* should hit this case at least once *))
         with
@@ -352,7 +351,6 @@ and chcs_of_atom ?(pis = []) ?(stub_sort = isort)
               match Map.find decls aid with
               | Some pa ->
                   let%bind _ = t in
-                  (* TODO: assert that all disjuncts are of the same type *)
                   return (Some (pa |> FuncDecl.get_domain |> List.hd_exn))
               | None -> t)
         with

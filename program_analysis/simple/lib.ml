@@ -425,6 +425,7 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
         return (single_res (AssertAtom (id, r1, r2)))
     | Let _ -> raise Unreachable
   in
+  (* TODO: remove all lone stubs *)
   return (simplify r)
 
 let analyze ?(caching = true) e =
@@ -433,20 +434,8 @@ let analyze ?(caching = true) e =
   debug (fun m -> m "%a" Interp.Pp.pp_expr e);
   debug (fun m -> m "%a" pp_expr e);
 
-  let empty_v = Set.empty (module V_key) in
-  let empty_s = Set.empty (module Sigma) in
-
   let start_time = Stdlib.Sys.time () in
-  let r, { sids; _ } =
-    analyze_aux ~caching 0 e []
-      { v = empty_v; vids = Map.singleton (module V) empty_v 0 }
-      {
-        c = Map.empty (module Cache_key);
-        s = empty_s;
-        sids = Map.singleton (module S) empty_s 1;
-        cnt = 2;
-      }
-  in
+  let r, { sids; _ } = run (analyze_aux ~caching 0 e []) in
   let end_time = Stdlib.Sys.time () in
   let runtime = end_time -. start_time in
 

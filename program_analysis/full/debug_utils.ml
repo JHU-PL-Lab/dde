@@ -8,7 +8,8 @@ let parse s =
   |> Interp.Parser.main Interp.Lexer.token
 
 let parse_analyze ?(name = "test") s =
-  s |> parse |> Lib.analyze ~verify:!verify ~caching:!caching ~graph:!graph
+  s |> parse
+  |> Lib.analyze ~verify:!verify ~caching:!caching ~graph:!graph ~name
   |> fun (r, runtime) ->
   if !report_runtime then Format.printf "%s: %fs\n" name runtime;
   r

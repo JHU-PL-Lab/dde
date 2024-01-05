@@ -2,7 +2,7 @@ open Core
 open Interp.Ast
 open Utils
 
-(* graph visualization utilities *)
+(* Graph visualization utilities *)
 
 module rec Latom : sig
   type t =
@@ -327,7 +327,7 @@ end
 open State
 open State.Let_syntax
 
-let dot_of_result ?(display_path_cond = true) r =
+let dot_of_result ?(display_path_cond = true) r name =
   let r = Lres.mk r in
   (* p is the parent *atom* of a *)
   (* l is the label of the enclosing labeled result, if any *)
@@ -575,7 +575,8 @@ let dot_of_result ?(display_path_cond = true) r =
             in
             Format.sprintf "%s\n%s -> %s %s" acc key n props))
   in
-  Out_channel.write_all "graph.dot"
+  Out_channel.write_all
+    (Format.sprintf "graph_%s.dot" name)
     ~data:
       (Format.sprintf
          "digraph G {\n\

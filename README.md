@@ -7,8 +7,8 @@ to Program Analysis.
 
 This artifact facilitates building, testing, and benchmarking the interpreter
 and program analysis presented in the paper. In addition, it includes a
-simplified version of the program analysis that does not use Z3 for path
-sensitivity and deriving recurrences.
+simplified version of the program analysis (`program_analysis/simple`) that is
+less precise and does not use Z3 for path sensitivity and deriving recurrences.
 
 TODO: list claims
 
@@ -40,7 +40,7 @@ This will enter into an interactive shell environment where you may run commands
 and edit files (using `vim`/`emacs`). Once you are done, you may quit the
 environment with Ctrl+D or type "exit".
 
-In fact, if you prefer a modern text editor/IDE, VS Code has a [Remote SSH
+If you prefer a modern text editor/IDE, VS Code has a [Remote SSH
 extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh)
 that allows attaching to a running container. To do so, click on the icon of the
 extension at the bottom left of your VS Code window, select "Attach to running
@@ -89,7 +89,7 @@ There are several flags you can optionally specify, as listed below.
 | --runtime | Print the runtime (processor time) of each test to stdout |
 | --no-cache | Disable caching in the analysis |
 | --verify | Enable verification of final analysis result using Z3 |
-| --bench | Run benchmarks, which takes a while. More accurate than --runtime. |
+| --bench | Run benchmarks, which takes ~4 mins. More accurate than --runtime. |
 | --graph | Generate Graphviz source code visualizing the final analysis result, `./graph.dot`. |
 
 For example, you may execute `dune exec -- program_analysis/tests/tests.exe
@@ -101,6 +101,13 @@ in the second column (Time/Run, in microseconds) of the resulting graph:
 ```sh
 dune exec -- program_analysis/tests/tests.exe --bench
 ```
+
+The simple system is devised in order to reduce the overhead incurred by Z3. For
+each of the simple and full version, there a few long-running tests from DDPA
+that do not terminate quickly. For this reason, they are separate from the other
+benchmarks and are commented out right now ("DDPA long-running tests (full)" and
+"DDPA long-running tests (simple)" in `program_analysis/tests/tests.ml`).
+Running them will time out after 5 minutes.
 
 ## Reusability Guide
 

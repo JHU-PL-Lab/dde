@@ -99,7 +99,6 @@ expr:
       { build_if $2 $4 $6 }
   | LBRACE separated_list(SEP, record_entry) RBRACE
       { build_record $2 }
-// TODO: put these under separate grammar entry to raise precedence
   | expr PROJECT IDENT
       { build_projection $1 $3 }
   | IDENT IN expr

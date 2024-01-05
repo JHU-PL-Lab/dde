@@ -321,15 +321,19 @@ let ddpa_thunked =
           pau ~name:"map" (read_case "map.ml") ) );
     ("primtest", fun _ -> ("15", pau ~name:"primtest" (read_case "primtest.ml")));
     ("rsa", fun _ -> ("false", pau ~name:"rsa" (read_case "rsa.ml")));
-    (* ( "sat-1",
-       fun _ -> ("(false | true)", pau ~name:"sat-1" (read_case "sat-1.ml")) ); *)
-    (* ( "sat-2",
-       fun _ -> ("(false | true)", pau ~name:"sat-2" (read_case "sat-2.ml")) ); *)
-    (* ( "sat-3",
-       fun _ -> ("(false | true)", pau ~name:"sat-3" (read_case "sat-3.ml")) ); *)
-    (* ("ack", fun _ -> ("", pau ~name:"ack" (read_case "ack.ml"))); *)
-    (* ("tak", fun _ -> ("", pau ~name:"tak" (read_case "tak.ml"))); *)
-    (* ("cpstak", fun _ -> ("", pau ~name:"cpstak" (read_case "cpstak.ml"))); *)
+  ]
+
+let ddpa_long_thunked =
+  [
+    ( "sat-1",
+      fun _ -> ("(false | true)", pau ~name:"sat-1" (read_case "sat-1.ml")) );
+    ( "sat-2",
+      fun _ -> ("(false | true)", pau ~name:"sat-2" (read_case "sat-2.ml")) );
+    ( "sat-3",
+      fun _ -> ("(false | true)", pau ~name:"sat-3" (read_case "sat-3.ml")) );
+    ("ack", fun _ -> ("", pau ~name:"ack" (read_case "ack.ml")));
+    ("tak", fun _ -> ("", pau ~name:"tak" (read_case "tak.ml")));
+    ("cpstak", fun _ -> ("", pau ~name:"cpstak" (read_case "cpstak.ml")));
   ]
 
 (* DDPA tests run with the full analysis. *)
@@ -365,16 +369,18 @@ let ddpa_simple_thunked =
       fun _ -> ("false | true", pau' ~name:"sat-2" (read_case "sat-2.ml")) );
     ( "sat-3 (simple)",
       fun _ -> ("false | true", pau' ~name:"sat-3" (read_case "sat-3.ml")) );
-    (* ( "sat-4",
-       fun _ -> ("false | true", pau' ~name:"sat-4" (read_case "sat-4.ml")) ); *)
     ( "sat-5 (simple)",
       fun _ -> ("true", pau' ~name:"sat-5" (read_case "sat-5.ml")) );
-    (* ("ack", fun _ -> ("Int | 2", pau' ~name:"ack" (read_case "ack.ml"))); *)
-    (* ("tak", fun _ -> ("15", pau' ~name:"tak" (read_case "tak.ml"))); *)
-    (* ( "cpstak",
-       fun _ ->
-         ( "15 | 18 | 31 | 32 | stub | stub | stub | stub",
-           pau' ~name:"cpstak" (read_case "cpstak.ml") ) ); *)
+  ]
+
+let ddpa_long_simple_thunked =
+  [
+    ("ack", fun _ -> ("Int | 2", pau' ~name:"ack" (read_case "ack.ml")));
+    ("tak", fun _ -> ("15", pau' ~name:"tak" (read_case "tak.ml")));
+    ( "cpstak",
+      fun _ ->
+        ( "15 | 18 | 31 | 32 | stub | stub | stub | stub",
+          pau' ~name:"cpstak" (read_case "cpstak.ml") ) );
   ]
 
 let custom_thunked =
@@ -392,7 +398,9 @@ let test_church _ = gen_test church_thunked
 let test_lists _ = gen_test lists_thunked
 let test_factorial _ = gen_test factorial_thunked
 let test_ddpa _ = gen_labeled_test ddpa_thunked
+let test_ddpa_long _ = gen_labeled_test ddpa_long_thunked
 let test_ddpa_simple _ = gen_labeled_test ddpa_simple_thunked
+let test_ddpa_long_simple _ = gen_labeled_test ddpa_long_simple_thunked
 let test_custom _ = gen_test custom_thunked
 
 let tests =
@@ -408,7 +416,11 @@ let tests =
          "Lists" >:: test_lists;
          "Factorial" >:: test_factorial;
          "DDPA (full)" >: test_long test_ddpa;
+         (* Times out after 5 minutes *)
+         (* "DDPA long-running tests (full)" >: test_long test_ddpa_long; *)
          "DDPA (simple)" >: test_long test_ddpa_simple;
+         (* Times out after 5 minutes *)
+         (* "DDPA long-running tests (simple)" >: test_long test_ddpa_long_simple; *)
          "Custom" >: test_long test_custom;
        ]
 

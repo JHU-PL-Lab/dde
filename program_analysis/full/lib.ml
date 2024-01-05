@@ -138,7 +138,6 @@ let rec exists_lone_stub v v' =
     | LStubAtom ((l, sigma) as st) ->
         (not
            (Set.exists v ~f:(function
-             (* TODO: remove sigma *)
              | V_key.Lstate (l', sigma', _) ->
                  l = l' && compare_sigma sigma sigma' = 0
              | _ -> false)))
@@ -546,31 +545,20 @@ let rec analyze_aux ~caching d expr sigma pi : Res.t T.t =
   in
   return (simplify r)
 
-let analyze ?(verify = true) ?(caching = true) ?(graph = false) e =
+(* Full analysis entrypoint *)
+let analyze ?(verify = true) ?(caching = true) ?(graph = false) ?(name = "test")
+    e =
   let e = trans_let None None e in
   build_myfun e None;
   debug (fun m -> m "%a" Interp.Pp.pp_expr e);
   debug (fun m -> m "%a" pp_expr e);
 
-  let empty_v = Set.empty (module V_key) in
-  let empty_s = Set.empty (module Sigma) in
-
   let start_time = Stdlib.Sys.time () in
-  (* TODO: make run function *)
-  let r, s =
-    analyze_aux ~caching 0 e [] None
-      { v = empty_v; vids = Map.singleton (module V) empty_v 0 }
-      {
-        c = Map.empty (module Cache_key);
-        s = empty_s;
-        sids = Map.singleton (module S) empty_s 1;
-        cnt = 2;
-      }
-  in
+  let r, s = run (analyze_aux ~caching 0 e [] None) in
   let end_time = Stdlib.Sys.time () in
   let runtime = end_time -. start_time in
 
-  if graph then Graph.dot_of_result r;
+  if graph then Graph.dot_of_result r name;
   debug (fun m -> m "Result: %a" Res.pp r);
 
   clean_up ();
