@@ -6,12 +6,9 @@
 
 (using coq 0.7)
 
-(authors "JHU PL Lab <scott@cs.jhu.edu>")
+(authors "Anonymous")
 
-(maintainers "JHU PL Lab <scott@cs.jhu.edu>")
-
-(source
- (github JHU-PL-Lab/dde))
+(maintainers "Anonymous")
 
 (package
  (name dde)

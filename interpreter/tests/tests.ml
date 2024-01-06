@@ -1,3 +1,5 @@
+[@@@warning "-32"]
+
 open OUnit2
 open Utils
 
