@@ -1,6 +1,6 @@
 FROM ocaml/opam:debian-11-ocaml-4.14
 
-RUN sudo apt-get update && sudo apt-get install -y libgmp-dev python3 vim emacs
+RUN sudo apt-get update && sudo apt-get install -y libgmp-dev python3 vim emacs graphviz
 WORKDIR /home/opam
 RUN sudo ln -f /usr/bin/opam-2.1 /usr/bin/opam && opam init --reinit -ni
 RUN echo "eval $(opam env)" >> .bashrc

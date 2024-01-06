@@ -1,4 +1,5 @@
-(* let not' = fun b -> if b then false else true in *)
+(* https://github.com/JHU-PL-Lab/odefa/blob/toplas/benchmark/cases/sat-3.scm *)
+
 let phi = fun ps -> 
   ((ps.x1) || (ps.x2)) &&
   ((ps.x1) || (not (ps.x2)) || (not (ps.x3))) &&

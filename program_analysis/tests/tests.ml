@@ -297,9 +297,7 @@ let factorial_thunked =
 
 (*
   DDPA tests run with the full analysis.
-  The format of a benchmarked thunked test must be (name, fun _ -> ...).
-  For this and the following test groups, long-running (>= 10 mins) tests
-  are commented out.
+  In order to include a test in the benchmark, its format must be (name, fun _ -> ...).
 *)
 let ddpa_thunked =
   [
@@ -323,20 +321,30 @@ let ddpa_thunked =
     ("rsa", fun _ -> ("false", pau ~name:"rsa" (read_case "rsa.ml")));
   ]
 
-let ddpa_long_thunked =
-  [
-    ( "sat-1",
-      fun _ -> ("(false | true)", pau ~name:"sat-1" (read_case "sat-1.ml")) );
-    ( "sat-2",
-      fun _ -> ("(false | true)", pau ~name:"sat-2" (read_case "sat-2.ml")) );
-    ( "sat-3",
-      fun _ -> ("(false | true)", pau ~name:"sat-3" (read_case "sat-3.ml")) );
-    ("ack", fun _ -> ("", pau ~name:"ack" (read_case "ack.ml")));
-    ("tak", fun _ -> ("", pau ~name:"tak" (read_case "tak.ml")));
-    ("cpstak", fun _ -> ("", pau ~name:"cpstak" (read_case "cpstak.ml")));
-  ]
+(* Long-running DDPA tests *)
 
-(* DDPA tests run with the full analysis. *)
+let ddpa_sat1_thunked =
+  ( "sat-1",
+    fun _ -> ("(false | true)", pau ~name:"sat-1" (read_case "sat-1.ml")) )
+
+let ddpa_sat2_thunked =
+  ( "sat-2",
+    fun _ -> ("(false | true)", pau ~name:"sat-2" (read_case "sat-2.ml")) )
+
+let ddpa_sat3_thunked =
+  ( "sat-3",
+    fun _ -> ("(false | true)", pau ~name:"sat-3" (read_case "sat-3.ml")) )
+
+let ddpa_ack_thunked =
+  ("ack", fun _ -> ("", pau ~name:"ack" (read_case "ack.ml")))
+
+let ddpa_tak_thunked =
+  ("tak", fun _ -> ("", pau ~name:"tak" (read_case "tak.ml")))
+
+let ddpa_cpstak_thunked =
+  ("cpstak", fun _ -> ("", pau ~name:"cpstak" (read_case "cpstak.ml")))
+
+(* DDPA tests run with the simple analysis. *)
 let ddpa_simple_thunked =
   [
     ( "blur (simple)",
@@ -373,35 +381,67 @@ let ddpa_simple_thunked =
       fun _ -> ("true", pau' ~name:"sat-5" (read_case "sat-5.ml")) );
   ]
 
-let ddpa_long_simple_thunked =
+let ddpa_ack_simple_thunked =
+  ("ack", fun _ -> ("Int | 2", pau' ~name:"ack" (read_case "ack.ml")))
+
+let ddpa_tak_simple_thunked =
+  ("tak", fun _ -> ("15", pau' ~name:"tak" (read_case "tak.ml")))
+
+let ddpa_cpstak_simple_thunked =
+  ( "cpstak",
+    fun _ ->
+      ( "15 | 18 | 31 | 32 | stub | stub | stub | stub",
+        pau' ~name:"cpstak" (read_case "cpstak.ml") ) )
+
+(* Modify me to define custom tests *)
+let custom_thunked =
   [
-    ("ack", fun _ -> ("Int | 2", pau' ~name:"ack" (read_case "ack.ml")));
-    ("tak", fun _ -> ("15", pau' ~name:"tak" (read_case "tak.ml")));
-    ( "cpstak",
-      fun _ ->
-        ( "15 | 18 | 31 | 32 | stub | stub | stub | stub",
-          pau' ~name:"cpstak" (read_case "cpstak.ml") ) );
+    (* Run with full analysis *)
+    (fun _ ->
+      ( "expected test result",
+        pau ~name:"your test name" (read_case "your_test.ml") ));
+    (* Run with simple analysis *)
+    (fun _ ->
+      ( "expected test result",
+        pau' ~name:"your test name" (read_case "your_test.ml") ));
   ]
 
-let custom_thunked =
-  [ (* (fun _ ->
-       ( "your test result",
-         pau ~name:"your test name" (read_case "your_test.ml") )); *) ]
+let custom_benchmarkable_thunked =
+  [
+    (* You must provide the name of the test twice
+       as follows to create a test that can be benchmarked *)
+    ( "your test name",
+      fun _ ->
+        ( "expected test result",
+          pau ~name:"your test name" (read_case "your_test.ml") ) );
+  ]
 
-let test_basic _ = gen_test basic_thunked
-let test_nonlocal_lookup _ = gen_test nonlocal_lookup_thunked
-let test_local_stitching _ = gen_test local_stitching_thunked
-let test_conditional _ = gen_test conditional_thunked
-let test_currying _ = gen_test currying_thunked
-let test_recursion _ = gen_test recursion_thunked
-let test_church _ = gen_test church_thunked
-let test_lists _ = gen_test lists_thunked
-let test_factorial _ = gen_test factorial_thunked
-let test_ddpa _ = gen_labeled_test ddpa_thunked
-let test_ddpa_long _ = gen_labeled_test ddpa_long_thunked
-let test_ddpa_simple _ = gen_labeled_test ddpa_simple_thunked
-let test_ddpa_long_simple _ = gen_labeled_test ddpa_long_simple_thunked
-let test_custom _ = gen_test custom_thunked
+let test_basic _ = gen_test_list basic_thunked
+let test_nonlocal_lookup _ = gen_test_list nonlocal_lookup_thunked
+let test_local_stitching _ = gen_test_list local_stitching_thunked
+let test_conditional _ = gen_test_list conditional_thunked
+let test_currying _ = gen_test_list currying_thunked
+let test_recursion _ = gen_test_list recursion_thunked
+let test_church _ = gen_test_list church_thunked
+let test_lists _ = gen_test_list lists_thunked
+let test_factorial _ = gen_test_list factorial_thunked
+
+(* Benchmarkable tests use `gen_labeled_test(_list)` instead of `gen_test_list` *)
+let test_ddpa _ = gen_labeled_test_list ddpa_thunked
+let test_ddpa_sat1 _ = gen_labeled_test ddpa_sat1_thunked
+let test_ddpa_sat2 _ = gen_labeled_test ddpa_sat2_thunked
+let test_ddpa_sat3 _ = gen_labeled_test ddpa_sat3_thunked
+let test_ddpa_ack _ = gen_labeled_test ddpa_ack_thunked
+let test_ddpa_tak _ = gen_labeled_test ddpa_tak_thunked
+let test_ddpa_cpstak _ = gen_labeled_test ddpa_cpstak_thunked
+let test_ddpa_simple _ = gen_labeled_test_list ddpa_simple_thunked
+let test_ddpa_ack_simple _ = gen_labeled_test ddpa_ack_simple_thunked
+let test_ddpa_tak_simple _ = gen_labeled_test ddpa_tak_simple_thunked
+let test_ddpa_cpstak_simple _ = gen_labeled_test ddpa_cpstak_simple_thunked
+let test_custom _ = gen_test_list custom_thunked
+
+let test_custom_benchmarkable _ =
+  gen_labeled_test_list custom_benchmarkable_thunked
 
 let tests =
   "Pure demand program analysis tests"
@@ -415,17 +455,31 @@ let tests =
          "Church numerals" >:: test_church;
          "Lists" >:: test_lists;
          "Factorial" >:: test_factorial;
-         "DDPA (full)" >: test_long test_ddpa;
-         (* Times out after 5 minutes *)
-         (* "DDPA long-running tests (full)" >: test_long test_ddpa_long; *)
-         "DDPA (simple)" >: test_long test_ddpa_simple;
-         (* Times out after 5 minutes *)
-         (* "DDPA long-running tests (simple)" >: test_long test_ddpa_long_simple; *)
-         "Custom" >: test_long test_custom;
+         "DDPA" >: test_medium test_ddpa;
+         (* Times out after 10 minutes *)
+         (* "DDPA sat-1 (long-running)" >: test_long test_ddpa_sat1; *)
+         (* "DDPA sat-2 (long-running)" >: test_long test_ddpa_sat2; *)
+         (* "DDPA sat-3 (long-running)" >: test_long test_ddpa_sat3; *)
+         (* "DDPA sat-ack (long-running)" >: test_long test_ddpa_ack; *)
+         (* "DDPA sat-tak (long-running)" >: test_long test_ddpa_tak; *)
+         (* "DDPA sat-cpstak (long-running)" >: test_long test_ddpa_cpstak; *)
+         "DDPA (simple)" >: test_medium test_ddpa_simple;
+         (* Times out after 10 minutes *)
+         (* "DDPA sat-ack (simple, long-running)" >: test_long test_ddpa_ack_simple; *)
+         (* "DDPA sat-tak (simple, long-running)" >: test_long test_ddpa_tak_simple; *)
+         (* "DDPA sat-cpstak (simple, long-running)"
+            >: test_long test_ddpa_cpstak_simple; *)
+         (* Uncomment the following to run custom tests *)
+         (* "Custom" >: test_long test_custom; *)
+         (* "Custom benchmarkable" >: test_long test_custom_benchmarkable; *)
        ]
 
-(* Specify benchmarked tests here *)
+(*
+  Specify benchmarked tests here.
+  Uncomment to benchmark custom tests.
+*)
 let to_benchmark = ddpa_thunked @ ddpa_simple_thunked
+(* @ custom_benchmarkable_thunked *)
 
 let benchmark tests =
   Command_unix.run ~argv:[ "" ]
@@ -462,6 +516,6 @@ let _ =
         "Visualize final result" );
       ("--bench", Arg.Unit (fun _ -> benchmark to_benchmark), "Run benchmarks");
     ]
-    Fn.ignore "Program analysis tests";
+    Fn.ignore "Pure demand program analysis tests";
 
   run_test_tt_main tests

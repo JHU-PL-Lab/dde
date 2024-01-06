@@ -48,18 +48,16 @@ let main () =
   let filename = ref "" in
   let toplevel = ref true in
   let show_exception_stack_trace = ref false in
-  let is_debug_mode = ref false in
-  let should_simplify = ref false in
+  let debug = ref false in
+  let simplify = ref false in
   Arg.parse
     [
       ( "--show-backtrace",
         Arg.Set show_exception_stack_trace,
         "Enable the display of exception stack traces" );
-      ( "--debug",
-        Arg.Set is_debug_mode,
-        "output debug information from evaluation" );
+      ("--debug", Arg.Set debug, "output debug information from evaluation");
       ( "--simplify",
-        Arg.Set should_simplify,
+        Arg.Set simplify,
         "eagerly simplify (substitute free variables, perform function \
          application, etc.)result" );
     ]
@@ -71,7 +69,7 @@ let main () =
 
   Printexc.record_backtrace !show_exception_stack_trace;
 
-  if !toplevel then toplevel_loop !is_debug_mode !should_simplify
-  else run_file !filename !is_debug_mode !should_simplify
+  if !toplevel then toplevel_loop !debug !simplify
+  else run_file !filename !debug !simplify
 
 let () = main ()

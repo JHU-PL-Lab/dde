@@ -98,13 +98,13 @@ module State = struct
     let get_aid a : string t =
      fun ({ aids; cnt; _ } as st) ->
       let data =
-        (* any well-formed cycle is such that the stub must
+        (* Any well-formed cycle is such that the stub must
            have already been visited before the labeled result *)
         match a with
         | Atom.LResAtom (_, st) -> (
             match Map.find aids (LStubAtom st) with
             | Some id -> Some id
-            (* if no stub , then `a` doesn't start a cycle *)
+            (* If no stub , then `a` doesn't start a cycle *)
             | None -> Map.find aids a)
         | EResAtom (_, st) -> (
             match Map.find aids (EStubAtom st) with
@@ -164,7 +164,7 @@ end
 open State
 open State.Let_syntax
 
-(** can assume good form due to call to `eval_assert` *)
+(* Can assume good form due to call to `eval_assert` *)
 let chcs_of_assert r1 (r2 : Interp.Ast.res_val_fv) : unit T.t =
   let%bind r1id = get_rid r1 in
   let%bind p = get_decl r1id in
@@ -308,14 +308,14 @@ and chcs_of_atom ?(pis = []) ?(stub_sort = isort)
         ((r_ :: cond_quants |. (pr <-- [ r_ ]) &&& cond_body)
         --> (pa <-- [ znot r_ ]))
   | LResAtom (r, st) ->
-      (* derive Z3 sort for labeled result/stub pair from the sort of
+      (* Derive Z3 sort for labeled result/stub pair from the sort of
          the concrete disjuncts, which is sound on any proper,
          terminating programs. *)
       let p = Core.Set.add p (St.Lstate st) in
       let%bind sort =
         match%bind
           List.fold r ~init:(return None) ~f:(fun t a ->
-              (* this may assign an ID for stub to be later inherited by
+              (* This may assign an ID for stub to be later inherited by
                  its enclosing res atom but will trigger a lookup failure
                  (caught) at stub's (non-existent) Z3 decl *)
               let%bind () = chcs_of_atom a ~pis ~stub_sort ~p in
@@ -325,7 +325,7 @@ and chcs_of_atom ?(pis = []) ?(stub_sort = isort)
               | Some pa ->
                   let%bind _ = t in
                   return (Some (pa |> FuncDecl.get_domain |> List.hd_exn))
-              | None -> t (* should hit this case at least once *))
+              | None -> t)
         with
         | Some t -> return t
         | None -> raise Unreachable
@@ -336,7 +336,7 @@ and chcs_of_atom ?(pis = []) ?(stub_sort = isort)
       let%bind rid = get_rid r in
       let pr = zdecl rid [ sort ] bsort in
       let%bind () = add_decl rid pr in
-      (* most of this is repetitive work, but necessary *)
+      (* Most of this is repetitive work, but necessary *)
       let%bind () = chcs_of_res r ~pis ~stub_sort ~p in
       let r_ = zconst "r" sort in
       add_chc ([ r_ ] |. (pr <-- [ r_ ]) --> (pa <-- [ r_ ]))
@@ -369,12 +369,11 @@ and chcs_of_atom ?(pis = []) ?(stub_sort = isort)
       let r_ = zconst "r" sort in
       add_chc ([ r_ ] |. (pr <-- [ r_ ]) --> (pa <-- [ r_ ]))
   | PathCondAtom (((r, _) as pi), r0) -> (
-      (* generate CHCs for current path condition using
+      (* Generate CHCs for current path condition using
          the previous path conditions *)
       let%bind () = chcs_of_res r ~pis ~stub_sort ~p in
       let%bind () = chcs_of_res r0 ~pis:(pi :: pis) ~stub_sort ~p in
-      (* chcs_of_res r0 ~pis ~stub_sort; *)
-      (* point self at the same decl *)
+      (* Point self at the same decl *)
       let%bind r0id = get_rid r0 in
       let%bind { decls; _ } = get () in
       match Map.find decls r0id with
@@ -402,7 +401,8 @@ and chcs_of_atom ?(pis = []) ?(stub_sort = isort)
   | AssertAtom (id, r1, r2) ->
       let%bind () = chcs_of_res r1 ~pis ~stub_sort ~p in
       chcs_of_assert r1 r2
-  (* records are good for: subsumes shape analysis *)
+  (* Records are good for demoing that pure demand analysis
+     subsumes shape analysis *)
   | RecAtom _ -> return ()
   | ProjAtom _ | InspAtom _ -> raise Unreachable
 
@@ -419,7 +419,7 @@ and chcs_of_res ?(pis = []) ?(stub_sort = isort)
           let%bind _ = acc in
           let dom = FuncDecl.get_domain pa in
           let pr = zdecl rid dom bsort in
-          (* at if conditions, the root assertion is always P0 *)
+          (* At if conditions, the root assertion is always P0 *)
           let%bind () =
             if String.(rid = "P0") then set_entry pr else return ()
           in

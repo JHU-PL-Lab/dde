@@ -85,10 +85,7 @@ let rec build_myfun e outer =
       add_myfun l outer;
       build_myfun e' (Some e)
   | Var (_, l) -> add_myfun l outer
-  | App (e1, e2, l) ->
-      add_myfun l outer;
-      build_myfun e1 outer;
-      build_myfun e2 outer
+  | App (e1, e2, _)
   | Plus (e1, e2)
   | Minus (e1, e2)
   | Mult (e1, e2)

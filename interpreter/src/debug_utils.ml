@@ -1,5 +1,5 @@
-let is_debug_mode = ref false
-let should_simplify = ref false
+let debug = ref false
+let simplify = ref false
 let report_runtime = ref false
 let caching = ref true
 let eval = Lib.eval
@@ -8,9 +8,7 @@ let parse s =
   s |> Core.Fn.flip ( ^ ) ";;" |> Lexing.from_string |> Parser.main Lexer.token
 
 let parse_eval s =
-  s |> parse
-  |> Lib.eval ~is_debug_mode:!is_debug_mode ~should_simplify:!should_simplify
-       ~caching:!caching
+  s |> parse |> Lib.eval ~debug:!debug ~simplify:!simplify ~caching:!caching
   |> fun (r, runtime) ->
   if !report_runtime then Format.printf "runtime: %fs\n" runtime;
   r

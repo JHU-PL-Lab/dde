@@ -10,10 +10,11 @@ let assert_unequal e1 e2 =
 
 let report_runtime = ref false
 let caching = ref true
+let debug = ref false
 
-let peu ?(should_simplify = false) s =
+let peu ?(simplify = false) s =
   s |> Fn.flip ( ^ ) ";;" |> Lexing.from_string |> Parser.main Lexer.token
-  |> Lib.eval ~is_debug_mode:false ~should_simplify ~caching:!caching
+  |> Lib.eval ~debug:!debug ~simplify ~caching:!caching
   |> fun (r, runtime) ->
   if !report_runtime then Format.printf "runtime: %f\n" runtime;
   r |> Format.asprintf "%a" Pp.pp_result_value

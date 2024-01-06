@@ -345,25 +345,20 @@ and eval_result_value r ~caching : res T.t =
       let%bind es' = es' in
       es' |> List.rev |> RecRes |> return
 
-let eval ?(caching = true) ~is_debug_mode ~should_simplify e =
+let eval ?(caching = true) ?(debug = false) ?(simplify = false) e =
   build_myfun e None;
   let e = trans_let None None e in
+
   let start_time = Stdlib.Sys.time () in
   let r, c = run (eval_aux e [] ~caching) in
   let end_time = Stdlib.Sys.time () in
   let runtime = end_time -. start_time in
 
-  if is_debug_mode then (
-    print_endline "****** Label Table ******";
-    Pp.print_myexpr myexpr;
-    print_endline "****** Label Table ******\n";
-    print_endline "****** MyFun Table ******";
-    Pp.print_myfun myfun;
-    print_endline "****** MyFun Table ******\n");
+  if debug then (
+    print_string (Pp.string_of_table myexpr "myexpr");
+    print_string (Pp.string_of_table myfun "myfun"));
 
-  let r' =
-    if should_simplify then fst (eval_result_value r ~caching c) else r
-  in
+  let r' = if simplify then fst (eval_result_value r ~caching c) else r in
   clean_up ();
 
   (r', runtime)

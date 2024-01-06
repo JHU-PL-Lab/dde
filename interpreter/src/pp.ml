@@ -89,12 +89,10 @@ let rec pp_res_val_fv fmt = function
   | GeResFv (v1, v2) -> ff fmt "%a > %a" pp_res_val_fv v1 pp_res_val_fv v2
   | _ -> ()
 
-let print_myexpr tbl =
+let string_of_table tbl which =
   Hashtbl.to_alist tbl
-  |> List.sort ~compare:(fun (k1, v1) (k2, v2) -> Int.compare k1 k2)
-  |> List.iter ~f:(fun (k, v) -> Format.printf "%d -> %a\n" k pp_expr v)
-
-let print_myfun tbl =
-  Hashtbl.iteri
-    ~f:(fun ~key ~data -> Format.printf "%d -> %s\n" key (show_expr data))
-    tbl
+  |> List.sort ~compare:(fun (k1, v1) (k2, v2) -> Int.ascending k1 k2)
+  |> List.map ~f:(fun (k, v) -> Format.asprintf "%d -> %a" k pp_expr v)
+  |> String.concat ~sep:"\n"
+  |> fun content ->
+  Format.sprintf "=== %s table ===\n%s\n*** %s table ***\n" which content which

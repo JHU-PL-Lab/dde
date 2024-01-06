@@ -55,9 +55,9 @@ let dde_fib x =
     dde_ycomb x
 
 let test_ycomb _ =
-  assert_equal "8" (peu ~should_simplify:true (dde_fib 6));
+  assert_equal "8" (peu ~simplify:true (dde_fib 6));
   assert_equal "15"
-    (peu ~should_simplify:true
+    (peu ~simplify:true
        "let summate0 = fun self -> fun arg -> if arg = 0 then 0 else arg + \
         self self (arg - 1) in summate0 summate0 5")
 
@@ -67,25 +67,24 @@ let test_laziness _ =
   assert_equal "1" (peu "{ x = 1 }.x");
   assert_equal "1" (peu "{ label = if true then 1 else 0 }.label");
   assert_equal "fun y -> 7"
-    (peu ~should_simplify:true
-       "(fun x -> fun y -> x) ((fun z -> z + 1) (1 + 2 + 3))");
+    (peu ~simplify:true "(fun x -> fun y -> x) ((fun z -> z + 1) (1 + 2 + 3))");
   assert_equal "fun y -> 1"
-    (peu ~should_simplify:true "(fun x -> fun y -> x) (if true then 1 else 0)")
+    (peu ~simplify:true "(fun x -> fun y -> x) (if true then 1 else 0)")
 
 let test_record _ =
-  (* gives value at leftmost x *)
-  assert_equal "1" (peu ~should_simplify:true "{ x = 1; y = 3; x = 2 }.x");
+  (* Gives value at leftmost x *)
+  assert_equal "1" (peu ~simplify:true "{ x = 1; y = 3; x = 2 }.x");
   assert_equal "{ counter = -98; cond = true }"
-    (peu ~should_simplify:true
+    (peu ~simplify:true
        "let data = { counter = 99; cond = false } in if data.cond then { \
         counter = data.counter + 1; cond = false } else { counter = 1 - \
         data.counter; cond = true }");
   assert_equal "1"
-    (peu ~should_simplify:true
+    (peu ~simplify:true
        "(fun r -> if green in r then r.green else if blue in r then r.blue \
         else r.red) ({ cyan = 10; blue = 1 })");
   assert_equal "2"
-    (peu ~should_simplify:true "{ hd = 1; tl = { hd = 2; tl = {} } }.tl.hd")
+    (peu ~simplify:true "{ hd = 1; tl = { hd = 2; tl = {} } }.tl.hd")
 
 let list_incr =
   "let incr = fun self -> fun ls -> if not (hd in ls) then {} else { hd = \
@@ -98,12 +97,15 @@ let incr_cell =
 let test_record_rec _ =
   assert_equal
     "{ hd = 2; tl = { hd = 3; tl = { hd = 4; tl = { hd = 5; tl = {} } } } }"
-    (peu ~should_simplify:true
+    (peu ~simplify:true
        (list_incr
       ^ " ({ hd = 1; tl = { hd = 2; tl = { hd = 3; tl = { hd = 4; tl = {} } } \
          } })"));
   assert_equal "{ hd = 5; tl = {} }"
-    (peu ~should_simplify:true (incr_cell ^ " ({ hd = 0; tl = {} }) 5"))
+    (peu ~simplify:true (incr_cell ^ " ({ hd = 0; tl = {} }) 5"))
+
+(* Modify me to define custom tests *)
+let test_custom _ = assert_equal "expected test result" (peu "let a = 1 in a")
 
 let tests =
   "Pure demand interpreter tests"
@@ -120,6 +122,8 @@ let tests =
          "Laziness" >:: test_laziness;
          "Record operations" >:: test_record;
          "Record rec" >:: test_record_rec;
+         (* Uncomment the following to run custom tests *)
+         (* "Custom" >:: test_custom; *)
        ]
 
 let () =
@@ -131,7 +135,11 @@ let () =
       ( "--runtime",
         Arg.Unit (fun _ -> Utils.report_runtime := true),
         "Report runtime (processor time)" );
+      ( "--debug",
+        Arg.Unit (fun _ -> Utils.debug := true),
+        "Print debug messages to stdout" );
     ]
     (fun _ -> ())
-    "Interpreter tests";
+    "Pure demand interpreter tests";
+
   run_test_tt_main tests

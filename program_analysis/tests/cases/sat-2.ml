@@ -1,4 +1,4 @@
-(* https://github.com/JHU-PL-Lab/odefa/blob/toplas/benchmark/cases/sat-3.scm *)
+(* https://github.com/JHU-PL-Lab/odefa/blob/toplas/benchmark/cases/sat-2.scm *)
 
 let phi = fun x1 -> fun x2 -> fun x3 -> fun x4 -> fun x5 -> fun x6 -> fun x7 ->
   (x1 || x2) &&
