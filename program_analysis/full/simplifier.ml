@@ -1,9 +1,13 @@
+(** Simplification of results of full analysis per paper Section 5.2.1 *)
+
 open Core
 open Interp.Ast
 open Utils
 open Utils.Atom
 open Exns
 
+(** Recursively checks if any disjunct in result `r` has
+    a stub with `label` *)
 let rec exists_stub r label =
   List.exists r ~f:(function
     | FunAtom _ | IntAtom _ | BoolAtom _ -> false
@@ -31,6 +35,42 @@ let rec exists_stub r label =
     | OrAtom (r1, r2) ->
         exists_stub r1 label || exists_stub r2 label)
 
+(** Removes stubs without a parent - lone stubs that don't form a cycle *)
+let elim_stub r label =
+  if exists_stub r label then
+    let bases =
+      List.filter_map r ~f:(fun a ->
+          match a with
+          | RecAtom _ when not (exists_stub [ a ] label) -> Some a
+          | ProjAtom (([ RecAtom es ] as r), Ident key)
+            when not (exists_stub r label) -> (
+              match
+                List.find es ~f:(fun (Ident key', _) -> String.(key = key'))
+              with
+              | Some (_, [ a ]) -> Some a
+              | _ -> raise Runtime_error)
+          | FunAtom _ -> Some a
+          | _ -> None)
+    in
+    let r' =
+      List.concat_map r ~f:(function
+        | ProjAtom ([ EStubAtom st ], Ident key) when St.(label = Estate st) ->
+            List.concat_map bases ~f:(fun base ->
+                match base with
+                | RecAtom es -> (
+                    match
+                      List.find es ~f:(fun (Ident key', _) ->
+                          String.(key = key'))
+                    with
+                    | Some (_, r) -> r
+                    | None -> [])
+                | _ -> raise Runtime_error)
+        | EStubAtom st when St.(label = Estate st) -> []
+        | a -> [ a ])
+    in
+    r'
+  else r
+
 let int_arith_op = function
   | PlusAtom _ -> ( + )
   | MinusAtom _ -> ( - )
@@ -49,6 +89,7 @@ let bool_op = function
   | OrAtom _ -> ( || )
   | _ -> raise Unreachable
 
+(** Performs simplifications as specified in paper Section 5.2.1 *)
 let rec simplify ?(pa = None) r =
   let r' =
     List.filter_map r ~f:(fun a ->
@@ -273,4 +314,5 @@ let rec simplify ?(pa = None) r =
                 | a -> [ InspAtom (id, [ a ]) ])))
   in
   let r' = List.concat r' in
+  (* Stops when there's no change to the input result *)
   if Res.compare r r' = 0 then r' else simplify r' ~pa

@@ -1,4 +1,5 @@
 (* https://github.com/adamsmd/paper-push-down-for-free-prototype/blob/master/benchmarks/gcfa2/kcfa2.scm *)
+
 letassert x =
   (fun f1 ->
     let a = (f1 true) in

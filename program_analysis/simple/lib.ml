@@ -4,89 +4,10 @@ open Interp.Ast
 open Exns
 open Utils
 open Simplifier
-
-let rec eval_assert_aux e =
-  match e with
-  | Int i -> IntResFv i
-  | Bool b -> BoolResFv b
-  | Plus (e1, e2)
-  | Minus (e1, e2)
-  | Eq (e1, e2)
-  | Ge (e1, e2)
-  | Gt (e1, e2)
-  | Le (e1, e2)
-  | Lt (e1, e2) -> (
-      match (eval_assert_aux e1, eval_assert_aux e2) with
-      | IntResFv i1, IntResFv i2 -> (
-          match e with
-          | Plus _ -> IntResFv (i1 + i2)
-          | Minus _ -> IntResFv (i1 - i2)
-          | Eq _ -> BoolResFv (i1 = i2)
-          | Ge _ -> BoolResFv (i1 >= i2)
-          | Gt _ -> BoolResFv (i1 > i2)
-          | Le _ -> BoolResFv (i1 <= i2)
-          | Lt _ -> BoolResFv (i1 < i2)
-          | _ -> raise Unreachable)
-      | _ -> raise Unreachable)
-  | And (e1, e2) | Or (e1, e2) -> (
-      match (eval_assert_aux e1, eval_assert_aux e2) with
-      | BoolResFv b1, BoolResFv b2 -> (
-          match e with
-          | And _ -> BoolResFv (b1 && b2)
-          | Or _ -> BoolResFv (b1 || b2)
-          | _ -> raise Unreachable)
-      | _ -> raise Unreachable)
-  | Not e -> (
-      match eval_assert_aux e with
-      | BoolResFv b -> BoolResFv (not b)
-      | _ -> raise Unreachable)
-  | _ ->
-      Format.printf "%a" Interp.Pp.pp_expr e;
-      raise BadAssert
-
-(** only allow the following forms:
-    - arbitrary variable-free arithmetic
-    - <var>
-    - not <var>
-    - <var> <op> <value> *)
-let eval_assert e id =
-  match e with
-  | Bool b -> BoolResFv b
-  | Var (id', _) when Stdlib.(id = id') -> VarResFv id'
-  | Eq (e1, e2) | Ge (e1, e2) | Gt (e1, e2) | Le (e1, e2) | Lt (e1, e2) -> (
-      match e1 with
-      | Var (id', _) when Stdlib.(id = id') -> (
-          let v1 = VarResFv id' in
-          let v2 = eval_assert_aux e2 in
-          match e with
-          | Eq _ -> EqResFv (v1, v2)
-          | Ge _ -> GeResFv (v1, v2)
-          | Gt _ -> GtResFv (v1, v2)
-          | Le _ -> LeResFv (v1, v2)
-          | Lt _ -> LtResFv (v1, v2)
-          | _ -> raise Unreachable)
-      | Proj (e1, x) -> failwith "Not supported"
-      | _ -> (
-          let v1, v2 = (eval_assert_aux e1, eval_assert_aux e2) in
-          match (v1, v2) with
-          | IntResFv i1, IntResFv i2 -> (
-              match e with
-              | Eq _ -> BoolResFv (i1 = i2)
-              | Ge _ -> BoolResFv (i1 >= i2)
-              | Gt _ -> BoolResFv (i1 > i2)
-              | Le _ -> BoolResFv (i1 <= i2)
-              | Lt _ -> BoolResFv (i1 < i2)
-              | _ -> raise Unreachable)
-          | _ -> raise BadAssert))
-  | Not e' -> (
-      match e' with
-      | Var (id', _) when Stdlib.(id = id') -> NotResFv (VarResFv id')
-      | _ -> eval_assert_aux e')
-  | _ -> raise BadAssert
-
 open ReaderState
 open ReaderState.Let_syntax
 
+(** Caches the analysis result *)
 let cache d key data =
   let%bind { c; _ } = get () in
   let%bind () = set_cache (Map.add_exn (Map.remove c key) ~key ~data) in
@@ -94,28 +15,29 @@ let cache d key data =
       m "[Level %d] Add: %s\n->\n%s" d (Cache_key.show key) (Res.show data));
   return data
 
+(** Main algorithm that performs the program analysis *)
 let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
   let%bind { v; _ } = ask () in
   let%bind { c; s; sids; _ } = get () in
   let d = d + 1 in
   if d > !max_d then max_d := d;
-  (* debug (fun m -> m "Max depth: %d" !max_d);
-     debug (fun m -> m "Level %d" d);
-     debug (fun m -> m "S length: %d" (Set.length s)); *)
   let%bind vid = get_vid v in
   let%bind sid = get_sid s in
   let%bind r =
     match expr with
+    (* Value rule *)
     | Int i -> return (single_res IntAnyAtom)
     | Bool b -> return (single_res (BoolAtom b))
+    (* Value Fun rule *)
     | Fun (_, _, l) -> return (single_res (FunAtom (expr, l, sigma)))
+    (* Application rule *)
     | App (e, _, l) -> (
         let cache_key = Cache_key.Lkey (l, sigma, vid, sid) in
         match Map.find c cache_key with
         | Some r when caching ->
             debug (fun m ->
-                m "[Level %d] Hit: %s\n->\n%s" d (Cache_key.show cache_key)
-                  (Res.show r));
+                m "[Level %d] Cache hit: %s\n->\n%s" d
+                  (Cache_key.show cache_key) (Res.show r));
             return r
         | _ ->
             info (fun m ->
@@ -123,13 +45,13 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
             let cycle_label = (l, sigma) in
             let v_state = V_key.Lstate (l, sigma, sid) in
             if Set.mem v v_state then (
-              (* App Stub *)
+              (* App Stub rule *)
+              (* If we've analyzed the exact same program state, stub *)
               debug (fun m -> m "Stubbed");
               info (fun m ->
                   m "[Level %d] *** App (%a, %d) ***" d Interp.Pp.pp_expr expr l);
               cache d cache_key (single_res (LStubAtom cycle_label)))
             else (
-              (* App *)
               debug (fun m -> m "Didn't stub");
               debug (fun m -> m "sigma: %a" Sigma.pp sigma);
               let sigma' = l :: sigma in
@@ -174,13 +96,14 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
               info (fun m ->
                   m "[Level %d] *** App (%a, %d) ***" d Interp.Pp.pp_expr expr l);
               cache d cache_key r2))
+    (* Var rules *)
     | Var (Ident x, l) -> (
         let cache_key = Cache_key.Ekey (expr, sigma, vid, sid) in
         match Map.find c cache_key with
         | Some r when caching ->
             debug (fun m ->
-                m "[Level %d] Hit: %s\n->\n%s" d (Cache_key.show cache_key)
-                  (Res.show r));
+                m "[Level %d] Cache hit: %s\n->\n%s" d
+                  (Cache_key.show cache_key) (Res.show r));
             return r
         | _ ->
             info (fun m ->
@@ -188,7 +111,7 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
             let cycle_label = (expr, sigma) in
             let est = V_key.Estate (expr, sigma, sid) in
             if Set.mem v est then (
-              (* Var Stub *)
+              (* Var Stub rule *)
               debug (fun m -> m "Stubbed");
               info (fun m ->
                   m "[Level %d] *** Var (%a) ***" d Interp.Pp.pp_expr expr);
@@ -198,7 +121,7 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
               match get_myfun l with
               | Some (Fun (Ident x1, _, l_myfun)) ->
                   if String.(x = x1) then (
-                    (* Var Local *)
+                    (* Var Local rule *)
                     info (fun m ->
                         m "[Level %d] === Var Local (%a) ===" d
                           Interp.Pp.pp_expr expr);
@@ -212,10 +135,8 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                         debug (fun m ->
                             m "Tail of candidate fragments must start with: %a"
                               Sigma.pp s_tl);
-                        (* enumerate all matching stacks in the set *)
                         debug (fun m -> m "S: %a" S.pp s);
-                        (* the fact that we can prune away "bad" stacks like this
-                           makes DDE for program analysis superior *)
+                        (* Stitch the stack to gain more precision *)
                         let sufs = suffixes l' s_tl s in
                         let%bind r1 =
                           List.fold sufs ~init:(return empty_res)
@@ -226,7 +147,6 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                                      argument, using stitched stack %a:"
                                     d pp_sigma suf);
                               debug (fun m -> m "%a" Interp.Pp.pp_expr e2);
-                              (* stitch the stack to gain more precision *)
                               let%bind rs = acc in
                               let%bind r0 =
                                 local d
@@ -247,7 +167,7 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                         cache d cache_key r1
                     | _ -> raise Unreachable)
                   else (
-                    (* Var Non-Local *)
+                    (* Var Non-Local rule *)
                     info (fun m ->
                         m "[Level %d] === Var Non-Local (%a) ===" d
                           Interp.Pp.pp_expr expr);
@@ -271,8 +191,8 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                           let sigma_tl = List.tl_exn sigma in
                           debug (fun m -> m "Begin stitching stacks");
                           debug (fun m -> m "S: %a" S.pp s);
+                          (* Stitch the stack to gain more precision *)
                           let sufs = suffixes l2 sigma_tl s in
-                          (* enumerate all matching stacks in the set *)
                           let%bind r1 =
                             List.fold sufs ~init:(return empty_res)
                               ~f:(fun acc suf ->
@@ -340,10 +260,12 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                           cache d cache_key r2
                     | _ -> raise Unreachable)
               | _ -> raise Unreachable))
+    (* Conditional rule *)
     | If (e, e_true, e_false) -> (
         debug (fun m -> m "[Level %d] === If ===" d);
         let%bind r_cond = analyze_aux ~caching d e sigma in
         match Set.elements r_cond with
+        (* Precise only when if condition is a simple boolean *)
         | [ BoolAtom b ] ->
             debug (fun m -> m "[Level %d] === If %b ===" d b);
             if b then (
@@ -354,12 +276,14 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
               let%bind r_false = analyze_aux ~caching d e_false sigma in
               debug (fun m -> m "[Level %d] *** If %b ***" d b);
               return r_false
+        (* Otherwise, analyze both branches *)
         | _ ->
             debug (fun m -> m "[Level %d] === If Both ===" d);
             let%bind r_true = analyze_aux ~caching d e_true sigma in
             let%bind r_false = analyze_aux ~caching d e_false sigma in
             debug (fun m -> m "[Level %d] *** If Both ***" d);
             return (Set.union r_true r_false))
+    (* Operation rule *)
     | Plus (e1, e2)
     | Minus (e1, e2)
     | Mult (e1, e2)
@@ -396,8 +320,10 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
         return
           (match Set.elements r with
           | [] -> empty_res
+          (* Only performs basic simplications *)
           | [ BoolAtom b ] -> single_res (BoolAtom (not b))
           | _ -> bool_tf_res)
+    (* Record Value rule *)
     | Rec es ->
         es
         |> List.fold ~init:(return []) ~f:(fun acc (id, ei) ->
@@ -407,29 +333,28 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
         |> fun rs ->
         let%bind rs = rs in
         rs |> List.rev |> RecAtom |> single_res |> return
+    (* Record Project rule *)
     | Proj (e, (Ident x as id)) ->
         debug (fun m -> m "[Level %d] === Proj ===" d);
         let%bind r0 = analyze_aux ~caching d e sigma in
         debug (fun m -> m "[Level %d][Proj] r0: %a.%s" d Res.pp r0 x);
         debug (fun m -> m "[Level %d] *** Proj ***" d);
         return (single_res (ProjAtom (r0, id)))
+    (* Record Inspect rule *)
     | Insp ((Ident x as id), e) ->
         debug (fun m -> m "[Level %d] === Insp ===" d);
         let%bind r0 = analyze_aux ~caching d e sigma in
         debug (fun m -> m "[Level %d][Insp] r0: %s in %a" d x Res.pp r0);
         debug (fun m -> m "[Level %d] *** Insp ***" d);
         return (single_res (InspAtom (id, r0)))
-    | LetAssert (id, e1, e2) ->
-        let%bind r1 = analyze_aux ~caching d e1 sigma in
-        let r2 = eval_assert e2 id in
-        return (single_res (AssertAtom (id, r1, r2)))
+    | LetAssert (id, e1, e2) -> analyze_aux ~caching d e1 sigma
     | Let _ -> raise Unreachable
   in
-  (* TODO: remove all lone stubs *)
   return (simplify r)
 
+(* Simple analysis entrypoint *)
 let analyze ?(caching = true) e =
-  let e = trans_let None None e in
+  let e = subst_let None None e in
   build_myfun e None;
   debug (fun m -> m "%a" Interp.Pp.pp_expr e);
   debug (fun m -> m "%a" pp_expr e);

@@ -1,4 +1,5 @@
 (* https://github.com/adamsmd/paper-push-down-for-free-prototype/blob/master/benchmarks/gcfa2/mj09.scm *)
+
 letassert x = (
   let h = fun b ->
     let g = (fun z -> z) in

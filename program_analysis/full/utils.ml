@@ -1,3 +1,5 @@
+(** Utility data structures and functions *)
+
 open Core
 open Interp.Ast
 
@@ -12,6 +14,7 @@ module Sigma = struct
   include Comparable.Make (T)
 end
 
+(** Stub labels *)
 module St = struct
   module T = struct
     type lstate = int * sigma
@@ -28,6 +31,7 @@ module St = struct
   include Comparable.Make (T)
 end
 
+(** S set containing all seen call stacks *)
 module S = struct
   module T = struct
     type t = Set.M(Sigma).t [@@deriving compare, sexp]
@@ -78,6 +82,7 @@ module V_key = struct
   include Comparable.Make (T)
 end
 
+(** V set containing all seen program states *)
 module V = struct
   module T = struct
     type t = Set.M(V_key).t [@@deriving compare, sexp]
@@ -95,15 +100,16 @@ module V = struct
   include Comparable.Make (T)
 end
 
+(** Value atom per paper Fig. 16 *)
 module rec Atom : sig
   type t =
     | IntAtom of int
     | BoolAtom of bool
     | FunAtom of expr * int * sigma
-    | LResAtom of Res.t * St.lstate
-    | EResAtom of Res.t * St.estate
-    | LStubAtom of St.lstate
-    | EStubAtom of St.estate
+    | LResAtom of Res.t * St.lstate (* cycle start (applications) *)
+    | EResAtom of Res.t * St.estate (* cycle start (variables) *)
+    | LStubAtom of St.lstate (* cycle end (applications) *)
+    | EStubAtom of St.estate (* cycle end (variables) *)
     | PathCondAtom of (Res.t * bool) * Res.t
     | PlusAtom of Res.t * Res.t
     | MinusAtom of Res.t * Res.t
@@ -186,6 +192,7 @@ end = struct
     | AssertAtom (_, r, _) -> ff fmt "%a" Res.pp r
 end
 
+(** Value result per paper Fig. 16 *)
 and Res : sig
   type t = Atom.t list [@@deriving sexp, compare]
 
@@ -204,6 +211,7 @@ end = struct
   let show (r : t) = Format.asprintf "%a" pp r
 end
 
+(* Path condition per paper Fig. 16 *)
 type pi = (Res.t * bool) option
 [@@deriving sexp, compare, show { with_path = false }]
 
@@ -259,7 +267,7 @@ end
 let empty_res = Set.empty (module Res_key)
 let single_res = Set.singleton (module Res_key)
 
-(** Reader-State monad threaded through the analysis *)
+(** Reader-State monad threaded through the full analysis *)
 module ReaderState = struct
   module T = struct
     type cache = Res.t Map.M(Cache_key).t
@@ -321,8 +329,10 @@ module ReaderState = struct
   include Monad.Make (T)
 end
 
+(** Truncates the stack to keep only the first k frames *)
 let prune_sigma ?(k = 2) s = List.filteri s ~f:(fun i _ -> i < k)
 
+(** Checks if `sigma_child` is a prefix of `sigma_parent` *)
 let rec starts_with sigma_parent sigma_child =
   match (sigma_parent, sigma_child) with
   | _, [] -> true
@@ -330,6 +340,7 @@ let rec starts_with sigma_parent sigma_child =
   | l_parent :: ls_parent, l_child :: ls_child ->
       l_parent = l_child && starts_with ls_parent ls_child
 
+(** Generates all matching stitched stacks per paper Section 4.2 *)
 let suffixes l sigma s =
   s
   |> Set.filter_map
@@ -339,3 +350,6 @@ let suffixes l sigma s =
              Some sigma_sigma'
          | _ -> None)
   |> Set.elements
+
+(** Max recursion depth ever reached by execution *)
+let max_d = ref 0

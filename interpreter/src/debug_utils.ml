@@ -1,3 +1,5 @@
+(** Utilies used in utop *)
+
 let debug = ref false
 let simplify = ref false
 let report_runtime = ref false
@@ -15,6 +17,8 @@ let parse_eval s =
 
 let unparse = Format.asprintf "%a" Pp.pp_result_value
 let parse_eval_unparse s = s |> parse_eval |> unparse
+
+(* Main function to execute the interpreter on a program string *)
 let peu = parse_eval_unparse
 
 let parse_eval_print s =

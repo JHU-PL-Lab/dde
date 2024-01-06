@@ -1,4 +1,5 @@
 (* https://github.com/adamsmd/paper-push-down-for-free-prototype/blob/master/benchmarks/gcfa2/loop2.scm *)
+
 letassert x =
   let lp1 = fun self1 -> fun i -> fun x ->
     if 0 = i then x

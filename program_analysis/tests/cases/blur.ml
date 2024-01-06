@@ -1,4 +1,5 @@
 (* https://github.com/adamsmd/paper-push-down-for-free-prototype/blob/master/benchmarks/gcfa2/blur.scm *)
+
 letassert x =
   let id = (fun x -> x) in
   let blur = (fun y -> y) in

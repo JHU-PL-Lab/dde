@@ -1,3 +1,5 @@
+(** Pretty-printers for the AST and auxiliary data structures *)
+
 open Ast
 open Core
 
@@ -17,7 +19,6 @@ let rec pp_expr fmt = function
   | Bool b -> ff fmt "%b" b
   | Fun (Ident i, x, l) -> ff fmt "@[<hv>fun %s ->@;<1 2>%a@]" i pp_expr x
   | Var (Ident x, _) -> ff fmt "%s" x
-  (* | Var (Ident x, l) -> ff fmt "%s/%d" x l *)
   | App (e1, e2, _) ->
       ff fmt "%a %a"
         (paren_if is_compound_exprL pp_expr)

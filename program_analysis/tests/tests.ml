@@ -127,17 +127,17 @@ let recursion_thunked =
            + self self (n - 1) in id id 10 in x >= 2" ));
     (fun _ ->
       ( "(3 + (1 + stub))",
-        pau ~name:"id diverge"
+        pau ~name:"id_diverge"
           "letassert _ = let id = fun self -> fun n -> if n = 0 then 0 else 1 \
            + self self (n - 1) in id id (-1) in false" ));
     (fun _ ->
       ( "(2 | (3 + (0 | (1 + stub))))",
-        pau ~name:"id alt"
+        pau ~name:"id_alt"
           "letassert x = let id = fun self -> fun n -> if n > 0 then 1 + self \
            self (n - 1) else 0 in id id 10 in x >= 2" ));
     (fun _ ->
       ( "(2 + ((1 + stub) | 0))",
-        pau ~name:"id abs"
+        pau ~name:"id_abs"
           "letassert x = let id = fun self -> fun n -> if n = 0 then 0 else 1 \
            + (fun _ -> self self (n - 1)) 0 in id id 10 in x >= 2" ));
     (fun _ ->
@@ -266,31 +266,31 @@ let factorial_thunked =
     (fun _ ->
       ( "(90 * ((((9 | (stub - 1)) - 1) * ((((9 | (stub - 1)) - 1) * stub) | \
          1)) | 1))",
-        pau ~name:"fact 10"
+        pau ~name:"fact_10"
           "let fact = fun self -> fun n -> if n = 0 then 1 else n * self self \
            (n - 1) in fact fact 10" ));
     (fun _ ->
       ( "(380 * ((((19 | (stub - 1)) - 1) * ((((19 | (stub - 1)) - 1) * stub) \
          | 1)) | 1))",
-        pau ~name:"fact 20"
+        pau ~name:"fact_20"
           "let fact = fun self -> fun n -> if n = 0 then 1 else n * self self \
            (n - 1) in fact fact 20" ));
     (fun _ ->
       ( "(1560 * ((((39 | (stub - 1)) - 1) * ((((39 | (stub - 1)) - 1) * stub) \
          | 1)) | 1))",
-        pau ~name:"fact 40"
+        pau ~name:"fact_40"
           "let fact = fun self -> fun n -> if n = 0 then 1 else n * self self \
            (n - 1) in fact fact 40" ));
     (fun _ ->
       ( "(3540 * ((((59 | (stub - 1)) - 1) * ((((59 | (stub - 1)) - 1) * stub) \
          | 1)) | 1))",
-        pau ~name:"fact 60"
+        pau ~name:"fact_60"
           "let fact = fun self -> fun n -> if n = 0 then 1 else n * self self \
            (n - 1) in fact fact 60" ));
     (fun _ ->
       ( "(9900 * ((((99 | (stub - 1)) - 1) * ((((99 | (stub - 1)) - 1) * stub) \
          | 1)) | 1))",
-        pau ~name:"fact 100"
+        pau ~name:"fact_100"
           "let fact = fun self -> fun n -> if n = 0 then 1 else n * self self \
            (n - 1) in fact fact 100" ));
   ]
@@ -399,11 +399,11 @@ let custom_thunked =
     (* Run with full analysis *)
     (fun _ ->
       ( "expected test result",
-        pau ~name:"your test name" (read_case "your_test.ml") ));
+        pau ~name:"your_test_name" (read_case "your_test.ml") ));
     (* Run with simple analysis *)
     (fun _ ->
       ( "expected test result",
-        pau' ~name:"your test name" (read_case "your_test.ml") ));
+        pau' ~name:"your_test_name" (read_case "your_test.ml") ));
   ]
 
 let custom_benchmarkable_thunked =
@@ -413,7 +413,7 @@ let custom_benchmarkable_thunked =
     ( "your test name",
       fun _ ->
         ( "expected test result",
-          pau ~name:"your test name" (read_case "your_test.ml") ) );
+          pau ~name:"your_test_name" (read_case "your_test.ml") ) );
   ]
 
 let test_basic _ = gen_test_list basic_thunked

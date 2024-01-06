@@ -1,3 +1,6 @@
+(** A toploop for the interpreter that can be run via
+    `dune exec -- interpreter/src/main.exe` *)
+
 open Interp
 
 let toplevel_loop debug simplify =

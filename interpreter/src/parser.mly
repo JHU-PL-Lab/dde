@@ -53,7 +53,7 @@ open Ast;;
 %right NOT                              /* not e */
 
 /*
- * The entry point.
+ * The entrypoint.
  */
 %start main
 %type <expr> main

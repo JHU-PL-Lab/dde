@@ -1,3 +1,5 @@
+(** Core algorithm of interpreter per paper Section 2.2 *)
+
 open Core
 open Ast
 open Exns
@@ -26,7 +28,11 @@ let rec eval_bool = function
 
 module Cache_key = struct
   module T = struct
+    (* Cache key for applications (can be uniquely identified by its label) *)
     type lkey = int * sigma [@@deriving compare, sexp]
+
+    (* Cache key for variables (can't be uniquely identified by just the label
+       due to relabeling variables) *)
     type ekey = expr * sigma [@@deriving compare, sexp]
     type t = Lkey of lkey | Ekey of ekey [@@deriving compare, sexp]
   end
@@ -35,6 +41,7 @@ module Cache_key = struct
   include Comparable.Make (T)
 end
 
+(** State Monad threading the cache through the interpreter *)
 module With_cache = struct
   module T = struct
     type cache = res Map.M(Cache_key).t
@@ -60,50 +67,54 @@ end
 open With_cache
 open With_cache.Let_syntax
 
+(** Caches the interpreter result *)
 let cache key data : res T.t =
   let%bind c = get () in
   let%bind () = set (Map.add_exn (Map.remove c key) ~key ~data) in
   return data
 
-(* can't do memoization like this in OCaml/Haskell; better laziness  *)
-(* laziness + memoization *)
+(** Main interpreter algorithm per paper Fig. 5 *)
 let rec eval_aux ~caching e sigma : res T.t =
   let%bind c = get () in
   match e with
-  (* Value *)
-  | Fun (ident, le', l) -> return (FunRes { f = e; l; sigma })
+  (* Value rule *)
   | Int i -> return (IntRes i)
   | Bool b -> return (BoolRes b)
-  (* Appication *)
+  (* Value Fun rule *)
+  | Fun (ident, le', l) -> return (FunRes { f = e; l; sigma })
+  (* Appication rule *)
   | App (e1, e2, app_l) -> (
       let cache_key = Cache_key.Lkey (app_l, sigma) in
       match Map.find c cache_key with
+      (* Cache hit *)
       | Some r when caching -> return r
       | _ ->
           let%bind r =
             match%bind eval_aux e1 sigma ~caching with
             | FunRes { f = Fun (id, e, f_l); l; sigma = sigma' } ->
-                (* make sure e2 doesn't diverge - call-by-value-ish *)
+                (* Make sure e2 doesn't diverge - call-by-value-ish *)
                 let%bind _ = eval_aux e2 sigma ~caching in
                 eval_aux e (app_l :: sigma) ~caching
             | _ -> raise Unreachable
           in
           cache cache_key r)
+  (* Var rules *)
   | Var (Ident x, l) -> (
       let cache_key = Cache_key.Ekey (e, sigma) in
       match Map.find c cache_key with
+      (* Cache hit *)
       | Some r when caching -> return r
       | _ -> (
           match get_myfun l with
           | Some (Fun (Ident x', _, _)) ->
               let%bind r =
                 if String.(x = x') then
-                  (* Var Local *)
+                  (* Var Local rule *)
                   match get_myexpr (List.hd_exn sigma) with
                   | App (_, e2, _) -> eval_aux e2 (List.tl_exn sigma) ~caching
                   | _ -> raise Unreachable
                 else
-                  (* Var Non-Local *)
+                  (* Var Non-Local rule *)
                   match get_myexpr (List.hd_exn sigma) with
                   | App (e1, _, _) -> (
                       match%bind eval_aux e1 (List.tl_exn sigma) ~caching with
@@ -114,6 +125,7 @@ let rec eval_aux ~caching e sigma : res T.t =
               in
               cache cache_key r
           | _ -> raise Unreachable))
+  (* Operation rule *)
   | Plus (e1, e2)
   | Minus (e1, e2)
   | Mult (e1, e2)
@@ -142,10 +154,12 @@ let rec eval_aux ~caching e sigma : res T.t =
   | Not e ->
       let%bind r = eval_aux e sigma ~caching in
       return (NotRes r)
+  (* Conditional rule *)
   | If (e1, e2, e3) ->
       let%bind r = eval_aux e1 sigma ~caching in
       if eval_bool r then eval_aux e2 sigma ~caching
       else eval_aux e3 sigma ~caching
+  (* Record Value rule *)
   | Rec es ->
       es
       |> List.fold ~init:(return []) ~f:(fun acc (id, e) ->
@@ -155,6 +169,7 @@ let rec eval_aux ~caching e sigma : res T.t =
       |> fun rs ->
       let%bind rs = rs in
       rs |> List.rev |> RecRes |> return
+  (* Record Project rule *)
   | Proj (e, id) -> (
       match%bind eval_aux e sigma ~caching with
       | RecRes es -> (
@@ -162,6 +177,7 @@ let rec eval_aux ~caching e sigma : res T.t =
           | Some (_, r) -> return r
           | None -> raise Runtime_error)
       | _ -> raise TypeMismatch)
+  (* Record Inspect rule *)
   | Insp (id, e) -> (
       match%bind eval_aux e sigma ~caching with
       | RecRes es ->
@@ -172,6 +188,7 @@ let rec eval_aux ~caching e sigma : res T.t =
   | LetAssert (_, e, _) -> eval_aux e sigma ~caching
   | Let _ -> raise Unreachable
 
+(** Helper to convert a result to an expression *)
 let rec result_value_to_expr (r : res) : expr T.t =
   match r with
   | IntRes i -> return (Int i)
@@ -214,6 +231,9 @@ let rec result_value_to_expr (r : res) : expr T.t =
       let%bind e = result_value_to_expr r in
       return (Not e)
 
+(** Helper to substitute free variables in an expression.
+    Not used in core algorithm, but rather only to help
+    simplify the final result *)
 let rec subst_free_vars e target_l sigma seen ~caching : expr T.t =
   match e with
   | Int _ -> return e
@@ -285,6 +305,10 @@ let rec subst_free_vars e target_l sigma seen ~caching : expr T.t =
   | LetAssert (_, e, _) -> subst_free_vars e target_l sigma seen ~caching
   | Let _ -> raise Unreachable
 
+(** Helper to evaluate the final result so as to simplify it.
+    This is needed as our language doesn't substitute variable bindings
+    in a closure. E.g., C[fun x -> y] where C holds y = 1, so it can be
+    simplified to fun x -> 1. *)
 and eval_result_value r ~caching : res T.t =
   match r with
   | IntRes i -> return r
@@ -345,9 +369,10 @@ and eval_result_value r ~caching : res T.t =
       let%bind es' = es' in
       es' |> List.rev |> RecRes |> return
 
+(** Entrypoint to interpreter *)
 let eval ?(caching = true) ?(debug = false) ?(simplify = false) e =
   build_myfun e None;
-  let e = trans_let None None e in
+  let e = subst_let None None e in
 
   let start_time = Stdlib.Sys.time () in
   let r, c = run (eval_aux e [] ~caching) in

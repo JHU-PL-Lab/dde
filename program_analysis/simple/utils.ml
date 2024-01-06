@@ -1,3 +1,5 @@
+(** Utility data structures and functions *)
+
 open Core
 open Logs
 open Interp.Ast
@@ -13,6 +15,7 @@ module Sigma = struct
   include Comparable.Make (T)
 end
 
+(** Stub labels *)
 module St = struct
   module T = struct
     type lstate = int * sigma
@@ -29,6 +32,7 @@ module St = struct
   include Comparable.Make (T)
 end
 
+(** S set containing all seen call stacks *)
 module S = struct
   module T = struct
     type t = Set.M(Sigma).t [@@deriving compare, sexp]
@@ -79,6 +83,7 @@ module V_key = struct
   include Comparable.Make (T)
 end
 
+(** V set containing all seen program states *)
 module V = struct
   module T = struct
     type t = Set.M(V_key).t [@@deriving compare, sexp]
@@ -105,6 +110,7 @@ module Freq_key = struct
   include Comparable.Make (T)
 end
 
+(** Value atom - no labeled results (starts to cycles) or path conditions *)
 module rec Atom : sig
   type t =
     | IntAnyAtom
@@ -174,6 +180,7 @@ end = struct
   include Comparable.Make (T)
 end
 
+(** Value result *)
 and Res : sig
   type t = Set.M(Res_key).t [@@deriving compare, sexp]
 
@@ -229,7 +236,7 @@ end
 let empty_res = Set.empty (module Res_key)
 let single_res = Set.singleton (module Res_key)
 
-(** Reader-State monad threaded through the analysis *)
+(** Reader-State monad threaded through the simple analysis *)
 module ReaderState = struct
   module T = struct
     type cache = Res.t Map.M(Cache_key).t
@@ -291,8 +298,10 @@ module ReaderState = struct
   include Monad.Make (T)
 end
 
+(** Truncates the stack to keep only the first k frames *)
 let prune_sigma ?(k = 2) s = List.filteri s ~f:(fun i _ -> i < k)
 
+(** Checks if `sigma_child` is a prefix of `sigma_parent` *)
 let rec starts_with sigma_parent sigma_child =
   match (sigma_parent, sigma_child) with
   | _, [] -> true
@@ -300,6 +309,7 @@ let rec starts_with sigma_parent sigma_child =
   | l_parent :: ls_parent, l_child :: ls_child ->
       l_parent = l_child && starts_with ls_parent ls_child
 
+(** Generates all matching stitched stacks per paper Section 4.2 *)
 let suffixes l sigma s =
   s
   |> Set.filter_map
@@ -313,6 +323,7 @@ let suffixes l sigma s =
 (** max recursion depth ever reached by execution *)
 let max_d = ref 0
 
+(** Debug helper to log V IDs *)
 let log_vids ?(size = false) ?(sort = false) vids =
   vids |> Map.to_alist |> fun vids ->
   (if not sort then vids
@@ -322,20 +333,27 @@ let log_vids ?(size = false) ?(sort = false) vids =
          if size then debug (fun m -> m "%d -> %d\n" (Set.length key) data)
          else debug (fun m -> m "%a -> %d\n" V.pp key data))
 
+(** Debug helper to log S IDs *)
 let log_sids ?(size = false) =
   Map.iteri ~f:(fun ~key ~data ->
       if size then debug (fun m -> m "%d -> %d\n" (Set.length key) data)
       else debug (fun m -> m "%a -> %d\n" S.pp key data))
 
+(** A result containing both true and false *)
 let bool_tf_res = Set.of_list (module Res_key) [ BoolAtom true; BoolAtom false ]
 
+(** Generates all combinations of a binary int arithmetic
+    operation over analysis results *)
 let all_combs_int r1 r2 op =
   Set.fold r1 ~init:empty_res ~f:(fun acc a1 ->
       Set.fold r2 ~init:acc ~f:(fun acc a2 ->
           match (a1, a2) with
+          (* Only performs basic simplications; basic precision *)
           | Atom.IntAtom b1, Atom.IntAtom b2 -> Set.add acc (IntAtom (op b1 b2))
           | _ -> Set.add acc IntAnyAtom))
 
+(** Generates all combinations of a binary bool operation
+    over analysis results *)
 let all_combs_bool r1 r2 op =
   Set.fold r1 ~init:empty_res ~f:(fun acc a1 ->
       Set.fold r2 ~init:acc ~f:(fun acc a2 ->
@@ -344,6 +362,8 @@ let all_combs_bool r1 r2 op =
               Set.add acc (BoolAtom (op b1 b2))
           | _ -> Set.union acc bool_tf_res))
 
+(** Generates all combinations of a binary int comparison
+    operation over analysis results *)
 let all_combs_bool' r1 r2 op =
   Set.fold r1 ~init:empty_res ~f:(fun acc a1 ->
       Set.fold r2 ~init:acc ~f:(fun acc a2 ->

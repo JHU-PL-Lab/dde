@@ -1,6 +1,7 @@
 open Core
 open Interp.Ast
 open Utils
+open Exns
 
 (* Graph visualization utilities *)
 
@@ -419,7 +420,7 @@ let dot_of_result ?(display_path_cond = true) r name =
         dot_of_res r (Some a) (Some aid) pr cycles
     | LPathCondAtom ((r, b), r0) -> (
         match pr with
-        | Some pr -> dot_of_res r0 p pid (Some pr) cycles
+        | Some _ -> dot_of_res r0 p pid pr cycles
         | None -> (
             match p with
             | Some p ->
@@ -439,7 +440,11 @@ let dot_of_result ?(display_path_cond = true) r name =
                 let pid = Format.sprintf "%s:%s" aid x in
                 let%bind rid = get_rid r in
                 let%bind () = add_edge pid rid in
-                let%bind () = dot_of_res r (Some a) (Some pid) pr cycles in
+                let%bind () =
+                  if List.length r = 1 then
+                    dot_of_res r (Some a) (Some pid) pr cycles
+                  else dot_of_res r (Some a) (Some rid) pr cycles
+                in
                 return
                   (Format.sprintf
                      (if i = 0 then "<%s>&#123; %s"

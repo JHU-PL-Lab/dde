@@ -1,3 +1,6 @@
+(* https://github.com/JHU-PL-Lab/odefa/blob/toplas/benchmark/cases/rsa.scm *)
+(* Modified to mock language features not available in our language, e.g., mod *)
+
 let mod = fun a -> fun b -> 0 in
 let div = (fun a -> fun b -> a) in
 let extended_gcd = fun self -> fun a -> fun b ->

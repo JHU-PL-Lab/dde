@@ -1,3 +1,6 @@
+(** A toploop for the full analysis that can be run via
+    `dune exec -- program_analysis/full/main.exe` *)
+
 open Pa
 
 let toplevel_loop =

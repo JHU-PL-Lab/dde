@@ -1,3 +1,5 @@
+(** Utilities for testing the interpreter *)
+
 open Core
 open Interp
 
@@ -12,6 +14,7 @@ let report_runtime = ref false
 let caching = ref true
 let debug = ref false
 
+(** Function to execute the interpreter on a program string *)
 let peu ?(simplify = false) s =
   s |> Fn.flip ( ^ ) ";;" |> Lexing.from_string |> Parser.main Lexer.token
   |> Lib.eval ~debug:!debug ~simplify ~caching:!caching

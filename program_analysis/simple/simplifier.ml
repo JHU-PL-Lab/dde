@@ -1,9 +1,13 @@
+(** Simplification of simple analysis results *)
+
 open Core
 open Interp.Ast
 open Exns
 open Utils
 open Utils.Atom
 
+(** Recursively checks if any disjunct in result `r` has
+    a stub with `label` *)
 let rec exists_stub r label =
   Set.exists r ~f:(function
     | FunAtom _ | IntAtom _ | IntAnyAtom | BoolAtom _ -> false
@@ -14,15 +18,7 @@ let rec exists_stub r label =
     | ProjAtom (r, _) | InspAtom (_, r) | AssertAtom (_, r, _) ->
         exists_stub r label)
 
-let rec exists_lone_stub r =
-  Set.exists r ~f:(function
-    | FunAtom _ | IntAtom _ | IntAnyAtom | BoolAtom _ -> false
-    | LStubAtom _ | EStubAtom _ -> true
-    | RecAtom entries ->
-        List.exists entries ~f:(fun (_, r) -> exists_lone_stub r)
-    | ProjAtom (r, _) | InspAtom (_, r) | AssertAtom (_, r, _) ->
-        exists_lone_stub r)
-
+(** Performs simplifications *)
 let rec simplify ?(pa = None) r =
   let r' =
     Set.fold r ~init:empty_res ~f:(fun acc a ->
@@ -55,8 +51,10 @@ let rec simplify ?(pa = None) r =
                             compare_ident id id' = 0)))
               | a -> Set.add acc (InspAtom (id, single_res a))))
   in
+  (* Stops when there's no change to the input result *)
   if Res.compare r r' = 0 then r' else simplify r' ~pa
 
+(** Removes stubs without a parent - lone stubs that don't form a cycle *)
 let elim_stub r label =
   if not (exists_stub r label) then r
   else

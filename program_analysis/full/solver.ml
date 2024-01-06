@@ -1,9 +1,14 @@
+(** Translation from analysis results to Constrained Horn Clauses (CHCs)
+    per paper Section 5.2.2 *)
+
 open Core
 open Z3
 open Utils
 open Exns
 
 let ctx = mk_context []
+
+(* Convenience shorthands *)
 let isort = Arithmetic.Integer.mk_sort ctx
 let bsort = Boolean.mk_sort ctx
 let zint i = Arithmetic.Integer.mk_numeral_i ctx i
@@ -63,6 +68,7 @@ module Chcs_key = struct
   include Comparable.Make (T)
 end
 
+(** State monad threaded through the translation *)
 module State = struct
   module T = struct
     type state = {
@@ -164,7 +170,7 @@ end
 open State
 open State.Let_syntax
 
-(* Can assume good form due to call to `eval_assert` *)
+(** Generate CHCs from a letassert. *)
 let chcs_of_assert r1 (r2 : Interp.Ast.res_val_fv) : unit T.t =
   let%bind r1id = get_rid r1 in
   let%bind p = get_decl r1id in
@@ -206,6 +212,7 @@ let chcs_of_assert r1 (r2 : Interp.Ast.res_val_fv) : unit T.t =
   | NotResFv _ -> add_chc ([ rb ] |. (p <-- [ rb ]) --> (rb === zfalse))
   | _ -> raise Bad_assert
 
+(** Generate CHCs from path conditions *)
 let rec cond pis : 'a T.t =
   if List.is_empty pis then return ([], ztrue)
   else
@@ -221,6 +228,7 @@ let rec cond pis : 'a T.t =
       ( List.mapi pis ~f:(fun i _ -> zconst (Format.sprintf "c%d" i) bsort),
         conjs )
 
+(** Generate CHCs from value atoms *)
 and chcs_of_atom ?(pis = []) ?(stub_sort = isort)
     ?(p = Core.Set.empty (module St)) a : unit T.t =
   match a with
@@ -406,6 +414,7 @@ and chcs_of_atom ?(pis = []) ?(stub_sort = isort)
   | RecAtom _ -> return ()
   | ProjAtom _ | InspAtom _ -> raise Unreachable
 
+(** Generate CHCs from value results *)
 and chcs_of_res ?(pis = []) ?(stub_sort = isort)
     ?(p = Core.Set.empty (module St)) r : unit T.t =
   let%bind rid = get_rid r in
@@ -425,12 +434,11 @@ and chcs_of_res ?(pis = []) ?(stub_sort = isort)
           in
           let%bind () = add_decl rid pr in
           let r = zconst "r" (List.hd_exn dom) in
-          (* TODO: add flag to leave all path conditions out *)
           add_chc
             (r :: cond_quants |. (pa <-- [ r ] &&& cond_body) --> (pr <-- [ r ]))
-      (* AssertAtom *)
       | None -> acc)
 
+(** Entrypoint to verification of analysis result *)
 let verify_result r =
   let solver = Solver.mk_solver_s ctx "HORN" in
   let (), { chcs; _ } = run (chcs_of_res r) in

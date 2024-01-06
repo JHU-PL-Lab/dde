@@ -1,6 +1,5 @@
 (* https://github.com/JHU-PL-Lab/odefa/blob/toplas/benchmark/cases/sat-1.scm *)
 
-letassert x =
 let phi = fun x1 -> fun x2 -> fun x3 -> fun x4 ->
   (x1 || (not x2) || (not x3)) &&
   ((not x2) || (not x3)) &&
@@ -20,5 +19,4 @@ let sat_solve_4 = fun p ->
     )
   ) in
 
-  sat_solve_4 phi
-in x
+sat_solve_4 phi
