@@ -1,3 +1,6 @@
+★ Please see the [artifact](https://github.com/JHU-PL-Lab/dde/tree/artifact)
+branch for the latest, condensed code.
+
 # Pure Demand Operational Semantics
 
 [![Build & test
