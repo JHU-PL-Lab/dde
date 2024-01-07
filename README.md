@@ -8,9 +8,9 @@ to Program Analysis.
 This artifact facilitates building, testing, and benchmarking the interpreter
 (Section 2.2) and program analysis (Section 4.3) presented in the paper. In
 addition, it includes a simplified program analysis (`program_analysis/simple`)
-that do not derive recurrences nor use Z3 for path sensitivity and verifying
-analysis results.  Hereinafter, we refer to the program analysis presented in
-the paper as "full analysis" and the simplified version as "simple analysis."
+that neither derives recurrences nor uses Z3 for path sensitivity and verifying
+analysis results. Hereinafter, we refer to the program analysis presented in the
+paper as "full analysis" and the simplified version as "simple analysis."
 
 Since (1) prior program analyses also do not have the aforementioned features
 and (2) more benchmarks currently terminate with the simple analysis, we plan to
@@ -167,7 +167,8 @@ There are several flags you can optionally specify, as listed below.
 | --no-cache | Disable caching in the analysis |
 | --debug | Print debug messages to stdout |
 
-For example, you may execute `dune exec -- interpreter/tests/tests.exe --runtime` to see how long tests take to finish.
+For example, you may execute `dune exec -- interpreter/tests/tests.exe
+--runtime` to see how long each test take to finish.
 
 ### Program Analysis
 
@@ -186,15 +187,16 @@ There are several flags you can optionally specify, as listed below.
 | --no-cache | Disable caching in the analysis |
 | --verify | Enable verification of final analysis result using Z3 |
 | --bench | Run benchmarks. More accurate than --runtime. |
-| --graph | Generate Graphviz source code visualizing the final analysis result, `./graph_name.dot`. |
+| --graph | Generate Graphviz source code visualizing the final analysis result, `./graph_name.dot` (`./graph_test.dot` by default) |
 | --log | Log debug messages to a file, `./logs` |
 | -log PATH | Log debug messages to a custom file at PATH |
 
 For example, you may execute `dune exec -- program_analysis/tests/tests.exe
---runtime --no-cache` to see how long tests take to finish when caching is off.
+--runtime --no-cache` to see how long each test take to finish when caching is
+off.
 
 To run the benchmarks, only specify the `--bench` flag and observe the runtimes
-in the second column (Time/Run, in microseconds) of the resulting graph. It
+in the second column of the resulting graph (Time/Run, in microseconds). It
 takes 4-5 minutes to finish benchmarking and 2-3 minutes subsequently to run the
 unit tests.
 
@@ -204,10 +206,9 @@ dune exec -- program_analysis/tests/tests.exe --bench
 ```
 
 For both the simple and full analysis, there are a few long-running benchmarks
-that does not terminate quickly. For this reason, they are separate from the
-other benchmarks and are by default commented out in
-`program_analysis/tests/tests.ml` (see comments). Running them times out after
-10 minutes.
+that do not terminate quickly. For this reason, they are separate from the other
+benchmarks and are by default commented out in `program_analysis/tests/tests.ml`
+(see comments). Running them times out after 10 minutes.
 
 To generate graphs, after you ran the tests with `--graph`, you should run an
 additional command to actually generate an image of the graph from the Dot

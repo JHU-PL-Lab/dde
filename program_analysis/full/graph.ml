@@ -1,9 +1,9 @@
+(** Graph visualization utilities *)
+
 open Core
 open Interp.Ast
 open Utils
 open Exns
-
-(* Graph visualization utilities *)
 
 module rec Latom : sig
   type t =
