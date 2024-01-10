@@ -163,6 +163,7 @@ let rec analyze_aux ~caching d expr sigma pi : Res.t T.t =
     (* Application rule *)
     | App (e, _, l) -> (
         let cache_key = Cache_key.Lkey (l, sigma, vid, sid, pi) in
+        (* let cache_key = Cache_key.Lkey (l, sigma, sid, pi) in *)
         match Map.find c cache_key with
         | Some r when caching ->
             debug (fun m ->
@@ -179,7 +180,7 @@ let rec analyze_aux ~caching d expr sigma pi : Res.t T.t =
               (* If we've analyzed the exact same program state, stub *)
               debug (fun m -> m "Stubbed");
               info (fun m ->
-                  m "[Level %d] *** App (%a) ***" d Interp.Pp.pp_expr expr);
+                  m "[Level %d] *** App (%a, %d) ***" d Interp.Pp.pp_expr expr l);
               cache cache_key [ LStubAtom cycle_label ])
             else (
               debug (fun m -> m "Didn't stub");
@@ -213,11 +214,12 @@ let rec analyze_aux ~caching d expr sigma pi : Res.t T.t =
               in
               let r2 = elim_stub (Set.elements r2) (St.Lstate cycle_label) in
               info (fun m ->
-                  m "[Level %d] *** App (%a) ***" d Interp.Pp.pp_expr expr);
+                  m "[Level %d] *** App (%a, %d) ***" d Interp.Pp.pp_expr expr l);
               cache cache_key [ LResAtom (r2, cycle_label) ]))
     (* Var rules *)
     | Var (Ident x, l) -> (
         let cache_key = Cache_key.Ekey (expr, sigma, vid, sid, pi) in
+        (* let cache_key = Cache_key.Ekey (expr, sigma, sid, pi) in *)
         match Map.find c cache_key with
         | Some r when caching ->
             debug (fun m ->
@@ -237,6 +239,8 @@ let rec analyze_aux ~caching d expr sigma pi : Res.t T.t =
               cache cache_key [ EStubAtom cycle_label ])
             else (
               debug (fun m -> m "Didn't stub");
+              debug (fun m -> m "V key: %a" V_key.pp est);
+              debug (fun m -> m "V: %a" V.pp v);
               match get_myfun l with
               | Some (Fun (Ident x1, _, l_myfun)) ->
                   if String.(x = x1) then (
@@ -297,77 +301,67 @@ let rec analyze_aux ~caching d expr sigma pi : Res.t T.t =
                         debug (fun m ->
                             m "Fun being applied at front of sigma: %a"
                               Interp.Pp.pp_expr e1);
-                        let e1st = V_key.Estate (e1, sigma, sid) in
-                        if Set.mem v e1st then (
-                          debug (fun m -> m "[Var Non-Local] Stubbed e1");
-                          info (fun m ->
-                              m "[Level %d] *** Var Non-Local (%a) ***" d
-                                Interp.Pp.pp_expr expr);
-                          info (fun m ->
-                              m "[Level %d] *** Var (%s, %d) ***" d x l);
-                          cache cache_key [ EStubAtom (e1, sigma) ])
-                        else
-                          let sigma_tl = List.tl_exn sigma in
-                          debug (fun m -> m "Begin stitching stacks");
-                          debug (fun m -> m "S: %a" S.pp s);
-                          (* Stitch the stack to gain more precision *)
-                          let sufs = suffixes l2 sigma_tl s in
-                          let%bind r1 =
-                            List.fold sufs ~init:(return empty_res)
-                              ~f:(fun acc suf ->
+                        let sigma_tl = List.tl_exn sigma in
+                        debug (fun m -> m "Begin stitching stacks");
+                        debug (fun m -> m "S: %a" S.pp s);
+                        (* Stitch the stack to gain more precision *)
+                        let sufs = suffixes l2 sigma_tl s in
+                        let%bind r1 =
+                          List.fold sufs ~init:(return empty_res)
+                            ~f:(fun acc suf ->
+                              debug (fun m ->
+                                  m
+                                    "[Level %d][Var Non-Local] Stitched! \
+                                     Evaluating %a, using stitched stack %a"
+                                    d Interp.Pp.pp_expr e1 Sigma.pp suf);
+                              let%bind rs = acc in
+                              let%bind r0 =
+                                local d
+                                  (fun ({ v; _ } as env) ->
+                                    { env with v = Set.add v est })
+                                  (analyze_aux ~caching d e1 suf pi)
+                              in
+                              debug (fun m ->
+                                  m "[Var Non-Local] r0: %a" Res.pp r0);
+                              return (List.fold r0 ~init:rs ~f:Set.add))
+                        in
+                        let r1 = r1 |> Set.elements |> simplify in
+                        debug (fun m ->
+                            m
+                              "[Level %d] Found all stitched stacks and \
+                               evaluated e1, begin relabeling variables"
+                              d);
+                        let%bind r2 =
+                          fold_res_var ~init:(return empty_res) expr sigma d r1
+                            ~f:(fun acc x1' l1 sigma1 ->
+                              if Stdlib.(x1 = x1') && l_myfun = l1 then (
                                 debug (fun m ->
                                     m
-                                      "[Level %d][Var Non-Local] Stitched! \
-                                       Evaluating %a, using stitched stack %a"
-                                      d Interp.Pp.pp_expr e1 Sigma.pp suf);
+                                      "[Var Non-Local] Relabel %s with label \
+                                       %d and evaluate"
+                                      x l1);
                                 let%bind rs = acc in
-                                let%bind r0 =
+                                let%bind r0' =
                                   local d
                                     (fun ({ v; _ } as env) ->
-                                      { env with v = Set.add v e1st })
-                                    (analyze_aux ~caching d e1 suf pi)
+                                      { env with v = Set.add v est })
+                                    (analyze_aux ~caching d
+                                       (Var (Ident x, l1))
+                                       sigma1 pi)
                                 in
-                                debug (fun m ->
-                                    m "[Var Non-Local] r0: %a" Res.pp r0);
-                                return (List.fold r0 ~init:rs ~f:Set.add))
-                          in
-                          let r1 = r1 |> Set.elements |> simplify in
-                          debug (fun m ->
-                              m
-                                "[Level %d] Found all stitched stacks and \
-                                 evaluated e1, begin relabeling variables"
-                                d);
-                          let%bind r2 =
-                            fold_res_var ~init:(return empty_res) expr sigma d
-                              r1 ~f:(fun acc x1' l1 sigma1 ->
-                                if Stdlib.(x1 = x1') && l_myfun = l1 then (
-                                  debug (fun m ->
-                                      m
-                                        "[Var Non-Local] Relabel %s with label \
-                                         %d and evaluate"
-                                        x l1);
-                                  let%bind rs = acc in
-                                  let%bind r0' =
-                                    local d
-                                      (fun ({ v; _ } as env) ->
-                                        { env with v = Set.add v est })
-                                      (analyze_aux ~caching d
-                                         (Var (Ident x, l1))
-                                         sigma1 pi)
-                                  in
-                                  return (List.fold r0' ~init:rs ~f:Set.add))
-                                else acc)
-                          in
-                          info (fun m ->
-                              m "[Level %d] *** Var Non-Local (%a) ***" d
-                                Interp.Pp.pp_expr expr);
-                          info (fun m ->
-                              m "[Level %d] *** Var (%a) ***" d
-                                Interp.Pp.pp_expr expr);
-                          let r2 =
-                            elim_stub (Set.elements r2) (St.Estate cycle_label)
-                          in
-                          cache cache_key r2
+                                return (List.fold r0' ~init:rs ~f:Set.add))
+                              else acc)
+                        in
+                        info (fun m ->
+                            m "[Level %d] *** Var Non-Local (%a) ***" d
+                              Interp.Pp.pp_expr expr);
+                        info (fun m ->
+                            m "[Level %d] *** Var (%a) ***" d Interp.Pp.pp_expr
+                              expr);
+                        let r2 =
+                          elim_stub (Set.elements r2) (St.Estate cycle_label)
+                        in
+                        cache cache_key r2
                     | _ -> raise Unreachable)
               | _ -> raise Unreachable))
     (* Conditional rule *)

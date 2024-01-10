@@ -215,7 +215,7 @@ additional command to actually generate an image of the graph from the Dot
 source code produced:
 
 ```sh
-dot -Tpng ./graph_name.dot > graph.png
+dot -Tpng ./graph_name.dot > graph_name.png
 ```
 
 To view the image, we recommend first attaching the running Docker container to
@@ -245,14 +245,15 @@ open Interp;;
 caching := false;
 
 # Then, execute programs...
-peu "let a = 1 in a"
-# ... or
 pau "let a = 1 in a" # for both analyses
+# ... or
+peu "let a = 1 in a" # for the interpreter
 ```
 
-Below is a table listing the flags you may set in the REPL for each system:
+Below is a table listing the environment variables you may set in the REPL for
+each system:
 
-| System | Env Variables (default values) |
+| System | Environment Variables (default values) |
 | - | - | 
 | Interpreter | `report_runtime` (false), `caching` (true), `debug` (false) |
 | Full analysis | `report_runtime` (false), `caching` (true), `verify` (false), `graph` (false) |

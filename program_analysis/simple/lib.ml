@@ -178,86 +178,75 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                         debug (fun m ->
                             m "Fun being applied at front of sigma: %a"
                               Interp.Pp.pp_expr e1);
-                        let e1st = V_key.Estate (e1, sigma, sid) in
-                        if Set.mem v e1st then (
-                          debug (fun m -> m "[Var Non-Local] Stubbed e1");
-                          info (fun m ->
-                              m "[Level %d] *** Var Non-Local (%a) ***" d
-                                Interp.Pp.pp_expr expr);
-                          info (fun m ->
-                              m "[Level %d] *** Var (%s, %d) ***" d x l);
-                          cache d cache_key (single_res (EStubAtom (e1, sigma))))
-                        else
-                          let sigma_tl = List.tl_exn sigma in
-                          debug (fun m -> m "Begin stitching stacks");
-                          debug (fun m -> m "S: %a" S.pp s);
-                          (* Stitch the stack to gain more precision *)
-                          let sufs = suffixes l2 sigma_tl s in
-                          let%bind r1 =
-                            List.fold sufs ~init:(return empty_res)
-                              ~f:(fun acc suf ->
-                                debug (fun m ->
-                                    m
-                                      "[Level %d][Var Non-Local] Stitched! \
-                                       Evaluating %a, using stitched stack %a"
-                                      d Interp.Pp.pp_expr e1 Sigma.pp suf);
-                                let%bind rs = acc in
-                                let%bind r0 =
-                                  local d
-                                    (fun ({ v; _ } as env) ->
-                                      { env with v = Set.add v e1st })
-                                    (analyze_aux ~caching d e1 suf)
-                                in
-                                debug (fun m ->
-                                    m "[Var Non-Local] r0: %a" Res.pp r0);
-                                return (Set.union rs r0))
-                          in
-                          let r1 = simplify r1 in
-                          debug (fun m -> m "r1 length: %d" (Set.length r1));
-                          debug (fun m ->
-                              m
-                                "[Level %d] Found all stitched stacks and \
-                                 evaluated e1, begin relabeling variables"
-                                d);
-                          let%bind r2 =
-                            Set.fold r1 ~init:(return empty_res)
-                              ~f:(fun acc a ->
-                                debug (fun m ->
-                                    m
-                                      "[Level %d] Visiting 1 possible function \
-                                       for e1:"
-                                      d);
-                                debug (fun m -> m "%a" Atom.pp a);
-                                match a with
-                                | FunAtom (Fun (Ident x1', _, l1), _, sigma1) ->
-                                    if Stdlib.(x1 = x1') && l_myfun = l1 then (
-                                      debug (fun m ->
-                                          m
-                                            "[Var Non-Local] Relabel %s with \
-                                             label %d and evaluate"
-                                            x l1);
-                                      let%bind rs = acc in
-                                      let%bind r0' =
-                                        local d
-                                          (fun ({ v; _ } as env) ->
-                                            { env with v = Set.add v est })
-                                          (analyze_aux ~caching d
-                                             (Var (Ident x, l1))
-                                             sigma1)
-                                      in
-                                      return (Set.union rs r0'))
-                                    else acc
-                                | _ -> acc)
-                          in
-                          info (fun m ->
-                              m "[Level %d] *** Var Non-Local (%a) ***" d
-                                Interp.Pp.pp_expr expr);
-                          info (fun m ->
-                              m "[Level %d] *** Var (%a) ***" d
-                                Interp.Pp.pp_expr expr);
-                          let r2 = elim_stub r2 (St.Estate cycle_label) in
-                          debug (fun m -> m "[Var Non-Local] r2: %a" Res.pp r2);
-                          cache d cache_key r2
+                        let sigma_tl = List.tl_exn sigma in
+                        debug (fun m -> m "Begin stitching stacks");
+                        debug (fun m -> m "S: %a" S.pp s);
+                        (* Stitch the stack to gain more precision *)
+                        let sufs = suffixes l2 sigma_tl s in
+                        let%bind r1 =
+                          List.fold sufs ~init:(return empty_res)
+                            ~f:(fun acc suf ->
+                              debug (fun m ->
+                                  m
+                                    "[Level %d][Var Non-Local] Stitched! \
+                                     Evaluating %a, using stitched stack %a"
+                                    d Interp.Pp.pp_expr e1 Sigma.pp suf);
+                              let%bind rs = acc in
+                              let%bind r0 =
+                                local d
+                                  (fun ({ v; _ } as env) ->
+                                    { env with v = Set.add v est })
+                                  (analyze_aux ~caching d e1 suf)
+                              in
+                              debug (fun m ->
+                                  m "[Var Non-Local] r0: %a" Res.pp r0);
+                              return (Set.union rs r0))
+                        in
+                        let r1 = simplify r1 in
+                        debug (fun m -> m "r1 length: %d" (Set.length r1));
+                        debug (fun m ->
+                            m
+                              "[Level %d] Found all stitched stacks and \
+                               evaluated e1, begin relabeling variables"
+                              d);
+                        let%bind r2 =
+                          Set.fold r1 ~init:(return empty_res) ~f:(fun acc a ->
+                              debug (fun m ->
+                                  m
+                                    "[Level %d] Visiting 1 possible function \
+                                     for e1:"
+                                    d);
+                              debug (fun m -> m "%a" Atom.pp a);
+                              match a with
+                              | FunAtom (Fun (Ident x1', _, l1), _, sigma1) ->
+                                  if Stdlib.(x1 = x1') && l_myfun = l1 then (
+                                    debug (fun m ->
+                                        m
+                                          "[Var Non-Local] Relabel %s with \
+                                           label %d and evaluate"
+                                          x l1);
+                                    let%bind rs = acc in
+                                    let%bind r0' =
+                                      local d
+                                        (fun ({ v; _ } as env) ->
+                                          { env with v = Set.add v est })
+                                        (analyze_aux ~caching d
+                                           (Var (Ident x, l1))
+                                           sigma1)
+                                    in
+                                    return (Set.union rs r0'))
+                                  else acc
+                              | _ -> acc)
+                        in
+                        info (fun m ->
+                            m "[Level %d] *** Var Non-Local (%a) ***" d
+                              Interp.Pp.pp_expr expr);
+                        info (fun m ->
+                            m "[Level %d] *** Var (%a) ***" d Interp.Pp.pp_expr
+                              expr);
+                        let r2 = elim_stub r2 (St.Estate cycle_label) in
+                        debug (fun m -> m "[Var Non-Local] r2: %a" Res.pp r2);
+                        cache d cache_key r2
                     | _ -> raise Unreachable)
               | _ -> raise Unreachable))
     (* Conditional rule *)
