@@ -231,51 +231,25 @@ end
 
 module Cache_key = struct
   module T = struct
-    type lkey = int * sigma * int * int * pi [@@deriving compare, sexp]
-    type ekey = expr * sigma * int * int * pi [@@deriving compare, sexp]
-    type t = Lkey of lkey | Ekey of ekey [@@deriving compare, sexp]
-
-    let pp_lkey fmt (l, sigma, vid, sid, pi) =
-      Format.fprintf fmt "(%d, %a, %d, %d, %a)" l Sigma.pp sigma vid sid pp_pi
-        pi
-
-    let show_lkey (l, sigma, vid, sid, pi) =
-      Format.asprintf "(%d, %a, %d, %d, %s)" l Sigma.pp sigma vid sid
-        (show_pi pi)
-
-    let pp_ekey fmt (expr, sigma, vid, sid, pi) =
-      Format.fprintf fmt "(%a, %a, %d, %d, %a)" Interp.Pp.pp_expr expr Sigma.pp
-        sigma vid sid pp_pi pi
-
-    let show_ekey (expr, sigma, vid, sid, pi) =
-      Format.asprintf "(%a, %a, %d, %d, %s)" Interp.Pp.pp_expr expr Sigma.pp
-        sigma vid sid (show_pi pi)
-
-    let pp fmt = function
-      | Lkey lkey -> pp_lkey fmt lkey
-      | Ekey ekey -> pp_ekey fmt ekey
-
-    let show = function
-      | Lkey lkey -> show_lkey lkey
-      | Ekey ekey -> show_ekey ekey
-
-    (* type lkey = int * sigma * int * pi [@@deriving compare, sexp]
-       type ekey = expr * sigma * int * pi [@@deriving compare, sexp]
+    (* type lkey = int * sigma * int * int * pi [@@deriving compare, sexp]
+       type ekey = expr * sigma * int * int * pi [@@deriving compare, sexp]
        type t = Lkey of lkey | Ekey of ekey [@@deriving compare, sexp]
 
-       let pp_lkey fmt (l, sigma, sid, pi) =
-         Format.fprintf fmt "(%d, %a, %d, %a)" l Sigma.pp sigma sid pp_pi pi
+       let pp_lkey fmt (l, sigma, vid, sid, pi) =
+         Format.fprintf fmt "(%d, %a, %d, %d, %a)" l Sigma.pp sigma vid sid pp_pi
+           pi
 
-       let show_lkey (l, sigma, sid, pi) =
-         Format.asprintf "(%d, %a, %d, %s)" l Sigma.pp sigma sid (show_pi pi)
+       let show_lkey (l, sigma, vid, sid, pi) =
+         Format.asprintf "(%d, %a, %d, %d, %s)" l Sigma.pp sigma vid sid
+           (show_pi pi)
 
-       let pp_ekey fmt (expr, sigma, sid, pi) =
-         Format.fprintf fmt "(%a, %a, %d, %a)" Interp.Pp.pp_expr expr Sigma.pp
-           sigma sid pp_pi pi
+       let pp_ekey fmt (expr, sigma, vid, sid, pi) =
+         Format.fprintf fmt "(%a, %a, %d, %d, %a)" Interp.Pp.pp_expr expr Sigma.pp
+           sigma vid sid pp_pi pi
 
-       let show_ekey (expr, sigma, sid, pi) =
-         Format.asprintf "(%a, %a, %d, %s)" Interp.Pp.pp_expr expr Sigma.pp sigma
-           sid (show_pi pi)
+       let show_ekey (expr, sigma, vid, sid, pi) =
+         Format.asprintf "(%a, %a, %d, %d, %s)" Interp.Pp.pp_expr expr Sigma.pp
+           sigma vid sid (show_pi pi)
 
        let pp fmt = function
          | Lkey lkey -> pp_lkey fmt lkey
@@ -284,6 +258,32 @@ module Cache_key = struct
        let show = function
          | Lkey lkey -> show_lkey lkey
          | Ekey ekey -> show_ekey ekey *)
+
+    type lkey = int * sigma * int * pi [@@deriving compare, sexp]
+    type ekey = expr * sigma * int * pi [@@deriving compare, sexp]
+    type t = Lkey of lkey | Ekey of ekey [@@deriving compare, sexp]
+
+    let pp_lkey fmt (l, sigma, sid, pi) =
+      Format.fprintf fmt "(%d, %a, %d, %a)" l Sigma.pp sigma sid pp_pi pi
+
+    let show_lkey (l, sigma, sid, pi) =
+      Format.asprintf "(%d, %a, %d, %s)" l Sigma.pp sigma sid (show_pi pi)
+
+    let pp_ekey fmt (expr, sigma, sid, pi) =
+      Format.fprintf fmt "(%a, %a, %d, %a)" Interp.Pp.pp_expr expr Sigma.pp
+        sigma sid pp_pi pi
+
+    let show_ekey (expr, sigma, sid, pi) =
+      Format.asprintf "(%a, %a, %d, %s)" Interp.Pp.pp_expr expr Sigma.pp sigma
+        sid (show_pi pi)
+
+    let pp fmt = function
+      | Lkey lkey -> pp_lkey fmt lkey
+      | Ekey ekey -> pp_ekey fmt ekey
+
+    let show = function
+      | Lkey lkey -> show_lkey lkey
+      | Ekey ekey -> show_ekey ekey
   end
 
   include T

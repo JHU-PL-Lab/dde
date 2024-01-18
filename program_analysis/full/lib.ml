@@ -162,8 +162,8 @@ let rec analyze_aux ~caching d expr sigma pi : Res.t T.t =
     | Fun (_, _, l) -> return [ FunAtom (expr, l, sigma) ]
     (* Application rule *)
     | App (e, _, l) -> (
-        let cache_key = Cache_key.Lkey (l, sigma, vid, sid, pi) in
-        (* let cache_key = Cache_key.Lkey (l, sigma, sid, pi) in *)
+        (* let cache_key = Cache_key.Lkey (l, sigma, vid, sid, pi) in *)
+        let cache_key = Cache_key.Lkey (l, sigma, sid, pi) in
         match Map.find c cache_key with
         | Some r when caching ->
             debug (fun m ->
@@ -218,8 +218,8 @@ let rec analyze_aux ~caching d expr sigma pi : Res.t T.t =
               cache cache_key [ LResAtom (r2, cycle_label) ]))
     (* Var rules *)
     | Var (Ident x, l) -> (
-        let cache_key = Cache_key.Ekey (expr, sigma, vid, sid, pi) in
-        (* let cache_key = Cache_key.Ekey (expr, sigma, sid, pi) in *)
+        (* let cache_key = Cache_key.Ekey (expr, sigma, vid, sid, pi) in *)
+        let cache_key = Cache_key.Ekey (expr, sigma, sid, pi) in
         match Map.find c cache_key with
         | Some r when caching ->
             debug (fun m ->

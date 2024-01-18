@@ -301,33 +301,41 @@ let factorial_thunked =
 *)
 let ddpa_thunked =
   [
-    (* ("blur", fun _ -> ("true", pau ~name:"blur" (read_case "blur.ml")));
-       ("eta", fun _ -> ("false", pau ~name:"eta" (read_case "eta.ml")));
-       ( "facehugger",
-         fun _ ->
-           ( "((6 * 1) + (12 * ((((3 | (stub - 1)) - 1) * ((((3 | (stub - 1)) - \
-              1) * stub) | 1)) | 1)))",
-             pau ~name:"facehugger" (read_case "facehugger.ml") ) );
-       ("kcfa-2", fun _ -> ("false", pau ~name:"kcfa-2" (read_case "kcfa-2.ml")));
-       ("kcfa-3", fun _ -> ("false", pau ~name:"kcfa-3" (read_case "kcfa-3.ml"))); *)
-    (* ( "loop2-1",
-       fun _ ->
-         ( "((stub | ((stub | stub) | (((stub | ((0 | stub) + (10 | (9 | (stub \
-            - 1))))) + (10 | (9 | (stub - 1)))) | ((0 | stub) + (10 | (9 | \
-            (stub - 1))))))) | ((stub | ((stub | stub) | (((stub | ((0 | stub) \
-            + (10 | (9 | (stub - 1))))) + (10 | (9 | (stub - 1)))) | ((0 | \
-            stub) + (10 | (9 | (stub - 1))))))) | (((stub | (stub | (((stub | \
-            ((0 | stub) + (10 | (9 | (stub - 1))))) + (10 | (9 | (stub - 1)))) \
-            | ((0 | stub) + (10 | (9 | (stub - 1))))))) | (stub | (((stub | ((0 \
-            | stub) + (10 | (9 | (stub - 1))))) + (10 | (9 | (stub - 1)))) | \
-            ((0 | stub) + (10 | (9 | (stub - 1))))))) | (((0 | (((stub | stub) \
-            + (10 | (9 | (stub - 1)))) | stub)) + (10 | (9 | (stub - 1)))) | \
-            (((((0 | (((stub | stub) + (10 | (9 | (stub - 1)))) | stub)) + (10 \
-            | (9 | (stub - 1)))) | stub) + (10 | (9 | (stub - 1)))) | ((((0 | \
-            (stub | (stub + (10 | (9 | (stub - 1)))))) + (10 | (9 | (stub - \
-            1)))) | (stub + (10 | (9 | (stub - 1))))) + (10 | (9 | (stub - \
-            1)))))))))",
-           pau ~name:"loop2-1" (read_case "loop2-1.ml") ) ); *)
+    ("blur", fun _ -> ("true", pau ~name:"blur" (read_case "blur.ml")));
+    ("eta", fun _ -> ("false", pau ~name:"eta" (read_case "eta.ml")));
+    ( "facehugger",
+      fun _ ->
+        ( "((6 * 1) + (12 * ((((3 | (stub - 1)) - 1) * ((((3 | (stub - 1)) - \
+           1) * stub) | 1)) | 1)))",
+          pau ~name:"facehugger" (read_case "facehugger.ml") ) );
+    ("kcfa-2", fun _ -> ("false", pau ~name:"kcfa-2" (read_case "kcfa-2.ml")));
+    ("kcfa-3", fun _ -> ("false", pau ~name:"kcfa-3" (read_case "kcfa-3.ml")));
+    ( "loop2-1",
+      fun _ ->
+        ( (* "((stub | ((stub | stub) | (((stub | ((0 | stub) + (10 | (9 | (stub \
+             - 1))))) + (10 | (9 | (stub - 1)))) | ((0 | stub) + (10 | (9 | \
+             (stub - 1))))))) | ((stub | ((stub | stub) | (((stub | ((0 | stub) \
+             + (10 | (9 | (stub - 1))))) + (10 | (9 | (stub - 1)))) | ((0 | \
+             stub) + (10 | (9 | (stub - 1))))))) | (((stub | (stub | (((stub | \
+             ((0 | stub) + (10 | (9 | (stub - 1))))) + (10 | (9 | (stub - 1)))) \
+             | ((0 | stub) + (10 | (9 | (stub - 1))))))) | (stub | (((stub | ((0 \
+             | stub) + (10 | (9 | (stub - 1))))) + (10 | (9 | (stub - 1)))) | \
+             ((0 | stub) + (10 | (9 | (stub - 1))))))) | (((0 | (((stub | stub) \
+             + (10 | (9 | (stub - 1)))) | stub)) + (10 | (9 | (stub - 1)))) | \
+             (((((0 | (((stub | stub) + (10 | (9 | (stub - 1)))) | stub)) + (10 \
+             | (9 | (stub - 1)))) | stub) + (10 | (9 | (stub - 1)))) | ((((0 | \
+             (stub | (stub + (10 | (9 | (stub - 1)))))) + (10 | (9 | (stub - \
+             1)))) | (stub + (10 | (9 | (stub - 1))))) + (10 | (9 | (stub - \
+             1)))))))))", *)
+          "((stub | (stub | (((stub | stub) + (10 | (9 | (stub - 1)))) | \
+           stub))) | ((stub | (stub | (((stub | stub) + (10 | (9 | (stub - \
+           1)))) | stub))) | (((stub | (stub | (((stub | stub) + (10 | (9 | \
+           (stub - 1)))) | stub))) | (stub | (((stub | stub) + (10 | (9 | \
+           (stub - 1)))) | stub))) | ((((((0 | (((stub | stub) + (10 | (9 | \
+           (stub - 1)))) | stub)) + (10 | (9 | (stub - 1)))) | stub) + (10 | \
+           (9 | (stub - 1)))) | ((stub | stub) + (10 | (9 | (stub - 1))))) | \
+           stub))))",
+          pau ~name:"loop2-1" (read_case "loop2-1.ml") ) );
     (* ("loop2-1'", fun _ -> ("", pau ~name:"loop2-1'" (read_case "loop2-1'.ml"))); *)
     (* ("mj09", fun _ -> ("2", pau ~name:"mj09" (read_case "mj09.ml"))); *)
     ( "map",
@@ -335,8 +343,8 @@ let ddpa_thunked =
         ( "{ hd = 8; tl = { hd = 9; tl = ({ hd = (9 | 10); tl = ({ hd = (9 | \
            10); tl = stub } | {}) } | {}) } }",
           pau ~name:"map" (read_case "map.ml") ) );
-    (* ("primtest", fun _ -> ("15", pau ~name:"primtest" (read_case "primtest.ml")));
-       ("rsa", fun _ -> ("false", pau ~name:"rsa" (read_case "rsa.ml"))); *)
+    ("primtest", fun _ -> ("15", pau ~name:"primtest" (read_case "primtest.ml")));
+    ("rsa", fun _ -> ("false", pau ~name:"rsa" (read_case "rsa.ml")));
   ]
 
 (* Long-running DDPA tests *)
@@ -365,38 +373,39 @@ let ddpa_cpstak_thunked =
 (* DDPA tests run with the simple analysis. *)
 let ddpa_simple_thunked =
   [
-    (* ( "blur (simple)",
-         fun _ -> ("false | true", pau' ~name:"blur" (read_case "blur.ml")) );
-       ("eta (simple)", fun _ -> ("false", pau' ~name:"eta" (read_case "eta.ml")));
-       ( "facehugger (simple)",
-         fun _ -> ("Int", pau' ~name:"facehugger" (read_case "facehugger.ml")) );
-       ( "kcfa-2 (simple)",
-         fun _ -> ("false", pau' ~name:"kcfa-2" (read_case "kcfa-2.ml")) );
-       ( "kcfa-3 (simple)",
-         fun _ -> ("false", pau' ~name:"kcfa-3" (read_case "kcfa-3.ml")) ); *)
+    ( "blur (simple)",
+      fun _ -> ("false | true", pau' ~name:"blur" (read_case "blur.ml")) );
+    ("eta (simple)", fun _ -> ("false", pau' ~name:"eta" (read_case "eta.ml")));
+    ( "facehugger (simple)",
+      fun _ -> ("Int", pau' ~name:"facehugger" (read_case "facehugger.ml")) );
+    ( "kcfa-2 (simple)",
+      fun _ -> ("false", pau' ~name:"kcfa-2" (read_case "kcfa-2.ml")) );
+    ( "kcfa-3 (simple)",
+      fun _ -> ("false", pau' ~name:"kcfa-3" (read_case "kcfa-3.ml")) );
     ( "loop2-1 (simple)",
       fun _ ->
-        ( "Int | stub | stub | stub | stub | stub | stub | stub | stub",
+        ( (* "Int | stub | stub | stub | stub | stub | stub | stub | stub" *)
+          "Int | stub | stub | stub | stub | stub",
           pau' ~name:"loop2-1" (read_case "loop2-1.ml") ) );
-    (* ("mj09 (simple)", fun _ -> ("Int", pau' ~name:"mj09" (read_case "mj09.ml")));
-       ( "map (simple)",
-         fun _ ->
-           ( "{ hd = Int; tl = { hd = Int; tl = {} | { hd = Int; tl = {} | { hd = \
-              Int; tl = stub } } } }",
-             pau' ~name:"map" (read_case "map.ml") ) );
-       ( "primtest (simple)",
-         fun _ -> ("Int | stub", pau' ~name:"primtest" (read_case "primtest.ml"))
-       );
-       ( "rsa (simple)",
-         fun _ -> ("false | true", pau' ~name:"rsa" (read_case "rsa.ml")) );
-       ( "sat-1 (simple)",
-         fun _ -> ("false | true", pau' ~name:"sat-1" (read_case "sat-1.ml")) );
-       ( "sat-2 (simple)",
-         fun _ -> ("false | true", pau' ~name:"sat-2" (read_case "sat-2.ml")) );
-       ( "sat-3 (simple)",
-         fun _ -> ("false | true", pau' ~name:"sat-3" (read_case "sat-3.ml")) );
-       ( "sat-5 (simple)",
-         fun _ -> ("true", pau' ~name:"sat-5" (read_case "sat-5.ml")) ); *)
+    ("mj09 (simple)", fun _ -> ("Int", pau' ~name:"mj09" (read_case "mj09.ml")));
+    ( "map (simple)",
+      fun _ ->
+        ( "{ hd = Int; tl = { hd = Int; tl = {} | { hd = Int; tl = {} | { hd = \
+           Int; tl = stub } } } }",
+          pau' ~name:"map" (read_case "map.ml") ) );
+    ( "primtest (simple)",
+      fun _ -> ("Int | stub", pau' ~name:"primtest" (read_case "primtest.ml"))
+    );
+    ( "rsa (simple)",
+      fun _ -> ("false | true", pau' ~name:"rsa" (read_case "rsa.ml")) );
+    ( "sat-1 (simple)",
+      fun _ -> ("false | true", pau' ~name:"sat-1" (read_case "sat-1.ml")) );
+    ( "sat-2 (simple)",
+      fun _ -> ("false | true", pau' ~name:"sat-2" (read_case "sat-2.ml")) );
+    ( "sat-3 (simple)",
+      fun _ -> ("false | true", pau' ~name:"sat-3" (read_case "sat-3.ml")) );
+    ( "sat-5 (simple)",
+      fun _ -> ("true", pau' ~name:"sat-5" (read_case "sat-5.ml")) );
   ]
 
 let ddpa_ack_simple_thunked =
@@ -481,7 +490,7 @@ let tests =
          (* "DDPA ack (long-running)" >: test_long test_ddpa_ack; *)
          (* "DDPA tak (long-running)" >: test_long test_ddpa_tak; *)
          (* "DDPA cpstak (long-running)" >: test_long test_ddpa_cpstak; *)
-         (* "DDPA (simple)" >: test_medium test_ddpa_simple; *)
+         "DDPA (simple)" >: test_medium test_ddpa_simple;
          (* Times out after 10 minutes *)
          (* "DDPA ack (simple, long-running)" >: test_long test_ddpa_ack_simple; *)
          (* "DDPA tak (simple, long-running)" >: test_long test_ddpa_tak_simple; *)
