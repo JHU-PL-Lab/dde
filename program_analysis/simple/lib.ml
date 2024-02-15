@@ -32,8 +32,8 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
     | Fun (_, _, l) -> return (single_res (FunAtom (expr, l, sigma)))
     (* Application rule *)
     | App (e, _, l) -> (
-        (* let cache_key = Cache_key.Lkey (l, sigma, vid, sid) in *)
-        let cache_key = Cache_key.Lkey (l, sigma, sid) in
+        let cache_key = Cache_key.Lkey (l, sigma, vid, sid) in
+        (* let cache_key = Cache_key.Lkey (l, sigma, sid) in *)
         match Map.find c cache_key with
         | Some r when caching ->
             debug (fun m ->
@@ -99,8 +99,8 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
               cache d cache_key r2))
     (* Var rules *)
     | Var (Ident x, l) -> (
-        (* let cache_key = Cache_key.Ekey (expr, sigma, vid, sid) in *)
-        let cache_key = Cache_key.Ekey (expr, sigma, sid) in
+        let cache_key = Cache_key.Ekey (expr, sigma, vid, sid) in
+        (* let cache_key = Cache_key.Ekey (expr, sigma, sid) in *)
         match Map.find c cache_key with
         | Some r when caching ->
             debug (fun m ->

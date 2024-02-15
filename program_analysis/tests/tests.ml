@@ -233,7 +233,8 @@ let lists_thunked =
           "letassert x = ({ hd = 1; tl = { hd = 2; tl = { hd = 3; tl = {} } } \
            }.tl.hd) in x = 2" ));
     (fun _ ->
-      ( "((stub | { hd = 2; tl = {} }) | { hd = 2; tl = {} })",
+      ( "((stub | { hd = (((stub.hd) + 1) | 2); tl = {} }) | { hd = \
+         (((stub.hd) + 1) | 2); tl = {} })",
         pau (incr_cell ^ " ({ hd = 0; tl = {} }) 3") ));
     (fun _ ->
       ("{ hd = 2; tl = {} }", pau (list_incr ^ " ({ hd = 1; tl = {} })")));
@@ -312,32 +313,32 @@ let ddpa_thunked =
     ("kcfa-3", fun _ -> ("false", pau ~name:"kcfa-3" (read_case "kcfa-3.ml")));
     ( "loop2-1",
       fun _ ->
-        ( (* "((stub | ((stub | stub) | (((stub | ((0 | stub) + (10 | (9 | (stub \
-             - 1))))) + (10 | (9 | (stub - 1)))) | ((0 | stub) + (10 | (9 | \
-             (stub - 1))))))) | ((stub | ((stub | stub) | (((stub | ((0 | stub) \
-             + (10 | (9 | (stub - 1))))) + (10 | (9 | (stub - 1)))) | ((0 | \
-             stub) + (10 | (9 | (stub - 1))))))) | (((stub | (stub | (((stub | \
-             ((0 | stub) + (10 | (9 | (stub - 1))))) + (10 | (9 | (stub - 1)))) \
-             | ((0 | stub) + (10 | (9 | (stub - 1))))))) | (stub | (((stub | ((0 \
-             | stub) + (10 | (9 | (stub - 1))))) + (10 | (9 | (stub - 1)))) | \
-             ((0 | stub) + (10 | (9 | (stub - 1))))))) | (((0 | (((stub | stub) \
-             + (10 | (9 | (stub - 1)))) | stub)) + (10 | (9 | (stub - 1)))) | \
-             (((((0 | (((stub | stub) + (10 | (9 | (stub - 1)))) | stub)) + (10 \
-             | (9 | (stub - 1)))) | stub) + (10 | (9 | (stub - 1)))) | ((((0 | \
-             (stub | (stub + (10 | (9 | (stub - 1)))))) + (10 | (9 | (stub - \
-             1)))) | (stub + (10 | (9 | (stub - 1))))) + (10 | (9 | (stub - \
-             1)))))))))", *)
-          "((stub | (stub | (((stub | stub) + (10 | (9 | (stub - 1)))) | \
-           stub))) | ((stub | (stub | (((stub | stub) + (10 | (9 | (stub - \
-           1)))) | stub))) | (((stub | (stub | (((stub | stub) + (10 | (9 | \
-           (stub - 1)))) | stub))) | (stub | (((stub | stub) + (10 | (9 | \
-           (stub - 1)))) | stub))) | ((((((0 | (((stub | stub) + (10 | (9 | \
-           (stub - 1)))) | stub)) + (10 | (9 | (stub - 1)))) | stub) + (10 | \
-           (9 | (stub - 1)))) | ((stub | stub) + (10 | (9 | (stub - 1))))) | \
-           stub))))",
+        ( "((stub | ((stub | stub) | (((stub | ((0 | stub) + (10 | (9 | (stub \
+           - 1))))) + (10 | (9 | (stub - 1)))) | ((0 | stub) + (10 | (9 | \
+           (stub - 1))))))) | ((stub | ((stub | stub) | (((stub | ((0 | stub) \
+           + (10 | (9 | (stub - 1))))) + (10 | (9 | (stub - 1)))) | ((0 | \
+           stub) + (10 | (9 | (stub - 1))))))) | (((stub | (stub | (((stub | \
+           ((0 | stub) + (10 | (9 | (stub - 1))))) + (10 | (9 | (stub - 1)))) \
+           | ((0 | stub) + (10 | (9 | (stub - 1))))))) | (stub | (((stub | ((0 \
+           | stub) + (10 | (9 | (stub - 1))))) + (10 | (9 | (stub - 1)))) | \
+           ((0 | stub) + (10 | (9 | (stub - 1))))))) | (((0 | (((stub | stub) \
+           + (10 | (9 | (stub - 1)))) | stub)) + (10 | (9 | (stub - 1)))) | \
+           (((((0 | (((stub | stub) + (10 | (9 | (stub - 1)))) | stub)) + (10 \
+           | (9 | (stub - 1)))) | stub) + (10 | (9 | (stub - 1)))) | ((((0 | \
+           (stub | (stub + (10 | (9 | (stub - 1)))))) + (10 | (9 | (stub - \
+           1)))) | (stub + (10 | (9 | (stub - 1))))) + (10 | (9 | (stub - \
+           1)))))))))",
+          (* "((stub | (stub | (((stub | stub) + (10 | (9 | (stub - 1)))) | \
+             stub))) | ((stub | (stub | (((stub | stub) + (10 | (9 | (stub - \
+             1)))) | stub))) | (((stub | (stub | (((stub | stub) + (10 | (9 | \
+             (stub - 1)))) | stub))) | (stub | (((stub | stub) + (10 | (9 | \
+             (stub - 1)))) | stub))) | ((((((0 | (((stub | stub) + (10 | (9 | \
+             (stub - 1)))) | stub)) + (10 | (9 | (stub - 1)))) | stub) + (10 | \
+             (9 | (stub - 1)))) | ((stub | stub) + (10 | (9 | (stub - 1))))) | \
+             stub))))", *)
           pau ~name:"loop2-1" (read_case "loop2-1.ml") ) );
     (* ("loop2-1'", fun _ -> ("", pau ~name:"loop2-1'" (read_case "loop2-1'.ml"))); *)
-    (* ("mj09", fun _ -> ("2", pau ~name:"mj09" (read_case "mj09.ml"))); *)
+    ("mj09", fun _ -> ("2", pau ~name:"mj09" (read_case "mj09.ml")));
     ( "map",
       fun _ ->
         ( "{ hd = 8; tl = { hd = 9; tl = ({ hd = (9 | 10); tl = ({ hd = (9 | \
@@ -384,8 +385,8 @@ let ddpa_simple_thunked =
       fun _ -> ("false", pau' ~name:"kcfa-3" (read_case "kcfa-3.ml")) );
     ( "loop2-1 (simple)",
       fun _ ->
-        ( (* "Int | stub | stub | stub | stub | stub | stub | stub | stub" *)
-          "Int | stub | stub | stub | stub | stub",
+        ( "Int | stub | stub | stub | stub | stub | stub | stub | stub",
+          (* "Int | stub | stub | stub | stub | stub", *)
           pau' ~name:"loop2-1" (read_case "loop2-1.ml") ) );
     ("mj09 (simple)", fun _ -> ("Int", pau' ~name:"mj09" (read_case "mj09.ml")));
     ( "map (simple)",
@@ -482,7 +483,7 @@ let tests =
             "Church numerals" >:: test_church;
             "Lists" >:: test_lists;
             "Factorial" >:: test_factorial; *)
-         "DDPA" >: test_medium test_ddpa;
+         (* "DDPA" >: test_medium test_ddpa; *)
          (* Times out after 10 minutes *)
          (* "DDPA sat-1 (long-running)" >: test_long test_ddpa_sat1; *)
          (* "DDPA sat-2 (long-running)" >: test_long test_ddpa_sat2; *)

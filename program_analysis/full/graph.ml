@@ -209,6 +209,19 @@ module State = struct
       f a st'
 
     let map = `Define_using_bind
+
+    let run (m : 'a t) =
+      m
+        {
+          rids = Map.empty (module Lres_key);
+          aids = Map.empty (module Latom_key);
+          nodes = String.Set.empty;
+          edges = String.Map.empty;
+          edge_props = String.Map.empty;
+          siblings = String.Map.empty;
+          cnt = 0;
+        }
+
     let get () : state t = fun st -> (st, st)
 
     let get_rid r : string t =
@@ -330,10 +343,13 @@ open State.Let_syntax
 
 let dot_of_result ?(display_path_cond = true) r name =
   let r = Lres.mk r in
-  (* p is the parent *atom* of a *)
-  (* l is the label of the enclosing labeled result, if any *)
-  (* any cycle (particularly its start) should be unique in
-     each path condition subtree *)
+  (*
+    Generate DOT code from a value atom
+    - p is the parent *atom* of a
+    - l is the label of the enclosing labeled result, if any
+    - any cycle (particularly its start) should be unique in
+      each path condition subtree
+  *)
   let rec dot_of_atom a p pid pr cycles : unit T.t =
     let%bind aid = get_aid a in
     match a with
@@ -457,6 +473,7 @@ let dot_of_result ?(display_path_cond = true) r name =
           |> Format.sprintf "%s [label=\"%s\", shape=\"record\"]" aid
           |> add_node
     | _ -> raise Unreachable
+  (* Generate DOT code from a value result *)
   and dot_of_res r p pid pr pl : unit T.t =
     let%bind rid = get_rid r in
     match p with
@@ -541,17 +558,7 @@ let dot_of_result ?(display_path_cond = true) r name =
   in
 
   let (), { nodes; edges; edge_props; siblings; _ } =
-    dot_of_res r None None None
-      (Map.empty (module St))
-      {
-        rids = Map.empty (module Lres_key);
-        aids = Map.empty (module Latom_key);
-        nodes = String.Set.empty;
-        edges = String.Map.empty;
-        edge_props = String.Map.empty;
-        siblings = String.Map.empty;
-        cnt = 0;
-      }
+    run (dot_of_res r None None None (Map.empty (module St)))
   in
   let nodes_str = nodes |> Set.elements |> String.concat ~sep:"\n" in
   (* let ranks_str =

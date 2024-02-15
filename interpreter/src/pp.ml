@@ -17,6 +17,7 @@ let is_compound_exprL = function
 let rec pp_expr fmt = function
   | Int i -> ff fmt "%d" i
   | Bool b -> ff fmt "%b" b
+  (* TODO: pp call stack *)
   | Fun (Ident i, x, l) -> ff fmt "@[<hv>fun %s ->@;<1 2>%a@]" i pp_expr x
   | Var (Ident x, _) -> ff fmt "%s" x
   | App (e1, e2, _) ->
