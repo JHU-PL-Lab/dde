@@ -8,18 +8,21 @@ let ff = Format.fprintf
 let paren_if cond pp fmt e =
   if cond e then ff fmt "(%a)" pp e else ff fmt "%a" pp e
 
-let is_compound_expr = function Var _ -> false | _ -> true
+let is_compound_expr = function Int _ | Bool _ | Var _ -> false | _ -> true
 
 let is_compound_exprL = function
-  | App _ -> false
+  | Int _ | Bool _ | App _ -> false
   | other -> is_compound_expr other
+
+let pp_ident fmt (Ident x) = ff fmt "%s" x
 
 let rec pp_expr fmt = function
   | Int i -> ff fmt "%d" i
   | Bool b -> ff fmt "%b" b
   (* TODO: pp call stack *)
   | Fun (Ident i, x, l) -> ff fmt "@[<hv>fun %s ->@;<1 2>%a@]" i pp_expr x
-  | Var (Ident x, _) -> ff fmt "%s" x
+  | Var (id, _) -> ff fmt "%a" pp_ident id
+  (* | Var (id, l) -> ff fmt "%a@%d" pp_ident id l *)
   | App (e1, e2, _) ->
       ff fmt "%a %a"
         (paren_if is_compound_exprL pp_expr)

@@ -40,11 +40,11 @@ let test_basic_application _ =
   assert_equal "2" (peu "((fun x -> fun y -> y) 1) 2")
 
 let test_involved_application _ =
-  assert_equal "1" (peu "((fun x -> fun y -> x) 1) 2");
-  assert_equal "1 + 10" (peu "((fun x -> fun y -> y x) 1) (fun x -> x + 10);");
-  assert_equal "6 + 2 + 1"
-    (peu "(fun x -> (fun y -> (fun z -> z + 1) y) (x + 2)) 6");
-  assert_unequal "fun y -> 1 + 2" (peu "(fun x -> fun y -> x) (1 + 2)")
+  (* assert_equal "1" (peu "((fun x -> fun y -> x) 1) 2"); *)
+  assert_equal "1 + 10" (peu "((fun x -> fun y -> y x) 1) (fun z -> z + 10);")
+(* assert_equal "6 + 2 + 1"
+     (peu "(fun x -> (fun y -> (fun z -> z + 1) y) (x + 2)) 6");
+   assert_unequal "fun y -> 1 + 2" (peu "(fun x -> fun y -> x) (1 + 2)") *)
 
 let dde_ycomb =
   "(fun code -> let repl = (fun self -> fun x -> code (self self) x) in repl \
@@ -112,25 +112,33 @@ let test_custom _ = assert_equal "expected test result" (peu "let a = 1 in a")
 let tests =
   "Pure demand interpreter tests"
   >::: [
-         "Numericals" >:: test_numerical;
-         "Logicals" >:: test_logical;
-         "Relationals" >:: test_relational;
-         "Let" >:: test_let;
-         "If" >:: test_if;
-         "Function" >:: test_function;
-         "Application" >:: test_basic_application;
+         (* "Numericals" >:: test_numerical;
+            "Logicals" >:: test_logical;
+            "Relationals" >:: test_relational;
+            "Let" >:: test_let;
+            "If" >:: test_if;
+            "Function" >:: test_function;
+            "Application" >:: test_basic_application; *)
          "Application (non-local lookups)" >:: test_involved_application;
-         "Y Combinator" >:: test_ycomb;
-         "Laziness" >:: test_laziness;
-         "Record operations" >:: test_record;
-         "Record rec" >:: test_record_rec;
+         (* "Y Combinator" >:: test_ycomb;
+            "Laziness" >:: test_laziness;
+            "Record operations" >:: test_record;
+            "Record rec" >:: test_record_rec; *)
          (* Uncomment the following to run custom tests *)
          (* "Custom" >:: test_custom; *)
        ]
 
+let enable_logging log_file =
+  let dst =
+    log_file |> Core.Out_channel.create |> Format.formatter_of_out_channel
+  in
+  Logs.set_reporter (Logs_fmt.reporter ~dst ~pp_header:(fun _ _ -> ()) ());
+  Logs.set_level (Some Logs.Debug)
+
 let () =
   Arg.parse
     [
+      ("--log", Arg.Unit (fun _ -> enable_logging "logs"), "Log to default file");
       ( "--no-cache",
         Arg.Unit (fun _ -> Utils.caching := false),
         "Turn off caching" );

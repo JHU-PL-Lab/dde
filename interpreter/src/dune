@@ -4,7 +4,7 @@
  (preprocess
   (pps ppx_deriving.show ppx_jane))
  (modules lexer parser ast lib pp debug_utils exns)
- (libraries core))
+ (libraries core logs logs.fmt))
 
 (ocamllex
  (modules lexer))
