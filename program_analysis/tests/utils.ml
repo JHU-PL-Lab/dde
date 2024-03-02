@@ -36,3 +36,5 @@ let test_medium = test_case ~length:(OUnitTest.Custom_length 300.)
 
 (** times out after 10 minutes *)
 let test_long = test_case ~length:(OUnitTest.Custom_length 600.)
+
+let test_inf = test_case ~length:(OUnitTest.Custom_length 10_000_000.)

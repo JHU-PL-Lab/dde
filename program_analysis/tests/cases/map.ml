@@ -11,3 +11,4 @@ let my_map =
 in
 let _ = my_map (id (fun b -> 1 + b)) ({ hd = 1; tl = { hd = 2; tl = { hd = 3; tl = {} } } }) in
 my_map (id (fun b -> 1 + b)) ({ hd = 7; tl = { hd = 8; tl = { hd = 9; tl = {} } } })
+(* my_map (id (fun b -> 1 + b)) ({ hd = 7; tl = { hd = 8; tl = { hd = 9; tl = { hd = 10; tl = {} } } } }) *)

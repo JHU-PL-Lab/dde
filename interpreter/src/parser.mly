@@ -56,7 +56,7 @@ open Ast;;
  * The entrypoint.
  */
 %start main
-%type <expr> main
+%type <Expr.t> main
 
 %%
 
@@ -98,11 +98,11 @@ expr:
   | IF expr THEN expr ELSE expr %prec prec_if
       { build_if $2 $4 $6 }
   | LBRACE separated_list(SEP, record_entry) RBRACE
-      { build_record $2 }
+      { build_rec $2 }
   | expr PROJECT IDENT
-      { build_projection $1 $3 }
+      { build_proj $1 $3 }
   | IDENT IN expr
-      { build_inspection $1 $3 }
+      { build_insp $1 $3 }
 ;
 
 record_entry:
@@ -113,7 +113,7 @@ appl_expr:
   | negatable_expr
       { $1 }
   | appl_expr simple_expr
-      { build_appl $1 $2 }
+      { build_app $1 $2 }
 ;
 
 negatable_expr:

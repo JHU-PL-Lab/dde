@@ -374,39 +374,38 @@ let ddpa_cpstak_thunked =
 (* DDPA tests run with the simple analysis. *)
 let ddpa_simple_thunked =
   [
-    (* ( "blur (simple)",
-         fun _ -> ("false | true", pau' ~name:"blur" (read_case "blur.ml")) );
-       ("eta (simple)", fun _ -> ("false", pau' ~name:"eta" (read_case "eta.ml")));
-       ( "facehugger (simple)",
-         fun _ -> ("Int", pau' ~name:"facehugger" (read_case "facehugger.ml")) );
-       ( "kcfa-2 (simple)",
-         fun _ -> ("false", pau' ~name:"kcfa-2" (read_case "kcfa-2.ml")) );
-       ( "kcfa-3 (simple)",
-         fun _ -> ("false", pau' ~name:"kcfa-3" (read_case "kcfa-3.ml")) ); *)
+    ( "blur (simple)",
+      fun _ -> ("false | true", pau' ~name:"blur" (read_case "blur.ml")) );
+    ("eta (simple)", fun _ -> ("false", pau' ~name:"eta" (read_case "eta.ml")));
+    ( "facehugger (simple)",
+      fun _ -> ("Int", pau' ~name:"facehugger" (read_case "facehugger.ml")) );
+    ( "kcfa-2 (simple)",
+      fun _ -> ("false", pau' ~name:"kcfa-2" (read_case "kcfa-2.ml")) );
+    ( "kcfa-3 (simple)",
+      fun _ -> ("false", pau' ~name:"kcfa-3" (read_case "kcfa-3.ml")) );
     ( "loop2-1 (simple)",
       fun _ ->
         ( "Int | stub | stub | stub | stub | stub | stub | stub | stub",
-          (* "Int | stub | stub | stub | stub | stub", *)
           pau' ~name:"loop2-1" (read_case "loop2-1.ml") ) );
-    (* ("mj09 (simple)", fun _ -> ("Int", pau' ~name:"mj09" (read_case "mj09.ml")));
-       ( "map (simple)",
-         fun _ ->
-           ( "{ hd = Int; tl = { hd = Int; tl = {} | { hd = Int; tl = {} | { hd = \
-              Int; tl = stub } } } }",
-             pau' ~name:"map" (read_case "map.ml") ) );
-       ( "primtest (simple)",
-         fun _ -> ("Int | stub", pau' ~name:"primtest" (read_case "primtest.ml"))
-       );
-       ( "rsa (simple)",
-         fun _ -> ("false | true", pau' ~name:"rsa" (read_case "rsa.ml")) ); *)
-    (* ( "sat-1 (simple)",
-       fun _ -> ("false | true", pau' ~name:"sat-1" (read_case "sat-1.ml")) ); *)
-    (* ( "sat-2 (simple)",
-         fun _ -> ("false | true", pau' ~name:"sat-2" (read_case "sat-2.ml")) );
-       ( "sat-3 (simple)",
-         fun _ -> ("false | true", pau' ~name:"sat-3" (read_case "sat-3.ml")) );
-       ( "sat-5 (simple)",
-         fun _ -> ("true", pau' ~name:"sat-5" (read_case "sat-5.ml")) ); *)
+    ("mj09 (simple)", fun _ -> ("Int", pau' ~name:"mj09" (read_case "mj09.ml")));
+    ( "map (simple)",
+      fun _ ->
+        ( "{ hd = Int; tl = { hd = Int; tl = {} | { hd = Int; tl = {} | { hd = \
+           Int; tl = stub } } } }",
+          pau' ~name:"map" (read_case "map.ml") ) );
+    ( "primtest (simple)",
+      fun _ -> ("Int | stub", pau' ~name:"primtest" (read_case "primtest.ml"))
+    );
+    ( "rsa (simple)",
+      fun _ -> ("false | true", pau' ~name:"rsa" (read_case "rsa.ml")) );
+    ( "sat-1 (simple)",
+      fun _ -> ("false | true", pau' ~name:"sat-1" (read_case "sat-1.ml")) );
+    ( "sat-2 (simple)",
+      fun _ -> ("false | true", pau' ~name:"sat-2" (read_case "sat-2.ml")) );
+    ( "sat-3 (simple)",
+      fun _ -> ("false | true", pau' ~name:"sat-3" (read_case "sat-3.ml")) );
+    (* ( "sat-5 (simple)",
+       fun _ -> ("true", pau' ~name:"sat-5" (read_case "sat-5.ml")) ); *)
   ]
 
 let ddpa_ack_simple_thunked =

@@ -24,7 +24,7 @@ let square = (fun x -> x * x) in
 let modulo_power = (fun self -> fun base -> fun exp -> fun n ->
   if exp = 0 then 1
   else if mod exp 2 = 1 then
-    mod (base * modulo_power base (exp - 1) n) n
+    mod (base * self self base (exp - 1) n) n
   else
     mod (square (self self base (div exp 2) n)) n)
 in

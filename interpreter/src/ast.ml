@@ -3,35 +3,95 @@
 open Base_quickcheck
 open Sexplib.Std
 open Core
+open Exns
 
 type ident = Ident of string
-[@@deriving show { with_path = false }, quickcheck, compare, sexp, hash]
+[@@deriving show { with_path = false }, compare, sexp]
+
+(* TODO: Remove show? *)
 
 (** Expressions per paper Fig. 4 *)
-type expr =
-  | Int of int
-  | Bool of bool
-  | Fun of ident * expr * int
-  | Var of ident * int
-  | App of expr * expr * int
-  | Plus of expr * expr
-  | Minus of expr * expr
-  | Mult of expr * expr
-  | Eq of expr * expr
-  | And of expr * expr
-  | Or of expr * expr
-  | Ge of expr * expr
-  | Gt of expr * expr
-  | Le of expr * expr
-  | Lt of expr * expr
-  | Not of expr
-  | If of expr * expr * expr
-  | Let of ident * expr * expr * int
-  | LetAssert of ident * expr * expr
-  | Rec of (ident * expr) list
-  | Proj of expr * ident
-  | Insp of ident * expr
-[@@deriving show { with_path = false }, quickcheck, compare, sexp, hash]
+module rec Expr : sig
+  type t =
+    | Int of int
+    | Bool of bool
+    | Fun of ident * t * Scope_vars.t
+    | Var of ident * int
+    | App of t * t * int
+    | Plus of t * t
+    | Minus of t * t
+    | Mult of t * t
+    | Eq of t * t
+    | And of t * t
+    | Or of t * t
+    | Ge of t * t
+    | Gt of t * t
+    | Le of t * t
+    | Lt of t * t
+    | Not of t
+    | If of t * t * t
+    | Let of ident * t * t * int
+    | LetAssert of ident * t * t
+    | Rec of (ident * t) list
+    | Proj of t * ident
+    | Insp of ident * t
+  [@@deriving show { with_path = false }, compare, sexp]
+  (*
+     type comparator_witness
+
+     val comparator : (t, comparator_witness) Comparator.t *)
+end = struct
+  (* module T = struct *)
+  type t =
+    | Int of int
+    | Bool of bool
+    | Fun of ident * t * Scope_vars.t
+    | Var of ident * int
+    | App of t * t * int
+    | Plus of t * t
+    | Minus of t * t
+    | Mult of t * t
+    | Eq of t * t
+    | And of t * t
+    | Or of t * t
+    | Ge of t * t
+    | Gt of t * t
+    | Le of t * t
+    | Lt of t * t
+    | Not of t
+    | If of t * t * t
+    | Let of ident * t * t * int
+    | LetAssert of ident * t * t
+    | Rec of (ident * t) list
+    | Proj of t * ident
+    | Insp of ident * t
+  [@@deriving show { with_path = false }, compare, sexp]
+  (* end
+
+     include T
+     include Comparable.Make (T) *)
+end
+
+(* and Expr_key : sig
+     type t = Expr.t [@@deriving show { with_path = false }, compare, sexp]
+     type comparator_witness
+
+     val comparator : (t, comparator_witness) Comparator.t
+   end = struct
+     module T = struct
+       type t = Expr.t [@@deriving show { with_path = false }, compare, sexp]
+     end
+
+     include T
+     include Comparable.Make (T)
+   end *)
+and Scope_vars : sig
+  (* type t = Set.M(Expr).t [@@deriving show { with_path = false }, compare, sexp] *)
+  type t = Expr.t list [@@deriving show { with_path = false }, compare, sexp]
+end = struct
+  (* type t = Set.M(Expr).t [@@deriving show { with_path = false }, compare, sexp] *)
+  type t = Expr.t list [@@deriving show { with_path = false }, compare, sexp]
+end
 
 (* Call stack per paper Fig. 4 *)
 type sigma = int list
@@ -41,7 +101,7 @@ type sigma = int list
 type res =
   | IntRes of int
   | BoolRes of bool
-  | FunRes of { f : expr; l : int; sigma : int list }
+  | FunRes of Expr.t * sigma
   | RecRes of (ident * res) list
   | PlusRes of res * res
   | MinusRes of res * res
@@ -68,56 +128,14 @@ type res_val_fv =
   | LtResFv of res_val_fv * res_val_fv
   | NotResFv of res_val_fv
   | ProjResFv of res_val_fv * ident
-[@@deriving hash, sexp, compare, show { with_path = false }]
+[@@deriving sexp, compare, show { with_path = false }]
 
 (* Table mapping labels to expressions *)
 let myexpr = Hashtbl.create (module Int)
 
 (* Table mapping labels to expressions (functions) *)
-let myfun = Hashtbl.create (module Int)
 let get_myexpr label = Hashtbl.find_exn myexpr label
 let add_myexpr label e = Hashtbl.set myexpr ~key:label ~data:e
-let get_myfun label = Hashtbl.find myfun label
-
-let add_myfun label outer =
-  if Option.is_some outer then
-    Hashtbl.set myfun ~key:label ~data:(Option.value_exn outer)
-
-(** Construct a myfun mapping by traversing the AST *)
-let rec build_myfun e outer =
-  match e with
-  | Int _ -> ()
-  | Bool _ -> ()
-  | Fun (_, e', l) ->
-      add_myfun l outer;
-      build_myfun e' (Some e)
-  | Var (_, l) -> add_myfun l outer
-  | App (e1, e2, _)
-  | Plus (e1, e2)
-  | Minus (e1, e2)
-  | Mult (e1, e2)
-  | Eq (e1, e2)
-  | And (e1, e2)
-  | Or (e1, e2)
-  | Ge (e1, e2)
-  | Gt (e1, e2)
-  | Le (e1, e2)
-  | Lt (e1, e2) ->
-      build_myfun e1 outer;
-      build_myfun e2 outer
-  | Not e -> build_myfun e outer
-  | If (e1, e2, e3) ->
-      build_myfun e1 outer;
-      build_myfun e2 outer;
-      build_myfun e3 outer
-  | Rec entries -> List.iter entries ~f:(fun (_, e) -> build_myfun e outer)
-  | Proj (e, _) | Insp (_, e) -> build_myfun e outer
-  | LetAssert (_, e1, e2) ->
-      build_myfun e1 outer;
-      build_myfun e2 outer
-  | Let (_, e1, e2, _) ->
-      build_myfun e1 outer;
-      build_myfun e2 outer
 
 (* Next int to use for labeling AST nodes *)
 let next_label = ref 0
@@ -130,31 +148,25 @@ let get_next_label () =
 (** Reset the tables and the counter *)
 let clean_up () =
   Hashtbl.clear myexpr;
-  Hashtbl.clear myfun;
   next_label := 0
+
+open Expr
 
 (* Functions used by the parser to build AST nodes *)
 let build_int i = Int i
 let build_bool b = Bool b
 
-let build_function ident e =
-  let label = get_next_label () in
-  let labeled_function = Fun (ident, e, label) in
-  add_myexpr label labeled_function;
-  labeled_function
+(* Placeholder label to be filled in later *)
+let build_function ident e = Fun (ident, e, [])
 
-let build_appl e1 e2 =
-  let label = get_next_label () in
-  let labeled_appl = App (e1, e2, label) in
-  add_myexpr label labeled_appl;
-  labeled_appl
+let build_app e1 e2 =
+  let l = get_next_label () in
+  let app = App (e1, e2, l) in
+  add_myexpr l app;
+  app
 
-let build_var ident =
-  let label = get_next_label () in
-  let labeled_var = Var (ident, label) in
-  add_myexpr label labeled_var;
-  labeled_var
-
+(* Placeholder de Bruijn index to be filled in later *)
+let build_var ident = Var (ident, 0)
 let build_plus e1 e2 = Plus (e1, e2)
 let build_minus e1 e2 = Minus (e1, e2)
 let build_mult e1 e2 = Mult (e1, e2)
@@ -168,20 +180,105 @@ let build_lt e1 e2 = Lt (e1, e2)
 let build_not e = Not e
 let build_if e1 e2 e3 = If (e1, e2, e3)
 
+(* TODO: Label later *)
 let build_let id e1 e2 =
-  let label = get_next_label () in
-  let labeled_let = Let (id, e1, e2, label) in
-  add_myexpr label labeled_let;
-  labeled_let
+  let l = get_next_label () in
+  let _let = Let (id, e1, e2, l) in
+  (* add_myexpr l _let; *)
+  _let
 
 let build_letassert id e1 e2 = LetAssert (id, e1, e2)
-let build_record entries = Rec entries
-let build_projection e s = Proj (e, Ident s)
-let build_inspection s e = Insp (Ident s, e)
+let build_rec entries = Rec entries
+let build_proj e s = Proj (e, Ident s)
+let build_insp s e = Insp (Ident s, e)
+
+let rec assign_index ?(i = 0) ?(intros = String.Map.empty) expr =
+  match expr with
+  | Int _ | Bool _ -> expr
+  | Var ((Ident x as id), _) -> Var (id, i - Map.find_exn intros x)
+  | Fun ((Ident x as id), e, vars) ->
+      Fun
+        ( id,
+          assign_index e ~i:(i + 1)
+            ~intros:(Map.add_exn (Map.remove intros x) ~key:x ~data:(i + 1)),
+          vars )
+  | App (e1, e2, l) ->
+      let app =
+        App (assign_index e1 ~i ~intros, assign_index e2 ~i ~intros, l)
+      in
+      add_myexpr l app;
+      app
+  | Plus (e1, e2) ->
+      Plus (assign_index e1 ~i ~intros, assign_index e2 ~i ~intros)
+  | Minus (e1, e2) ->
+      Minus (assign_index e1 ~i ~intros, assign_index e2 ~i ~intros)
+  | Mult (e1, e2) ->
+      Mult (assign_index e1 ~i ~intros, assign_index e2 ~i ~intros)
+  | Eq (e1, e2) -> Eq (assign_index e1 ~i ~intros, assign_index e2 ~i ~intros)
+  | Ge (e1, e2) -> Ge (assign_index e1 ~i ~intros, assign_index e2 ~i ~intros)
+  | Gt (e1, e2) -> Gt (assign_index e1 ~i ~intros, assign_index e2 ~i ~intros)
+  | Le (e1, e2) -> Le (assign_index e1 ~i ~intros, assign_index e2 ~i ~intros)
+  | Lt (e1, e2) -> Lt (assign_index e1 ~i ~intros, assign_index e2 ~i ~intros)
+  | And (e1, e2) -> And (assign_index e1 ~i ~intros, assign_index e2 ~i ~intros)
+  | Or (e1, e2) -> Or (assign_index e1 ~i ~intros, assign_index e2 ~i ~intros)
+  | Not e -> Not (assign_index e ~i ~intros)
+  | If (e1, e2, e3) ->
+      If
+        ( assign_index e1 ~i ~intros,
+          assign_index e2 ~i ~intros,
+          assign_index e3 ~i ~intros )
+  | Rec es ->
+      Rec (List.map es ~f:(fun (id, e) -> (id, assign_index e ~i ~intros)))
+  | Proj (e, id) -> Proj (assign_index e ~i ~intros, id)
+  | Insp (id, e) -> Insp (id, assign_index e ~i ~intros)
+  (* TODO: Safe to skip e2? *)
+  | LetAssert (id, e1, e2) -> LetAssert (id, assign_index e1 ~i ~intros, e2)
+  | Let _ -> raise Unreachable
+
+let rec scope_vars ?(vs = []) expr : Expr.t =
+  match expr with
+  | Int _ | Bool _ | Var _ -> expr
+  | Fun (id, e, _) ->
+      let vs' =
+        vs
+        (* Remove vars shadowed by id *)
+        |> List.filter ~f:(function
+             | Var (id', _) -> compare_ident id id' <> 0
+             | _ -> true)
+        (* Increment the rest to reflect the incremented depth *)
+        |> List.map ~f:(function
+             | Var (id, idx) -> Var (id, idx + 1)
+             | _ -> raise Unreachable)
+        |> List.cons (Var (id, 0))
+      in
+      Fun (id, scope_vars e ~vs:vs', vs')
+  | App (e1, e2, l) ->
+      let app = App (scope_vars e1 ~vs, scope_vars e2 ~vs, l) in
+      add_myexpr l app;
+      app
+  | Plus (e1, e2) -> Plus (scope_vars e1 ~vs, scope_vars e2 ~vs)
+  | Minus (e1, e2) -> Minus (scope_vars e1 ~vs, scope_vars e2 ~vs)
+  | Mult (e1, e2) -> Mult (scope_vars e1 ~vs, scope_vars e2 ~vs)
+  | Eq (e1, e2) -> Eq (scope_vars e1 ~vs, scope_vars e2 ~vs)
+  | Ge (e1, e2) -> Ge (scope_vars e1 ~vs, scope_vars e2 ~vs)
+  | Gt (e1, e2) -> Gt (scope_vars e1 ~vs, scope_vars e2 ~vs)
+  | Le (e1, e2) -> Le (scope_vars e1 ~vs, scope_vars e2 ~vs)
+  | Lt (e1, e2) -> Lt (scope_vars e1 ~vs, scope_vars e2 ~vs)
+  | And (e1, e2) -> And (scope_vars e1 ~vs, scope_vars e2 ~vs)
+  | Or (e1, e2) -> Or (scope_vars e1 ~vs, scope_vars e2 ~vs)
+  | Not e -> Not (scope_vars e ~vs)
+  | Proj (e, id) -> Proj (scope_vars e ~vs, id)
+  | Insp (id, e) -> Insp (id, scope_vars e ~vs)
+  | If (e1, e2, e3) ->
+      If (scope_vars e1 ~vs, scope_vars e2 ~vs, scope_vars e3 ~vs)
+  | Rec es -> Rec (List.map es ~f:(fun (id, e) -> (id, scope_vars e ~vs)))
+  | LetAssert (id, e1, e2) -> LetAssert (id, scope_vars e1 ~vs, e2)
+  | Let _ -> raise Unreachable
 
 (** Substitute away let bindings ahead of time *)
 let rec subst_let x e' e =
   match e with
+  | Int _ | Bool _ -> e
   | Let (id, e1, e2, _) ->
       let e1 = subst_let x e' e1 in
       let e2 =
@@ -193,19 +290,14 @@ let rec subst_let x e' e =
       if Option.is_some x && compare_ident id (Option.value_exn x) = 0 then
         Option.value_exn e'
       else e
-  | Fun (id, e1, l) ->
+  | Fun (id, e1, vars) ->
       Fun
         ( id,
           (if Option.is_some x && compare_ident id (Option.value_exn x) = 0 then
              e1
            else subst_let x e' e1),
-          l )
-  | App (e1, e2, l) ->
-      let e = App (subst_let x e' e1, subst_let x e' e2, l) in
-      (* Only sync expression of label here as function application is
-         the only expression looked up by its label, besides a variable *)
-      add_myexpr l e;
-      e
+          vars )
+  | App (e1, e2, l) -> App (subst_let x e' e1, subst_let x e' e2, l)
   | If (e1, e2, e3) ->
       If (subst_let x e' e1, subst_let x e' e2, subst_let x e' e3)
   | Plus (e1, e2) -> Plus (subst_let x e' e1, subst_let x e' e2)
@@ -218,13 +310,14 @@ let rec subst_let x e' e =
   | Gt (e1, e2) -> Gt (subst_let x e' e1, subst_let x e' e2)
   | Le (e1, e2) -> Le (subst_let x e' e1, subst_let x e' e2)
   | Lt (e1, e2) -> Lt (subst_let x e' e1, subst_let x e' e2)
-  | Not e1 -> Not (subst_let x e' e1)
+  | Not e -> Not (subst_let x e' e)
   | Rec entries ->
       Rec (List.map ~f:(fun (x1, e1) -> (x1, subst_let x e' e1)) entries)
-  | Proj (e1, id) -> Proj (subst_let x e' e1, id)
-  | Insp (id, e1) -> Insp (id, subst_let x e' e1)
+  | Proj (e, id) -> Proj (subst_let x e' e, id)
+  | Insp (id, e) -> Insp (id, subst_let x e' e)
   | LetAssert (id, e1, e2) -> LetAssert (id, subst_let x e' e1, e2)
-  | Int _ | Bool _ -> e
+
+(* TODO: Label later *)
 
 (** An alternative that transforms let bindings
     into function applications (not used) *)
@@ -233,18 +326,14 @@ let rec trans_let_app e =
   | Int _ | Bool _ | Var _ -> e
   | Fun (ident, e, l) ->
       let e' = trans_let_app e in
-      let f = Fun (ident, e', l) in
-      add_myexpr l f;
-      f
+      Fun (ident, e', l)
   | Let (ident, e1, e2, let_l) ->
-      let fun_l = get_next_label () in
       let e2' = trans_let_app e2 in
-      let f = Fun (ident, e2', fun_l) in
-      add_myexpr fun_l f;
+      let f = Fun (ident, e2', []) in
       let e1' = trans_let_app e1 in
-      let appl = App (f, e1', let_l) in
-      add_myexpr let_l appl;
-      appl
+      let app = App (f, e1', let_l) in
+      add_myexpr let_l app;
+      app
   | App (e1, e2, l) ->
       let e1' = trans_let_app e1 in
       let e2' = trans_let_app e2 in

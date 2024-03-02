@@ -9,7 +9,7 @@ module rec Latom : sig
   type t =
     | LIntAtom of int * int
     | LBoolAtom of bool * int
-    | LFunAtom of expr * int * sigma
+    | LFunAtom of Expr.t * sigma
     | LLResAtom of Lres.t * St.lstate * int
     | LEResAtom of Lres.t * St.estate * int
     | LLStubAtom of St.lstate * int
@@ -38,7 +38,7 @@ end = struct
   type t =
     | LIntAtom of int * int
     | LBoolAtom of bool * int
-    | LFunAtom of expr * int * sigma
+    | LFunAtom of Expr.t * sigma
     | LLResAtom of Lres.t * St.lstate * int
     | LEResAtom of Lres.t * St.estate * int
     | LLStubAtom of St.lstate * int
@@ -64,7 +64,7 @@ end = struct
   let rec pp fmt = function
     | Latom.LIntAtom (x, _) -> ff fmt "%d" x
     | LBoolAtom (b, _) -> ff fmt "%b" b
-    | LFunAtom (f, _, _) -> Interp.Pp.pp_expr fmt f
+    | LFunAtom (f, _) -> Interp.Pp.pp_expr fmt f
     | LLResAtom (choices, _, _) | LEResAtom (choices, _, _) ->
         ff fmt "%a" Lres.pp choices
     | LPlusAtom (r1, r2, _) -> ff fmt "(%a + %a)" Lres.pp r1 Lres.pp r2
@@ -111,7 +111,7 @@ end = struct
   let rec mk = function
     | Atom.IntAtom i -> Latom.LIntAtom (i, get_next_label ())
     | BoolAtom b -> LBoolAtom (b, get_next_label ())
-    | FunAtom (e, l, s) -> LFunAtom (e, l, s)
+    | FunAtom (e, s) -> LFunAtom (e, s)
     | PlusAtom (r1, r2) -> LPlusAtom (Lres.mk r1, Lres.mk r2, get_next_label ())
     | MinusAtom (r1, r2) ->
         LMinusAtom (Lres.mk r1, Lres.mk r2, get_next_label ())

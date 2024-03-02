@@ -8,27 +8,37 @@ let ff = Format.fprintf
 let paren_if cond pp fmt e =
   if cond e then ff fmt "(%a)" pp e else ff fmt "%a" pp e
 
-let is_compound_expr = function Int _ | Bool _ | Var _ -> false | _ -> true
+let is_compound_expr = function
+  | Expr.Int _ | Bool _ | Var _ -> false
+  | _ -> true
 
 let is_compound_exprL = function
-  | Int _ | Bool _ | App _ -> false
+  | Expr.Int _ | Bool _ | App _ -> false
   | other -> is_compound_expr other
 
 let pp_ident fmt (Ident x) = ff fmt "%s" x
 
 let rec pp_expr fmt = function
-  | Int i -> ff fmt "%d" i
+  | Expr.Int i -> ff fmt "%d" i
   | Bool b -> ff fmt "%b" b
   (* TODO: pp call stack *)
-  | Fun (Ident i, x, l) -> ff fmt "@[<hv>fun %s ->@;<1 2>%a@]" i pp_expr x
+  | Fun (Ident i, x, _) -> ff fmt "@[<hv>fun %s ->@;<1 2>%a@]" i pp_expr x
+  (* | Fun (Ident i, x, l) ->
+      ff fmt "@[<hv>fun %s ->@;<1 2>%a[@%d]@]" i pp_expr x (List.length l) *)
   | Var (id, _) -> ff fmt "%a" pp_ident id
-  (* | Var (id, l) -> ff fmt "%a@%d" pp_ident id l *)
+  (* | Var (id, idx) -> ff fmt "%a@%d" pp_ident id idx *)
   | App (e1, e2, _) ->
       ff fmt "%a %a"
         (paren_if is_compound_exprL pp_expr)
         e1
         (paren_if is_compound_expr pp_expr)
         e2
+  (* | App (e1, e2, l) ->
+      ff fmt "(%a %a)@%d"
+        (paren_if is_compound_exprL pp_expr)
+        e1
+        (paren_if is_compound_expr pp_expr)
+        e2 l *)
   | Plus (e1, e2) -> ff fmt "(%a + %a)" pp_expr e1 pp_expr e2
   | Minus (e1, e2) -> ff fmt "(%a - %a)" pp_expr e1 pp_expr e2
   | Mult (e1, e2) -> ff fmt "(%a * %a)" pp_expr e1 pp_expr e2
@@ -64,7 +74,7 @@ and pp_record fmt = function
 let rec pp_result_value fmt = function
   | IntRes x -> ff fmt "%d" x
   | BoolRes b -> ff fmt "%b" b
-  | FunRes { f; l; sigma } -> pp_expr fmt f
+  | FunRes (f, _) -> pp_expr fmt f
   | RecRes es ->
       ff fmt
         (if List.length es = 0 then "{%a}" else "{ %a }")

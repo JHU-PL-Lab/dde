@@ -20,7 +20,7 @@ module St = struct
     type lstate = int * sigma
     [@@deriving compare, sexp, show { with_path = false }]
 
-    type estate = expr * sigma
+    type estate = Expr.t * sigma
     [@@deriving compare, sexp, show { with_path = false }]
 
     type t = Lstate of lstate | Estate of estate
@@ -59,7 +59,7 @@ module V_key = struct
     let show_lstate (l, sigma, sid) =
       Format.sprintf "(%d, %s, %d)" l (Sigma.show sigma) sid
 
-    type estate = expr * sigma * int [@@deriving compare, sexp]
+    type estate = Expr.t * sigma * int [@@deriving compare, sexp]
 
     let pp_estate fmt (e, sigma, sid) =
       Format.fprintf fmt "(%a, %a, %d)" Interp.Pp.pp_expr e Sigma.pp sigma sid
@@ -105,7 +105,7 @@ module rec Atom : sig
   type t =
     | IntAtom of int
     | BoolAtom of bool
-    | FunAtom of expr * int * sigma
+    | FunAtom of Expr.t * sigma
     | LResAtom of Res.t * St.lstate (* cycle start (applications) *)
     | EResAtom of Res.t * St.estate (* cycle start (variables) *)
     | LStubAtom of St.lstate (* cycle end (applications) *)
@@ -133,7 +133,7 @@ end = struct
   type t =
     | IntAtom of int
     | BoolAtom of bool
-    | FunAtom of expr * int * sigma
+    | FunAtom of Expr.t * sigma
     | LResAtom of Res.t * St.lstate
     | EResAtom of Res.t * St.estate
     | LStubAtom of St.lstate
@@ -165,7 +165,7 @@ end = struct
   and pp fmt = function
     | IntAtom x -> ff fmt "%d" x
     | BoolAtom b -> ff fmt "%b" b
-    | FunAtom (f, _, _) -> Interp.Pp.pp_expr fmt f
+    | FunAtom (f, _) -> Interp.Pp.pp_expr fmt f
     | LResAtom (choices, _) -> ff fmt "%a" Res.pp choices
     | EResAtom (choices, _) -> ff fmt "%a" Res.pp choices
     | LStubAtom _ -> ff fmt "stub"
@@ -232,7 +232,7 @@ end
 module Cache_key = struct
   module T = struct
     type lkey = int * sigma * int * int * pi [@@deriving compare, sexp]
-    type ekey = expr * sigma * int * int * pi [@@deriving compare, sexp]
+    type ekey = Expr.t * sigma * int * int * pi [@@deriving compare, sexp]
     type t = Lkey of lkey | Ekey of ekey [@@deriving compare, sexp]
 
     let pp_lkey fmt (l, sigma, vid, sid, pi) =

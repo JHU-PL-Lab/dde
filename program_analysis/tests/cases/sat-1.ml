@@ -5,8 +5,7 @@ let phi = fun x1 -> fun x2 -> fun x3 -> fun x4 ->
   ((not x2) || (not x3)) &&
   (x4 || x2) in
 
-let try_ = fun f ->
-  (f true) || (f false) in
+let try_ = fun f -> (f true) || (f false) in
 
 let sat_solve_4 = fun p ->
   try_ (fun n1 ->
