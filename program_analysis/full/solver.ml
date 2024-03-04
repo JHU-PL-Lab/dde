@@ -412,7 +412,9 @@ and chcs_of_atom ?(pis = []) ?(stub_sort = isort)
   (* Records are good for demoing that pure demand analysis
      subsumes shape analysis *)
   | RecAtom _ -> return ()
-  | ProjAtom _ | InspAtom _ -> raise Unreachable
+  | ProjAtom _ | InspAtom _ ->
+      Format.printf "%a\n" Atom.pp a;
+      raise Unreachable
 
 (** Generate CHCs from value results *)
 and chcs_of_res ?(pis = []) ?(stub_sort = isort)

@@ -2,6 +2,6 @@
  (name simple_pa)
  (public_name dde.simple_pa)
  (preprocess
-  (pps ppx_deriving.show ppx_let ppx_jane))
+  (pps ppx_deriving.show ppx_let ppx_jane landmarks-ppx --auto))
  (modules lib utils simplifier debug_utils exns)
- (libraries core logs logs.fmt dde.interp))
+ (libraries core logs logs.fmt dde.interp landmarks))

@@ -5,10 +5,7 @@ open Sexplib.Std
 open Core
 open Exns
 
-type ident = Ident of string
-[@@deriving show { with_path = false }, compare, sexp]
-
-(* TODO: Remove show? *)
+type ident = Ident of string [@@deriving compare, sexp]
 
 (** Expressions per paper Fig. 4 *)
 module rec Expr : sig
@@ -35,7 +32,7 @@ module rec Expr : sig
     | Rec of (ident * t) list
     | Proj of t * ident
     | Insp of ident * t
-  [@@deriving show { with_path = false }, compare, sexp]
+  [@@deriving compare, sexp]
   (*
      type comparator_witness
 
@@ -65,7 +62,7 @@ end = struct
     | Rec of (ident * t) list
     | Proj of t * ident
     | Insp of ident * t
-  [@@deriving show { with_path = false }, compare, sexp]
+  [@@deriving compare, sexp]
   (* end
 
      include T
@@ -73,24 +70,24 @@ end = struct
 end
 
 (* and Expr_key : sig
-     type t = Expr.t [@@deriving show { with_path = false }, compare, sexp]
+     type t = Expr.t [@@deriving compare, sexp]
      type comparator_witness
 
      val comparator : (t, comparator_witness) Comparator.t
    end = struct
      module T = struct
-       type t = Expr.t [@@deriving show { with_path = false }, compare, sexp]
+       type t = Expr.t [@@deriving compare, sexp]
      end
 
      include T
      include Comparable.Make (T)
    end *)
 and Scope_vars : sig
-  (* type t = Set.M(Expr).t [@@deriving show { with_path = false }, compare, sexp] *)
-  type t = Expr.t list [@@deriving show { with_path = false }, compare, sexp]
+  (* type t = Set.M(Expr).t [@@deriving compare, sexp] *)
+  type t = Expr.t list [@@deriving compare, sexp]
 end = struct
-  (* type t = Set.M(Expr).t [@@deriving show { with_path = false }, compare, sexp] *)
-  type t = Expr.t list [@@deriving show { with_path = false }, compare, sexp]
+  (* type t = Set.M(Expr).t [@@deriving compare, sexp] *)
+  type t = Expr.t list [@@deriving compare, sexp]
 end
 
 (* Call stack per paper Fig. 4 *)
@@ -114,7 +111,6 @@ type res =
   | LeRes of res * res
   | LtRes of res * res
   | NotRes of res
-[@@deriving show { with_path = false }]
 
 (** Result values that may contain free variables, for use in letassert *)
 type res_val_fv =
@@ -128,7 +124,7 @@ type res_val_fv =
   | LtResFv of res_val_fv * res_val_fv
   | NotResFv of res_val_fv
   | ProjResFv of res_val_fv * ident
-[@@deriving sexp, compare, show { with_path = false }]
+[@@deriving sexp, compare]
 
 (* Table mapping labels to expressions *)
 let myexpr = Hashtbl.create (module Int)

@@ -30,10 +30,11 @@ module rec Latom : sig
     | LProjAtom of Lres.t * ident
     | LInspAtom of ident * Lres.t
     | LAssertAtom of ident * Lres.t * Interp.Ast.res_val_fv
-  [@@deriving sexp, compare, show { with_path = false }]
+  [@@deriving sexp, compare]
 
   val mk : Atom.t -> t
   val get_symbol : t -> string
+  val pp : Format.formatter -> t -> unit
 end = struct
   type t =
     | LIntAtom of int * int
@@ -59,7 +60,7 @@ end = struct
     | LProjAtom of Lres.t * ident
     | LInspAtom of ident * Lres.t
     | LAssertAtom of ident * Lres.t * Interp.Ast.res_val_fv
-  [@@deriving sexp, compare, show { with_path = false }]
+  [@@deriving sexp, compare]
 
   let rec pp fmt = function
     | Latom.LIntAtom (x, _) -> ff fmt "%d" x
@@ -155,11 +156,12 @@ end = struct
 end
 
 and Lres : sig
-  type t = Latom.t list [@@deriving sexp, compare, show { with_path = false }]
+  type t = Latom.t list [@@deriving sexp, compare]
 
   val mk : Res.t -> t
+  val pp : Format.formatter -> t -> unit
 end = struct
-  type t = Latom.t list [@@deriving sexp, compare, show { with_path = false }]
+  type t = Latom.t list [@@deriving sexp, compare]
 
   let rec pp fmt = function
     | [] -> ()

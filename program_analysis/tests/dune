@@ -3,10 +3,13 @@
  ; (deps
  ;  (source_tree cases))
  (modules tests utils)
+ (preprocess
+  (pps landmarks-ppx --auto))
  (libraries
   core
   core_bench
   core_unix.command_unix
   dde.pa
   dde.simple_pa
-  ounit2))
+  ounit2
+  landmarks))

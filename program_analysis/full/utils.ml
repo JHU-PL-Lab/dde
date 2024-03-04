@@ -17,14 +17,9 @@ end
 (** Stub labels *)
 module St = struct
   module T = struct
-    type lstate = int * sigma
-    [@@deriving compare, sexp, show { with_path = false }]
-
-    type estate = Expr.t * sigma
-    [@@deriving compare, sexp, show { with_path = false }]
-
-    type t = Lstate of lstate | Estate of estate
-    [@@deriving compare, sexp, show { with_path = false }]
+    type lstate = int * sigma [@@deriving compare, sexp]
+    type estate = Expr.t * sigma [@@deriving compare, sexp]
+    type t = Lstate of lstate | Estate of estate [@@deriving compare, sexp]
   end
 
   include T
@@ -167,7 +162,9 @@ end = struct
     | BoolAtom b -> ff fmt "%b" b
     | FunAtom (f, _) -> Interp.Pp.pp_expr fmt f
     | LResAtom (choices, _) -> ff fmt "%a" Res.pp choices
+    (* | LResAtom (choices, _) -> ff fmt "%a#" Res.pp choices *)
     | EResAtom (choices, _) -> ff fmt "%a" Res.pp choices
+    (* | EResAtom (choices, _) -> ff fmt "%a$" Res.pp choices *)
     | LStubAtom _ -> ff fmt "stub"
     | EStubAtom _ -> ff fmt "stub"
     | PlusAtom (r1, r2) -> ff fmt "(%a + %a)" Res.pp r1 Res.pp r2
@@ -236,20 +233,22 @@ module Cache_key = struct
     type t = Lkey of lkey | Ekey of ekey [@@deriving compare, sexp]
 
     let pp_lkey fmt (l, sigma, vid, sid, pi) =
-      Format.fprintf fmt "(%d, %a, %d, %d, %a)" l Sigma.pp sigma vid sid pp_pi
-        pi
+      Format.fprintf fmt "(%d, %a, %d, %d)" l Sigma.pp sigma vid sid
+    (* pp_pi pi *)
 
     let show_lkey (l, sigma, vid, sid, pi) =
-      Format.asprintf "(%d, %a, %d, %d, %s)" l Sigma.pp sigma vid sid
-        (show_pi pi)
+      Format.asprintf "(%d, %a, %d, %d)" l Sigma.pp sigma vid sid
+    (* (show_pi pi) *)
 
     let pp_ekey fmt (expr, sigma, vid, sid, pi) =
-      Format.fprintf fmt "(%a, %a, %d, %d, %a)" Interp.Pp.pp_expr expr Sigma.pp
-        sigma vid sid pp_pi pi
+      Format.fprintf fmt "(%a, %a, %d, %d)" Interp.Pp.pp_expr expr Sigma.pp
+        sigma vid sid
+    (* pp_pi pi *)
 
     let show_ekey (expr, sigma, vid, sid, pi) =
-      Format.asprintf "(%a, %a, %d, %d, %s)" Interp.Pp.pp_expr expr Sigma.pp
-        sigma vid sid (show_pi pi)
+      Format.asprintf "(%a, %a, %d, %d)" Interp.Pp.pp_expr expr Sigma.pp sigma
+        vid sid
+    (* (show_pi pi) *)
 
     let pp fmt = function
       | Lkey lkey -> pp_lkey fmt lkey
@@ -336,7 +335,8 @@ module ReaderState = struct
       in
       ((), { st with s; sids = sids'; cnt = cnt' })
 
-    let set_cache c : unit t = fun _ st -> ((), { st with c })
+    let set_cache f : unit t =
+     fun _ ({ c; _ } as st) -> ((), { st with c = f c })
 
     let run (m : 'a t) =
       let empty_v = Set.empty (module V_key) in

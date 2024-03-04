@@ -18,14 +18,9 @@ end
 (** Stub labels *)
 module St = struct
   module T = struct
-    type lstate = int * sigma
-    [@@deriving compare, sexp, show { with_path = false }]
-
-    type estate = Expr.t * sigma
-    [@@deriving compare, sexp, show { with_path = false }]
-
-    type t = Lstate of lstate | Estate of estate
-    [@@deriving compare, sexp, show { with_path = false }]
+    type lstate = int * sigma [@@deriving compare, sexp]
+    type estate = Expr.t * sigma [@@deriving compare, sexp]
+    type t = Lstate of lstate | Estate of estate [@@deriving compare, sexp]
   end
 
   include T
@@ -192,7 +187,7 @@ end = struct
   let rec pp_aux fmt = function
     | [] -> ()
     | [ a ] -> ff fmt "%a" Atom.pp a
-    | a :: _as -> ff fmt "%a | %a" Atom.pp a pp_aux _as
+    | a :: _as -> ff fmt "(%a | %a)" Atom.pp a pp_aux _as
 
   and pp fmt r =
     if Set.is_empty r then ff fmt "#" else ff fmt "%a" pp_aux (Set.elements r)
@@ -304,7 +299,8 @@ module ReaderState = struct
       in
       ((), { st with s; sids = sids'; cnt = cnt' })
 
-    let set_cache c : unit t = fun _ st -> ((), { st with c })
+    let set_cache f : unit t =
+     fun _ ({ c; _ } as st) -> ((), { st with c = f c })
 
     let run (m : 'a t) =
       let empty_v = Set.empty (module V_key) in
