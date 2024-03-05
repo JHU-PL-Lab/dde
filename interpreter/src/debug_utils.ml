@@ -15,11 +15,9 @@ let parse_eval s =
   if !report_runtime then Format.printf "runtime: %fs\n" runtime;
   r
 
-let unparse = Format.asprintf "%a" Pp.pp_result_value
+let unparse = Format.asprintf "%a" Ast.Res.pp
 let parse_eval_unparse s = s |> parse_eval |> unparse
 
 (* Main function to execute the interpreter on a program string *)
 let peu = parse_eval_unparse
-
-let parse_eval_print s =
-  s |> parse_eval |> Format.printf "==> %a\n" Pp.pp_result_value
+let parse_eval_print s = s |> parse_eval |> Format.printf "==> %a\n" Ast.Res.pp

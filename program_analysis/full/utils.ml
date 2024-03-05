@@ -57,10 +57,10 @@ module V_key = struct
     type estate = Expr.t * sigma * int [@@deriving compare, sexp]
 
     let pp_estate fmt (e, sigma, sid) =
-      Format.fprintf fmt "(%a, %a, %d)" Interp.Pp.pp_expr e Sigma.pp sigma sid
+      Format.fprintf fmt "(%a, %a, %d)" Expr.pp e Sigma.pp sigma sid
 
     let show_estate (e, sigma, sid) =
-      Format.asprintf "(%a, %s, %d)" Interp.Pp.pp_expr e (Sigma.show sigma) sid
+      Format.asprintf "(%a, %s, %d)" Expr.pp e (Sigma.show sigma) sid
 
     type t = Lstate of lstate | Estate of estate [@@deriving compare, sexp]
 
@@ -117,10 +117,10 @@ module rec Atom : sig
     | AndAtom of Res.t * Res.t
     | OrAtom of Res.t * Res.t
     | NotAtom of Res.t
-    | RecAtom of (ident * Res.t) list
-    | ProjAtom of Res.t * ident
-    | InspAtom of ident * Res.t
-    | AssertAtom of ident * Res.t * res_val_fv
+    | RecAtom of (Ident.t * Res.t) list
+    | ProjAtom of Res.t * Ident.t
+    | InspAtom of Ident.t * Res.t
+    | AssertAtom of Ident.t * Res.t * Res_fv.t
   [@@deriving sexp, compare]
 
   val pp : Format.formatter -> t -> unit
@@ -145,22 +145,22 @@ end = struct
     | AndAtom of Res.t * Res.t
     | OrAtom of Res.t * Res.t
     | NotAtom of Res.t
-    | RecAtom of (ident * Res.t) list
-    | ProjAtom of Res.t * ident
-    | InspAtom of ident * Res.t
-    | AssertAtom of ident * Res.t * res_val_fv
+    | RecAtom of (Ident.t * Res.t) list
+    | ProjAtom of Res.t * Ident.t
+    | InspAtom of Ident.t * Res.t
+    | AssertAtom of Ident.t * Res.t * Res_fv.t
   [@@deriving sexp, compare]
 
   let rec pp_record fmt = function
     | [] -> ()
-    | [ (Ident x, v) ] -> Format.fprintf fmt "%s = %a" x Res.pp v
+    | [ (Ident.Ident x, v) ] -> Format.fprintf fmt "%s = %a" x Res.pp v
     | (Ident x, v) :: rest ->
         Format.fprintf fmt "%s = %a; %a" x Res.pp v pp_record rest
 
   and pp fmt = function
     | IntAtom x -> ff fmt "%d" x
     | BoolAtom b -> ff fmt "%b" b
-    | FunAtom (f, _) -> Interp.Pp.pp_expr fmt f
+    | FunAtom (f, _) -> Expr.pp fmt f
     | LResAtom (choices, _) -> ff fmt "%a" Res.pp choices
     (* | LResAtom (choices, _) -> ff fmt "%a#" Res.pp choices *)
     | EResAtom (choices, _) -> ff fmt "%a" Res.pp choices
@@ -195,17 +195,23 @@ and Res : sig
 
   val pp : Format.formatter -> t -> unit
   val show : t -> string
+  val ( = ) : t -> t -> bool
 end = struct
-  type t = Atom.t list [@@deriving sexp, compare]
+  module T = struct
+    type t = Atom.t list [@@deriving sexp, compare]
 
-  let rec pp_aux fmt = function
-    | [] -> ()
-    | [ a ] -> ff fmt "%a" Atom.pp a
-    | a :: _as -> ff fmt "(%a | %a)" Atom.pp a pp_aux _as
+    let rec pp_aux fmt = function
+      | [] -> ()
+      | [ a ] -> ff fmt "%a" Atom.pp a
+      | a :: _as -> ff fmt "(%a | %a)" Atom.pp a pp_aux _as
 
-  and pp fmt r = if List.is_empty r then ff fmt "#" else ff fmt "%a" pp_aux r
+    and pp fmt r = if List.is_empty r then ff fmt "#" else ff fmt "%a" pp_aux r
 
-  let show (r : t) = Format.asprintf "%a" pp r
+    let show (r : t) = Format.asprintf "%a" pp r
+  end
+
+  include T
+  include Comparable.Make (T)
 end
 
 (* Path condition per paper Fig. 16 *)
@@ -241,13 +247,11 @@ module Cache_key = struct
     (* (show_pi pi) *)
 
     let pp_ekey fmt (expr, sigma, vid, sid, pi) =
-      Format.fprintf fmt "(%a, %a, %d, %d)" Interp.Pp.pp_expr expr Sigma.pp
-        sigma vid sid
+      Format.fprintf fmt "(%a, %a, %d, %d)" Expr.pp expr Sigma.pp sigma vid sid
     (* pp_pi pi *)
 
     let show_ekey (expr, sigma, vid, sid, pi) =
-      Format.asprintf "(%a, %a, %d, %d)" Interp.Pp.pp_expr expr Sigma.pp sigma
-        vid sid
+      Format.asprintf "(%a, %a, %d, %d)" Expr.pp expr Sigma.pp sigma vid sid
     (* (show_pi pi) *)
 
     let pp fmt = function
@@ -269,11 +273,11 @@ module Cache_key = struct
          Format.asprintf "(%d, %a, %d, %s)" l Sigma.pp sigma sid (show_pi pi)
 
        let pp_ekey fmt (expr, sigma, sid, pi) =
-         Format.fprintf fmt "(%a, %a, %d, %a)" Interp.Pp.pp_expr expr Sigma.pp
+         Format.fprintf fmt "(%a, %a, %d, %a)" Expr.pp expr Sigma.pp
            sigma sid pp_pi pi
 
        let show_ekey (expr, sigma, sid, pi) =
-         Format.asprintf "(%a, %a, %d, %s)" Interp.Pp.pp_expr expr Sigma.pp sigma
+         Format.asprintf "(%a, %a, %d, %s)" Expr.pp expr Sigma.pp sigma
            sid (show_pi pi)
 
        let pp fmt = function

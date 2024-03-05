@@ -119,64 +119,63 @@ let recursion_aux2 =
    self 0)) in loop loop"
 
 let recursion_thunked =
-  [ (* (fun _ ->
-       ( "((3 + ((1 + stub) | 0)) | 2)",
-         pau ~name:"id"
-           "letassert x = let id = fun self -> fun n -> if n = 0 then 0 else 1 \
-            + self self (n - 1) in id id 10 in x >= 2" )); *)
-    (* TODO *)
-    (* (fun _ ->
-       ( "(3 + (1 + stub))",
-         pau ~name:"id_diverge"
-           "letassert _ = let id = fun self -> fun n -> if n = 0 then 0 else 1 \
-            + self self (n - 1) in id id (-1) in false" )); *)
-    (* TODO *)
-    (* (fun _ ->
-       ( "(2 | (3 + (0 | (1 + stub))))",
-         pau ~name:"id_alt"
-           "letassert x = let id = fun self -> fun n -> if n > 0 then 1 + self \
-            self (n - 1) else 0 in id id 10 in x >= 2" )); *)
-    (* (fun _ ->
-       ( "(2 + ((1 + stub) | 0))",
-         pau ~name:"id_abs"
-           "letassert x = let id = fun self -> fun n -> if n = 0 then 0 else 1 \
-            + (fun _ -> self self (n - 1)) 0 in id id 10 in x >= 2" )); *)
-    (* (fun _ ->
-       ( "stub",
-         pau ~name:"omega"
-           "letassert _ = ((fun self -> fun n -> self self n) (fun self -> fun \
-            n -> self self n) 0) in false" )); *)
-    (* (fun _ ->
-         ( "true",
-           pau
-             "letassert x = let f = (fun x -> (fun y -> y) x) in let repeat = fun \
-              self -> fun acc -> if acc then true else self self (self self (f \
-              true)) in repeat repeat true in x" )); *)
-    (* (fun _ ->
-       ( "true",
-         pau
-           "letassert x = let f = (fun x -> fun dummy -> x) in let loop = fun \
-            self -> fun x -> let r = (f x) in if x then r 0 else (self self \
-            true) in (loop loop false) in x" )); *)
-    (* (fun _ ->
-         ("true", pau ("letassert x = " ^ recursion_aux1 ^ " true true in x")));
-       (fun _ ->
-         ("false", pau ("letassert x = " ^ recursion_aux1 ^ " true false in not x"))); *)
-    (* (fun _ -> ("1", pau ("letassert x = " ^ recursion_aux2 ^ " 0 in x >= 1")));
-       (fun _ -> ("1", pau ("letassert x = " ^ recursion_aux2 ^ " 1 in x >= 1")));
-       (fun _ ->
-         ("1", pau ("letassert x = " ^ recursion_aux2 ^ " (0 - 1) in x >= 1"))); *)
-    (* TODO *)
-    (* (fun _ ->
-       ( "((((2 | (stub - 1)) - 1) + (0 | (((2 | (stub - 1)) - 1) - 2))) + 1)",
-         pau
-           "let fib = fun self -> fun n -> if n <= 1 then n else self self (n - \
-            1) + self self (n - 2) in fib fib 3" )); *)
-    (* (fun _ ->
-       ( "(0 | 1)",
-         pau
-           "letassert x = let nonsense = fun self -> fun n -> if (self self n) \
-            = 0 then 1 else 0 in nonsense nonsense 0 in x >= 0" )); *) ]
+  [
+    (fun _ ->
+      ( "((3 + ((1 + stub) | 0)) | 2)",
+        pau ~name:"id"
+          "letassert x = let id = fun self -> fun n -> if n = 0 then 0 else 1 \
+           + self self (n - 1) in id id 10 in x >= 2" ));
+    (fun _ ->
+      ( "(3 + (1 + stub))",
+        pau ~name:"id_diverge"
+          "letassert _ = let id = fun self -> fun n -> if n = 0 then 0 else 1 \
+           + self self (n - 1) in id id (-1) in false" ));
+    (fun _ ->
+      ( "(2 | (3 + (0 | (1 + stub))))",
+        pau ~name:"id_alt"
+          "letassert x = let id = fun self -> fun n -> if n > 0 then 1 + self \
+           self (n - 1) else 0 in id id 10 in x >= 2" ));
+    (fun _ ->
+      ( "(2 + ((1 + stub) | 0))",
+        pau ~name:"id_abs"
+          "letassert x = let id = fun self -> fun n -> if n = 0 then 0 else 1 \
+           + (fun _ -> self self (n - 1)) 0 in id id 10 in x >= 2" ));
+    (fun _ ->
+      ( "stub",
+        pau ~name:"omega"
+          "letassert _ = ((fun self -> fun n -> self self n) (fun self -> fun \
+           n -> self self n) 0) in false" ));
+    (fun _ ->
+      ( "true",
+        pau
+          "letassert x = let f = (fun x -> (fun y -> y) x) in let repeat = fun \
+           self -> fun acc -> if acc then true else self self (self self (f \
+           true)) in repeat repeat true in x" ));
+    (fun _ ->
+      ( "true",
+        pau
+          "letassert x = let f = (fun x -> fun dummy -> x) in let loop = fun \
+           self -> fun x -> let r = (f x) in if x then r 0 else (self self \
+           true) in (loop loop false) in x" ));
+    (fun _ ->
+      ("true", pau ("letassert x = " ^ recursion_aux1 ^ " true true in x")));
+    (fun _ ->
+      ("false", pau ("letassert x = " ^ recursion_aux1 ^ " true false in not x")));
+    (fun _ -> ("1", pau ("letassert x = " ^ recursion_aux2 ^ " 0 in x >= 1")));
+    (fun _ -> ("1", pau ("letassert x = " ^ recursion_aux2 ^ " 1 in x >= 1")));
+    (fun _ ->
+      ("1", pau ("letassert x = " ^ recursion_aux2 ^ " (0 - 1) in x >= 1")));
+    (fun _ ->
+      ( "((((2 | (stub - 1)) - 1) + ((2 | (stub - 1)) - 2)) + 1)",
+        pau
+          "let fib = fun self -> fun n -> if n <= 1 then n else self self (n - \
+           1) + self self (n - 2) in fib fib 3" ));
+    (fun _ ->
+      ( "(0 | 1)",
+        pau
+          "letassert x = let nonsense = fun self -> fun n -> if (self self n) \
+           = 0 then 1 else 0 in nonsense nonsense 0 in x >= 0" ));
+  ]
 
 let church0 = "(fun f0 -> fun x0 -> x0)"
 let church1 = "(fun f1 -> fun x1 -> f1 x1)"
@@ -303,16 +302,15 @@ let factorial_thunked =
 *)
 let ddpa_thunked =
   [
-    (* ("blur", fun _ -> ("true", pau ~name:"blur" (read_case "blur.ml")));
-       ("eta", fun _ -> ("false", pau ~name:"eta" (read_case "eta.ml")));
-       ( "facehugger",
-         fun _ ->
-           ( "((6 * ((((2 | (stub - 1)) - 1) * ((((2 | (stub - 1)) - 1) * stub) | \
-              1)) | 1)) + (12 * ((((3 | (stub - 1)) - 1) * ((((3 | (stub - 1)) - \
-              1) * stub) | 1)) | 1)))",
-             pau ~name:"facehugger" (read_case "facehugger.ml") ) );
-       ("kcfa-2", fun _ -> ("false", pau ~name:"kcfa-2" (read_case "kcfa-2.ml")));
-       ("kcfa-3", fun _ -> ("false", pau ~name:"kcfa-3" (read_case "kcfa-3.ml"))); *)
+    ("blur", fun _ -> ("true", pau ~name:"blur" (read_case "blur.ml")));
+    ("eta", fun _ -> ("false", pau ~name:"eta" (read_case "eta.ml")));
+    ( "facehugger",
+      fun _ ->
+        ( "((6 * 1) + (12 * ((((3 | (stub - 1)) - 1) * ((((3 | (stub - 1)) - \
+           1) * stub) | 1)) | 1)))",
+          pau ~name:"facehugger" (read_case "facehugger.ml") ) );
+    ("kcfa-2", fun _ -> ("false", pau ~name:"kcfa-2" (read_case "kcfa-2.ml")));
+    ("kcfa-3", fun _ -> ("false", pau ~name:"kcfa-3" (read_case "kcfa-3.ml")));
     ( "loop2-1",
       fun _ ->
         ( "((stub | ((stub | stub) | (((0 | stub) + (9 | (10 | (stub - 1)))) | \
@@ -327,20 +325,20 @@ let ddpa_thunked =
            ((((0 | stub) + (9 | (10 | (stub - 1)))) | (stub + (9 | (10 | (stub \
            - 1))))) + (9 | (10 | (stub - 1)))))))))",
           pau ~name:"loop2-1" (read_case "loop2-1.ml") ) );
-    (* ("mj09", fun _ -> ("2", pau ~name:"mj09" (read_case "mj09.ml")));
-       ( "map",
-         fun _ ->
-           ( "{ hd = 8; tl = { hd = 9; tl = ({} | { hd = (9 | 10); tl = ({} | { \
-              hd = (9 | 10); tl = stub }) }) } }",
-             pau ~name:"map" (read_case "map.ml") ) );
-       ("primtest", fun _ -> ("15", pau ~name:"primtest" (read_case "primtest.ml")));
-       ("rsa", fun _ -> ("false", pau ~name:"rsa" (read_case "rsa.ml")));
-       ( "sat-1",
-         fun _ -> ("(false | true)", pau ~name:"sat-1" (read_case "sat-1.ml")) );
-       ( "sat-2",
-         fun _ -> ("(false | true)", pau ~name:"sat-2" (read_case "sat-2.ml")) );
-       ( "sat-3",
-         fun _ -> ("(false | true)", pau ~name:"sat-3" (read_case "sat-3.ml")) ); *)
+    ("mj09", fun _ -> ("2", pau ~name:"mj09" (read_case "mj09.ml")));
+    ( "map",
+      fun _ ->
+        ( "{ hd = 8; tl = { hd = 9; tl = ({} | { hd = (9 | 10); tl = ({} | { \
+           hd = (9 | 10); tl = stub }) }) } }",
+          pau ~name:"map" (read_case "map.ml") ) );
+    ("primtest", fun _ -> ("15", pau ~name:"primtest" (read_case "primtest.ml")));
+    ("rsa", fun _ -> ("false", pau ~name:"rsa" (read_case "rsa.ml")));
+    ( "sat-1",
+      fun _ -> ("(false | true)", pau ~name:"sat-1" (read_case "sat-1.ml")) );
+    ( "sat-2",
+      fun _ -> ("(false | true)", pau ~name:"sat-2" (read_case "sat-2.ml")) );
+    ( "sat-3",
+      fun _ -> ("(false | true)", pau ~name:"sat-3" (read_case "sat-3.ml")) );
   ]
 
 (* Long-running DDPA tests *)
@@ -357,37 +355,37 @@ let ddpa_cpstak_thunked =
 (* DDPA tests run with the simple analysis. *)
 let ddpa_simple_thunked =
   [
-    (* ( "blur (simple)",
-         fun _ -> ("(false | true)", pau' ~name:"blur" (read_case "blur.ml")) );
-       ("eta (simple)", fun _ -> ("false", pau' ~name:"eta" (read_case "eta.ml")));
-       ( "facehugger (simple)",
-         fun _ -> ("Int", pau' ~name:"facehugger" (read_case "facehugger.ml")) );
-       ( "kcfa-2 (simple)",
-         fun _ -> ("false", pau' ~name:"kcfa-2" (read_case "kcfa-2.ml")) );
-       ( "kcfa-3 (simple)",
-         fun _ -> ("false", pau' ~name:"kcfa-3" (read_case "kcfa-3.ml")) ); *)
+    ( "blur (simple)",
+      fun _ -> ("(false | true)", pau' ~name:"blur" (read_case "blur.ml")) );
+    ("eta (simple)", fun _ -> ("false", pau' ~name:"eta" (read_case "eta.ml")));
+    ( "facehugger (simple)",
+      fun _ -> ("Int", pau' ~name:"facehugger" (read_case "facehugger.ml")) );
+    ( "kcfa-2 (simple)",
+      fun _ -> ("false", pau' ~name:"kcfa-2" (read_case "kcfa-2.ml")) );
+    ( "kcfa-3 (simple)",
+      fun _ -> ("false", pau' ~name:"kcfa-3" (read_case "kcfa-3.ml")) );
     ( "loop2-1 (simple)",
       fun _ ->
         ( "(Int | (stub | (stub | (stub | (stub | (stub | (stub | (stub | \
            stub))))))))",
           pau' ~name:"loop2-1" (read_case "loop2-1.ml") ) );
-    (* ("mj09 (simple)", fun _ -> ("Int", pau' ~name:"mj09" (read_case "mj09.ml")));
-       ( "map (simple)",
-         fun _ ->
-           ( "{ hd = Int; tl = { hd = Int; tl = ({} | { hd = Int; tl = ({} | { hd \
-              = Int; tl = stub }) }) } }",
-             pau' ~name:"map" (read_case "map.ml") ) );
-       ( "primtest (simple)",
-         fun _ -> ("(Int | stub)", pau' ~name:"primtest" (read_case "primtest.ml"))
-       );
-       ( "rsa (simple)",
-         fun _ -> ("(false | true)", pau' ~name:"rsa" (read_case "rsa.ml")) );
-       ( "sat-1 (simple)",
-         fun _ -> ("(false | true)", pau' ~name:"sat-1" (read_case "sat-1.ml")) );
-       ( "sat-2 (simple)",
-         fun _ -> ("(false | true)", pau' ~name:"sat-2" (read_case "sat-2.ml")) );
-       ( "sat-3 (simple)",
-         fun _ -> ("(false | true)", pau' ~name:"sat-3" (read_case "sat-3.ml")) ); *)
+    ("mj09 (simple)", fun _ -> ("Int", pau' ~name:"mj09" (read_case "mj09.ml")));
+    ( "map (simple)",
+      fun _ ->
+        ( "{ hd = Int; tl = { hd = Int; tl = ({} | { hd = Int; tl = ({} | { hd \
+           = Int; tl = stub }) }) } }",
+          pau' ~name:"map" (read_case "map.ml") ) );
+    ( "primtest (simple)",
+      fun _ -> ("(Int | stub)", pau' ~name:"primtest" (read_case "primtest.ml"))
+    );
+    ( "rsa (simple)",
+      fun _ -> ("(false | true)", pau' ~name:"rsa" (read_case "rsa.ml")) );
+    ( "sat-1 (simple)",
+      fun _ -> ("(false | true)", pau' ~name:"sat-1" (read_case "sat-1.ml")) );
+    ( "sat-2 (simple)",
+      fun _ -> ("(false | true)", pau' ~name:"sat-2" (read_case "sat-2.ml")) );
+    ( "sat-3 (simple)",
+      fun _ -> ("(false | true)", pau' ~name:"sat-3" (read_case "sat-3.ml")) );
   ]
 
 let ddpa_ack_simple_thunked =
@@ -466,7 +464,7 @@ let tests =
          (* "DDPA ack (long-running)" >: test_long test_ddpa_ack; *)
          (* "DDPA tak (long-running)" >: test_long test_ddpa_tak; *)
          (* "DDPA cpstak (long-running)" >: test_long test_ddpa_cpstak; *)
-         (* "DDPA (simple)" >: test_medium test_ddpa_simple; *)
+         "DDPA (simple)" >: test_medium test_ddpa_simple;
          (* Times out after 10 minutes *)
          (* "DDPA ack (simple, long-running)" >: test_long test_ddpa_ack_simple; *)
          (* "DDPA tak (simple, long-running)" >: test_long test_ddpa_tak_simple; *)

@@ -26,10 +26,10 @@ module rec Latom : sig
     | LAndAtom of Lres.t * Lres.t * int
     | LOrAtom of Lres.t * Lres.t * int
     | LNotAtom of Lres.t * int
-    | LRecAtom of (ident * Lres.t) list * int
-    | LProjAtom of Lres.t * ident
-    | LInspAtom of ident * Lres.t
-    | LAssertAtom of ident * Lres.t * Interp.Ast.res_val_fv
+    | LRecAtom of (Ident.t * Lres.t) list * int
+    | LProjAtom of Lres.t * Ident.t
+    | LInspAtom of Ident.t * Lres.t
+    | LAssertAtom of Ident.t * Lres.t * Res_fv.t
   [@@deriving sexp, compare]
 
   val mk : Atom.t -> t
@@ -56,16 +56,16 @@ end = struct
     | LAndAtom of Lres.t * Lres.t * int
     | LOrAtom of Lres.t * Lres.t * int
     | LNotAtom of Lres.t * int
-    | LRecAtom of (ident * Lres.t) list * int
-    | LProjAtom of Lres.t * ident
-    | LInspAtom of ident * Lres.t
-    | LAssertAtom of ident * Lres.t * Interp.Ast.res_val_fv
+    | LRecAtom of (Ident.t * Lres.t) list * int
+    | LProjAtom of Lres.t * Ident.t
+    | LInspAtom of Ident.t * Lres.t
+    | LAssertAtom of Ident.t * Lres.t * Res_fv.t
   [@@deriving sexp, compare]
 
   let rec pp fmt = function
     | Latom.LIntAtom (x, _) -> ff fmt "%d" x
     | LBoolAtom (b, _) -> ff fmt "%b" b
-    | LFunAtom (f, _) -> Interp.Pp.pp_expr fmt f
+    | LFunAtom (f, _) -> Expr.pp fmt f
     | LLResAtom (choices, _, _) | LEResAtom (choices, _, _) ->
         ff fmt "%a" Lres.pp choices
     | LPlusAtom (r1, r2, _) -> ff fmt "(%a + %a)" Lres.pp r1 Lres.pp r2
@@ -430,9 +430,7 @@ let dot_of_result ?(display_path_cond = true) r name =
         let%bind () = add_edge xid rid in
         let rvid = Format.sprintf "%s_assn" aid in
         let%bind () =
-          add_node
-            (Format.asprintf "%s [label=\"%a\"];" rvid Interp.Pp.pp_res_val_fv
-               rv)
+          add_node (Format.asprintf "%s [label=\"%a\"];" rvid Res_fv.pp rv)
         in
         let%bind () = add_edge aid rvid in
         dot_of_res r (Some a) (Some aid) pr cycles

@@ -3,7 +3,7 @@
  (public_name dde.interp)
  (preprocess
   (pps ppx_deriving.show ppx_jane))
- (modules lexer parser ast lib pp debug_utils exns)
+ (modules lexer parser ast lib debug_utils exns)
  (libraries core logs logs.fmt))
 
 (ocamllex

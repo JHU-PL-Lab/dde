@@ -58,10 +58,10 @@ module V_key = struct
     type estate = Expr.t * sigma * int [@@deriving compare, sexp]
 
     let pp_estate fmt (e, sigma, sid) =
-      Format.fprintf fmt "(%a, %a, %d)" Interp.Pp.pp_expr e Sigma.pp sigma sid
+      Format.fprintf fmt "(%a, %a, %d)" Expr.pp e Sigma.pp sigma sid
 
     let show_estate (e, sigma, sid) =
-      Format.asprintf "(%a, %s, %d)" Interp.Pp.pp_expr e (Sigma.show sigma) sid
+      Format.asprintf "(%a, %s, %d)" Expr.pp e (Sigma.show sigma) sid
 
     type t = Lstate of lstate | Estate of estate [@@deriving compare, sexp]
 
@@ -114,10 +114,10 @@ module rec Atom : sig
     | FunAtom of Expr.t * sigma
     | LStubAtom of (int * sigma)
     | EStubAtom of (Expr.t * sigma)
-    | RecAtom of (ident * Res.t) list
-    | ProjAtom of Res.t * ident
-    | InspAtom of ident * Res.t
-    | AssertAtom of ident * Res.t * res_val_fv
+    | RecAtom of (Ident.t * Res.t) list
+    | ProjAtom of Res.t * Ident.t
+    | InspAtom of Ident.t * Res.t
+    | AssertAtom of Ident.t * Res.t * Res_fv.t
   [@@deriving compare, sexp]
 
   val pp : Format.formatter -> Atom.t -> unit
@@ -129,15 +129,15 @@ end = struct
     | FunAtom of Expr.t * sigma
     | LStubAtom of (int * sigma)
     | EStubAtom of (Expr.t * sigma)
-    | RecAtom of (ident * Res.t) list
-    | ProjAtom of Res.t * ident
-    | InspAtom of ident * Res.t
-    | AssertAtom of ident * Res.t * res_val_fv
+    | RecAtom of (Ident.t * Res.t) list
+    | ProjAtom of Res.t * Ident.t
+    | InspAtom of Ident.t * Res.t
+    | AssertAtom of Ident.t * Res.t * Res_fv.t
   [@@deriving compare, sexp]
 
   let rec pp_record fmt = function
     | [] -> ()
-    | [ (Ident x, v) ] -> Format.fprintf fmt "%s = %a" x Res.pp v
+    | [ (Ident.Ident x, v) ] -> Format.fprintf fmt "%s = %a" x Res.pp v
     | (Ident x, r) :: rest ->
         Format.fprintf fmt "%s = %a; %a" x Res.pp r pp_record rest
 
@@ -145,12 +145,12 @@ end = struct
     | IntAnyAtom -> ff fmt "Int"
     | IntAtom i -> ff fmt "%d" i
     | BoolAtom b -> ff fmt "%b" b
-    | FunAtom (f, _) -> Interp.Pp.pp_expr fmt f
+    | FunAtom (f, _) -> Expr.pp fmt f
     | LStubAtom (l, sigma) ->
         (* ff fmt "stub@(%d,%a)" l pp_sigma sigma *)
         ff fmt "stub"
     | EStubAtom (e, sigma) ->
-        (* ff fmt "stub@(%a,%a)" Interp.Pp.pp_expr e pp_sigma sigma *)
+        (* ff fmt "stub@(%a,%a)" Expr.pp e pp_sigma sigma *)
         ff fmt "stub"
     | RecAtom entries ->
         ff fmt
@@ -208,12 +208,10 @@ module Cache_key = struct
       Format.asprintf "(%d, %a, %d, %d)" l Sigma.pp sigma vid sid
 
     let pp_ekey fmt (expr, sigma, vid, sid) =
-      Format.fprintf fmt "(%a, %a, %d, %d)" Interp.Pp.pp_expr expr Sigma.pp
-        sigma vid sid
+      Format.fprintf fmt "(%a, %a, %d, %d)" Expr.pp expr Sigma.pp sigma vid sid
 
     let show_ekey (expr, sigma, vid, sid) =
-      Format.asprintf "(%a, %a, %d, %d)" Interp.Pp.pp_expr expr Sigma.pp sigma
-        vid sid
+      Format.asprintf "(%a, %a, %d, %d)" Expr.pp expr Sigma.pp sigma vid sid
 
     let pp fmt = function
       | Lkey lkey -> pp_lkey fmt lkey
@@ -234,11 +232,11 @@ module Cache_key = struct
          Format.asprintf "(%d, %a, %d)" l Sigma.pp sigma sid
 
        let pp_ekey fmt (expr, sigma, sid) =
-         Format.fprintf fmt "(%a, %a, %d)" Interp.Pp.pp_expr expr Sigma.pp sigma
+         Format.fprintf fmt "(%a, %a, %d)" Expr.pp expr Sigma.pp sigma
            sid
 
        let show_ekey (expr, sigma, sid) =
-         Format.asprintf "(%a, %a, %d)" Interp.Pp.pp_expr expr Sigma.pp sigma sid
+         Format.asprintf "(%a, %a, %d)" Expr.pp expr Sigma.pp sigma sid
 
        let pp fmt = function
          | Lkey lkey -> pp_lkey fmt lkey

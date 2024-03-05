@@ -37,7 +37,7 @@ let rec simplify ?(pa = None) r =
                 match a with
                 | RecAtom rs -> (
                     match
-                      List.find rs ~f:(fun (id', _) -> compare_ident id id' = 0)
+                      List.find rs ~f:(fun (id', _) -> Ident.(id = id'))
                     with
                     | Some (_, r) -> Set.union acc r
                     | None -> acc)
@@ -47,8 +47,7 @@ let rec simplify ?(pa = None) r =
               | RecAtom rs ->
                   Set.add acc
                     (BoolAtom
-                       (List.exists rs ~f:(fun (id', _) ->
-                            compare_ident id id' = 0)))
+                       (List.exists rs ~f:(fun (id', _) -> Ident.(id = id'))))
               | a -> Set.add acc (InspAtom (id, single_res a))))
   in
   (* Stops when there's no change to the input result *)

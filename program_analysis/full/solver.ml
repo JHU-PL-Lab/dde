@@ -171,7 +171,7 @@ open State
 open State.Let_syntax
 
 (** Generate CHCs from a letassert. *)
-let chcs_of_assert r1 (r2 : Interp.Ast.res_val_fv) : unit T.t =
+let chcs_of_assert r1 (r2 : Interp.Ast.Res_fv.t) : unit T.t =
   let%bind r1id = get_rid r1 in
   let%bind p = get_decl r1id in
   let ri = zconst "r" isort in

@@ -3,6 +3,6 @@ _coverage
 *.coverage
 .DS_Store
 .lia.cache
-logs
+logs*
 *.dot
 *.png
