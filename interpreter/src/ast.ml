@@ -175,14 +175,7 @@ let build_le e1 e2 = Le (e1, e2)
 let build_lt e1 e2 = Lt (e1, e2)
 let build_not e = Not e
 let build_if e1 e2 e3 = If (e1, e2, e3)
-
-(* TODO: Label later *)
-let build_let id e1 e2 =
-  let l = get_next_label () in
-  let _let = Let (id, e1, e2, l) in
-  (* add_myexpr l _let; *)
-  _let
-
+let build_let id e1 e2 = Let (id, e1, e2, 0)
 let build_letassert id e1 e2 = LetAssert (id, e1, e2)
 let build_rec entries = Rec entries
 let build_proj e s = Proj (e, Ident s)
@@ -313,38 +306,20 @@ let rec subst_let x e' e =
   | Insp (id, e) -> Insp (id, subst_let x e' e)
   | LetAssert (id, e1, e2) -> LetAssert (id, subst_let x e' e1, e2)
 
-(* TODO: Label later *)
-
 (** An alternative that transforms let bindings
     into function applications (not used) *)
 let rec trans_let_app e =
   match e with
   | Int _ | Bool _ | Var _ -> e
-  | Fun (ident, e, l) ->
-      let e' = trans_let_app e in
-      Fun (ident, e', l)
-  | Let (ident, e1, e2, let_l) ->
-      let e2' = trans_let_app e2 in
-      let f = Fun (ident, e2', []) in
-      let e1' = trans_let_app e1 in
-      let app = App (f, e1', let_l) in
-      add_myexpr let_l app;
+  | Fun (id, e, sv) -> Fun (id, trans_let_app e, sv)
+  | Let (id, e1, e2, _) ->
+      let l = get_next_label () in
+      let app = App (Fun (id, trans_let_app e2, []), trans_let_app e1, l) in
+      add_myexpr l app;
       app
-  | App (e1, e2, l) ->
-      let e1' = trans_let_app e1 in
-      let e2' = trans_let_app e2 in
-      let appl = App (e1', e2', l) in
-      add_myexpr l appl;
-      appl
-  | LetAssert (id, e1, e2) ->
-      let e1' = trans_let_app e1 in
-      let e2' = trans_let_app e2 in
-      LetAssert (id, e1', e2')
-  | If (e1, e2, e3) ->
-      let e1' = trans_let_app e1 in
-      let e2' = trans_let_app e2 in
-      let e3' = trans_let_app e3 in
-      If (e1', e2', e3')
+  | App (e1, e2, l) -> App (trans_let_app e1, trans_let_app e2, l)
+  | LetAssert (id, e1, e2) -> LetAssert (id, trans_let_app e1, trans_let_app e2)
+  | If (e1, e2, e3) -> If (trans_let_app e1, trans_let_app e2, trans_let_app e3)
   | Plus (e1, e2) -> Plus (trans_let_app e1, trans_let_app e2)
   | Minus (e1, e2) -> Minus (trans_let_app e1, trans_let_app e2)
   | Mult (e1, e2) -> Mult (trans_let_app e1, trans_let_app e2)
