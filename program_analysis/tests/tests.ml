@@ -1,5 +1,3 @@
-[@@@warning "-32"]
-
 open OUnit2
 open Core
 open Core_bench
@@ -339,6 +337,7 @@ let ddpa_thunked =
       fun _ -> ("(false | true)", pau ~name:"sat-2" (read_case "sat-2.ml")) );
     ( "sat-3",
       fun _ -> ("(false | true)", pau ~name:"sat-3" (read_case "sat-3.ml")) );
+    (* ("sat-5", fun _ -> ("true", pau ~name:"sat-5" (read_case "sat-5.ml"))); *)
   ]
 
 (* Long-running DDPA tests *)
@@ -386,6 +385,7 @@ let ddpa_simple_thunked =
       fun _ -> ("(false | true)", pau' ~name:"sat-2" (read_case "sat-2.ml")) );
     ( "sat-3 (simple)",
       fun _ -> ("(false | true)", pau' ~name:"sat-3" (read_case "sat-3.ml")) );
+    (* ("sat-5", fun _ -> ("true", pau' ~name:"sat-5" (read_case "sat-5.ml"))); *)
   ]
 
 let ddpa_ack_simple_thunked =
@@ -450,15 +450,16 @@ let test_custom_benchmarkable _ =
 let tests =
   "Pure demand program analysis tests"
   >::: [
-         (* "Basics" >:: test_basic;
-            "Non-local variable lookup" >:: test_nonlocal_lookup;
-            "Var local stack stitching" >:: test_local_stitching;
-            "Conditional" >:: test_conditional;
-            "Currying" >:: test_currying;
-            "Recursion" >:: test_recursion;
-            "Church numerals" >:: test_church;
-            "Lists" >:: test_lists; *)
-         (* "Factorial" >:: test_factorial; *)
+         "Basics" >:: test_basic;
+         "Non-local variable lookup" >:: test_nonlocal_lookup;
+         "Var local stack stitching" >:: test_local_stitching;
+         "Conditional" >:: test_conditional;
+         "Currying" >:: test_currying;
+         "Recursion" >:: test_recursion;
+         "Church numerals" >:: test_church;
+         "Lists" >:: test_lists;
+         (* TODO: Factorials aren't exactly exponential *)
+         "Factorial" >:: test_factorial;
          "DDPA" >: test_medium test_ddpa;
          (* Times out after 10 minutes *)
          (* "DDPA ack (long-running)" >: test_long test_ddpa_ack; *)

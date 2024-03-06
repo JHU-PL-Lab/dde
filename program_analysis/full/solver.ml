@@ -449,5 +449,5 @@ let verify_result r =
   match Z3.Solver.check solver [] with
   | SATISFIABLE -> ()
   | UNSATISFIABLE ->
-      raise (Verification_error "unsat: result doesn't satisfy constraint")
+      raise (Verification_error "Unsat: result doesn't satisfy constraint")
   | UNKNOWN -> raise (Verification_error "Z3 gives unknown")

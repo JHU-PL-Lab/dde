@@ -18,10 +18,13 @@ let solve_cond r b =
   let chcs = Set.elements chcs in
 
   let p = Option.value_exn entry_decl in
-  let rb = zconst "r" bsort in
-  (* Guiding assertion: forall r, P(r) => r = `b`  *)
-  let guide = [ rb ] |. (p <-- [ rb ]) --> (rb === zbool b) in
+  (* Guiding assertion: forall r, P(¬b) => false *)
+  let guide = (p <-- [ zbool (not b) ]) --> zfalse in
 
+  (* Alternative (equivalent) guiding assertion:
+     forall r, P(r) => r = b *)
+  (* let rb = zconst "r" bsort in
+     let guide = [ rb ] |. (p <-- [ rb ]) --> (rb === zbool b) in *)
   Z3.Solver.add solver (guide :: chcs);
 
   match Z3.Solver.check solver [] with
@@ -169,6 +172,7 @@ let rec analyze_aux ~caching d expr sigma pi : Res.t T.t =
   (* Application rule *)
   | App (e, _, l) -> (
       let cache_key = Cache_key.Lkey (l, sigma, vid, sid, pi) in
+      (* TODO: Try this again *)
       (* let cache_key = Cache_key.Lkey (l, sigma, sid, pi) in *)
       match Map.find c cache_key with
       | Some r when caching ->

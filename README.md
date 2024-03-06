@@ -1,7 +1,7 @@
 # Artifact Overview
 
-Artifact for paper #150, A Pure Demand Operational Semantics with Applications
-to Program Analysis.
+Artifact for paper "A Pure Demand Operational Semantics with Applications
+to Program Analysis" ([arXiv](https://arxiv.org/abs/2310.15915)).
 
 ## Introduction
 
@@ -9,18 +9,15 @@ This artifact facilitates building, testing, and benchmarking the interpreter
 (Section 2.2) and program analysis (Section 4.3) presented in the paper. In
 addition, it includes a simplified program analysis (`program_analysis/simple`)
 that neither derives recurrences nor uses Z3 for path sensitivity and verifying
-analysis results. Hereinafter, we refer to the program analysis presented in the
-paper as "full analysis" and the simplified version as "simple analysis."
+analysis results. It is meant to help evaluate our semantics against prior
+program analyses on a more level playing field, since they also do not have the
+aforementioned features. Hereinafter, we refer to the program analysis presented
+in the paper as the "full analysis" and the simplified version as the "simple
+analysis."
 
-Since (1) prior program analyses also do not have the aforementioned features
-and (2) more benchmarks currently terminate with the simple analysis, we plan to
-refer to the numbers from the simple analysis benchmarks in the revised paper.
-
-Below is a list of claims made about the full analysis in the initial submission
-(Section 5.2.4) and their current status with both the full analysis and the
-simple analysis. Please note that we have made many changes/fixes to the full
-analysis since the submission, which caused the small discrepancies from our
-claims.
+Below is a list of claims made about the full analysis in the paper (Section
+5.2.4) and their current status with both the full analysis and the simple
+analysis.
 
 - 11 DDPA benchmarks terminate very quickly...
 
