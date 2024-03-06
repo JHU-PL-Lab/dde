@@ -20,4 +20,4 @@ let peu ?(simplify = false) s =
   |> Lib.eval ~debug:!debug ~simplify ~caching:!caching
   |> fun (r, runtime) ->
   if !report_runtime then Format.printf "runtime: %f\n" runtime;
-  r |> Format.asprintf "%a" Pp.pp_result_value
+  r |> Format.asprintf "%a" Ast.Res.pp

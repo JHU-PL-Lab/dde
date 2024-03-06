@@ -162,9 +162,7 @@ end = struct
     | BoolAtom b -> ff fmt "%b" b
     | FunAtom (f, _) -> Expr.pp fmt f
     | LResAtom (choices, _) -> ff fmt "%a" Res.pp choices
-    (* | LResAtom (choices, _) -> ff fmt "%a#" Res.pp choices *)
     | EResAtom (choices, _) -> ff fmt "%a" Res.pp choices
-    (* | EResAtom (choices, _) -> ff fmt "%a$" Res.pp choices *)
     | LStubAtom _ -> ff fmt "stub"
     | EStubAtom _ -> ff fmt "stub"
     | PlusAtom (r1, r2) -> ff fmt "(%a + %a)" Res.pp r1 Res.pp r2
@@ -295,6 +293,7 @@ end
 
 let empty_res = Set.empty (module Res_key)
 let single_res = Set.singleton (module Res_key)
+let multi_res = Set.of_list (module Res_key)
 
 (** Reader-State monad threaded through the full analysis *)
 module ReaderState = struct

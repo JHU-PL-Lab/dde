@@ -139,7 +139,10 @@ let rec fold_res_var ~init ~f d expr =
           f acc sigma1
       | LResAtom (r, _) | EResAtom (r, _) | PathCondAtom (_, r) ->
           fold_res_var ~init:acc ~f d expr r
-      | FunAtom _ | LStubAtom _ | EStubAtom _ -> acc
+      | FunAtom _ ->
+          debug (fun m -> m "Not a match");
+          acc
+      | LStubAtom _ | EStubAtom _ -> acc
       | _ -> raise Unreachable)
 
 open ReaderState
@@ -438,7 +441,7 @@ let rec analyze_aux ~caching d expr sigma pi : Res.t T.t =
              return ((id, r) :: rs))
       |> fun rs ->
       let%bind rs = rs in
-      return [ RecAtom (List.rev rs) ]
+      rs |> List.rev |> RecAtom |> Fn.flip List.cons [] |> return
   (* Record Project rule *)
   | Proj (e, x) ->
       let%bind r0 = analyze_aux ~caching d e sigma pi in

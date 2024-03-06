@@ -34,7 +34,7 @@ module Cache_key = struct
     type lkey = int * sigma [@@deriving compare, sexp]
 
     (* Cache key for variables (can't be uniquely identified by just the label
-       due to relabeling variables) *)
+       due to decrementing de Bruijn indices) *)
     type ekey = Expr.t * sigma [@@deriving compare, sexp]
     type t = Lkey of lkey | Ekey of ekey [@@deriving compare, sexp]
   end
@@ -213,10 +213,9 @@ let rec eval_aux ~caching d expr sigma : Res.t T.t =
   | LetAssert (_, e, _) -> eval_aux d e sigma ~caching
   | Let _ -> raise Unreachable
 
-open Expr
-
 (** Helper to convert a result to an expression *)
 let rec result_value_to_expr r : Expr.t T.t =
+  let open Expr in
   match r with
   | IntRes i -> return (Int i)
   | BoolRes b -> return (Bool b)
@@ -258,66 +257,29 @@ let rec result_value_to_expr r : Expr.t T.t =
       let%bind e = result_value_to_expr r in
       return (Not e)
 
-let rec relative_idx ?(i = -1) expr id f =
-  match expr with
-  (* Reaching any of the following leaves means a dead end *)
-  | Int _ | Bool _ | Var _ -> i
-  | Fun (id', e, _) ->
-      if Expr.compare expr f = 0 then i
-      else
-        relative_idx
-          ~i:(if Ident.(id = id') then 0 else if i = -1 then i else i + 1)
-          e id f
-  | App (e1, e2, _)
-  | Plus (e1, e2)
-  | Minus (e1, e2)
-  | Mult (e1, e2)
-  | Eq (e1, e2)
-  | And (e1, e2)
-  | Or (e1, e2)
-  | Ge (e1, e2)
-  | Gt (e1, e2)
-  | Le (e1, e2)
-  | Lt (e1, e2) ->
-      (* Try e1 first *)
-      let idx = relative_idx ~i e1 id f in
-      (* If stuck, try e2 *)
-      if idx <> -1 then idx else relative_idx ~i e2 id f
-  | Not e -> relative_idx e id f
-  | If (e1, e2, e3) ->
-      let idx = relative_idx ~i e1 id f in
-      if idx <> -1 then idx
-      else
-        let idx = relative_idx ~i e2 id f in
-        if idx <> -1 then idx else relative_idx ~i e3 id f
-  | _ ->
-      Format.printf "%a\n" Expr.pp expr;
-      raise Unreachable
-
 (** Helper to substitute free variables in an expression.
-       Not used in core algorithm, but rather only to help
-       simplify the final result *)
-let rec subst_free_vars e sigma seen f expr ~caching : Expr.t T.t =
+    Not used in core algorithm, but rather only to help
+    simplify the final result *)
+let rec subst_free_vars e sigma seen var ~caching : Expr.t T.t =
+  let open Expr in
   match e with
   | Int _ -> return e
   | Bool _ -> return e
   | Fun (Ident x, e, l) ->
       let%bind e' =
-        subst_free_vars e sigma (String.Set.add seen x) f expr ~caching
+        subst_free_vars e sigma (String.Set.add seen x) var ~caching
       in
       return (Fun (Ident x, e', l))
-  | Var ((Ident x as id), i) ->
+  | Var (Ident x, _) ->
       if String.Set.mem seen x then
         return e (* Only substitute free variables *)
       else
-        (* The index to restart evaluation with *)
-        let idx = relative_idx expr id f in
-        let%bind r = eval_aux 0 (Var (id, idx)) sigma ~caching in
-        let%bind r = eval_result_value r expr ~caching in
+        let%bind r = eval_aux 0 var sigma ~caching in
+        let%bind r = eval_result_value r ~caching in
         result_value_to_expr r
   | App (e1, e2, l) ->
-      let%bind e1' = subst_free_vars e1 sigma seen f expr ~caching in
-      let%bind e2' = subst_free_vars e2 sigma seen f expr ~caching in
+      let%bind e1' = subst_free_vars e1 sigma seen var ~caching in
+      let%bind e2' = subst_free_vars e2 sigma seen var ~caching in
       return (App (e1', e2', l))
   | Plus (e1, e2)
   | Minus (e1, e2)
@@ -329,8 +291,8 @@ let rec subst_free_vars e sigma seen f expr ~caching : Expr.t T.t =
   | Gt (e1, e2)
   | Le (e1, e2)
   | Lt (e1, e2) ->
-      let%bind e1 = subst_free_vars e1 sigma seen f expr ~caching in
-      let%bind e2 = subst_free_vars e2 sigma seen f expr ~caching in
+      let%bind e1 = subst_free_vars e1 sigma seen var ~caching in
+      let%bind e2 = subst_free_vars e2 sigma seen var ~caching in
       return
         (match e with
         | Plus _ -> Plus (e1, e2)
@@ -345,46 +307,53 @@ let rec subst_free_vars e sigma seen f expr ~caching : Expr.t T.t =
         | Lt _ -> Lt (e1, e2)
         | _ -> raise Unreachable)
   | Not e ->
-      let%bind e = subst_free_vars e sigma seen f expr ~caching in
+      let%bind e = subst_free_vars e sigma seen var ~caching in
       return (Not e)
   | If (e1, e2, e3) ->
-      let%bind e1' = subst_free_vars e1 sigma seen f expr ~caching in
-      let%bind e2' = subst_free_vars e2 sigma seen f expr ~caching in
-      let%bind e3' = subst_free_vars e3 sigma seen f expr ~caching in
+      let%bind e1' = subst_free_vars e1 sigma seen var ~caching in
+      let%bind e2' = subst_free_vars e2 sigma seen var ~caching in
+      let%bind e3' = subst_free_vars e3 sigma seen var ~caching in
       return (If (e1, e2, e3))
   | Rec es ->
       List.fold es ~init:(return []) ~f:(fun acc (id, e) ->
           let%bind es' = acc in
-          let%bind e' = subst_free_vars e sigma seen f expr ~caching in
+          let%bind e' = subst_free_vars e sigma seen var ~caching in
           return ((id, e') :: es'))
       |> fun es' ->
       let%bind es' = es' in
       es' |> List.rev |> Rec |> return
   | Proj (e, id) ->
-      let%bind e' = subst_free_vars e sigma seen f expr ~caching in
+      let%bind e' = subst_free_vars e sigma seen var ~caching in
       return (Proj (e', id))
   | Insp (id, e) ->
-      let%bind e' = subst_free_vars e sigma seen f expr ~caching in
+      let%bind e' = subst_free_vars e sigma seen var ~caching in
       return (Insp (id, e'))
   (* ignore letassert *)
-  | LetAssert (_, e, _) -> subst_free_vars e sigma seen f expr ~caching
+  | LetAssert (_, e, _) -> subst_free_vars e sigma seen var ~caching
   | Let _ -> raise Unreachable
 
 (** Helper to evaluate the final result so as to simplify it.
     This is needed as our language doesn't substitute variable bindings
     in a closure. E.g., C[fun x -> y] where C holds y = 1, so it can be
     simplified to fun x -> 1. *)
-and eval_result_value r expr ~caching : Res.t T.t =
+and eval_result_value r ~caching : Res.t T.t =
   match r with
   | IntRes i -> return r
   | BoolRes b -> return r
   | FunRes (f, sigma) -> (
       match f with
-      | Fun (Ident x, e, l) ->
-          let%bind e' =
-            subst_free_vars e sigma (String.Set.singleton x) f expr ~caching
+      | Fun ((Ident x as id), e, sv) ->
+          let var =
+            (* Find the variable of the same name that can be looked up to
+               a value starting from this function *)
+            List.find_exn sv ~f:(function
+              | Var (id', _) -> Ident.(id = id')
+              | _ -> raise Unreachable)
           in
-          return (FunRes (Fun (Ident x, e', l), sigma))
+          let%bind e' =
+            subst_free_vars e sigma (String.Set.singleton x) var ~caching
+          in
+          return (FunRes (Fun (id, e', sv), sigma))
       | _ -> raise Unreachable)
   | PlusRes (r1, r2)
   | MinusRes (r1, r2)
@@ -394,8 +363,8 @@ and eval_result_value r expr ~caching : Res.t T.t =
   | GtRes (r1, r2)
   | LeRes (r1, r2)
   | LtRes (r1, r2) -> (
-      let%bind r1' = eval_result_value r1 expr ~caching in
-      let%bind r2' = eval_result_value r2 expr ~caching in
+      let%bind r1' = eval_result_value r1 ~caching in
+      let%bind r2' = eval_result_value r2 ~caching in
       match (r1', r2') with
       | IntRes i1, IntRes i2 ->
           return
@@ -411,8 +380,8 @@ and eval_result_value r expr ~caching : Res.t T.t =
             | _ -> raise Unreachable)
       | _ -> raise TypeMismatch)
   | AndRes (r1, r2) | OrRes (r1, r2) -> (
-      let%bind r1' = eval_result_value r1 expr ~caching in
-      let%bind r2' = eval_result_value r2 expr ~caching in
+      let%bind r1' = eval_result_value r1 ~caching in
+      let%bind r2' = eval_result_value r2 ~caching in
       match (r1', r2') with
       | BoolRes b1, BoolRes b2 ->
           return
@@ -422,13 +391,13 @@ and eval_result_value r expr ~caching : Res.t T.t =
             | _ -> raise Unreachable)
       | _ -> raise TypeMismatch)
   | NotRes r ->
-      let%bind r' = eval_result_value r expr ~caching in
+      let%bind r' = eval_result_value r ~caching in
       return
         (match r' with BoolRes b -> BoolRes (not b) | _ -> raise TypeMismatch)
   | RecRes rs ->
       List.fold rs ~init:(return []) ~f:(fun acc (id, r) ->
           let%bind rs' = acc in
-          let%bind r' = eval_result_value r expr ~caching in
+          let%bind r' = eval_result_value r ~caching in
           return ((id, r') :: rs'))
       |> fun es' ->
       let%bind es' = es' in
@@ -436,11 +405,9 @@ and eval_result_value r expr ~caching : Res.t T.t =
 
 (** Entry point to interpreter *)
 let eval ?(caching = true) ?(debug = false) ?(simplify = false) e =
-  let e = e |> subst_let None None |> assign_index in
+  let e = e |> subst_let None None |> assign_index |> scope_vars in
 
-  (* Format.printf "%a\n" pp_expr e; *)
-
-  (* [0] where 0 = (fun x -> ...) 1 *)
+  (* Format.printf "%a\n" Expr.pp e; *)
   let start_time = Stdlib.Sys.time () in
   let r, c = run (eval_aux 0 e [] ~caching) in
   let end_time = Stdlib.Sys.time () in
@@ -448,8 +415,8 @@ let eval ?(caching = true) ?(debug = false) ?(simplify = false) e =
 
   if debug then print_string (string_of_table myexpr "myexpr");
 
-  let r' = if simplify then fst (eval_result_value r e ~caching c) else r in
+  let r' = if simplify then fst (eval_result_value r ~caching c) else r in
   clean_up ();
 
-  (* Format.printf "Result: %a\n" pp_res r'; *)
+  (* Format.printf "Result: %a\n" Res.pp r'; *)
   (r', runtime)

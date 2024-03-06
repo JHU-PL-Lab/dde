@@ -74,7 +74,6 @@ let test_laziness _ =
     (peu ~simplify:true "(fun x -> fun y -> x) (if true then 1 else 0)")
 
 let test_record _ =
-  (* Gives value at leftmost x *)
   assert_equal "1" (peu ~simplify:true "{ x = 1; y = 3; x = 2 }.x");
   assert_equal "{ counter = -98; cond = true }"
     (peu ~simplify:true

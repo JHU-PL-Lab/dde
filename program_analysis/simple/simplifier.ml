@@ -6,64 +6,29 @@ open Exns
 open Utils
 open Utils.Atom
 
-(** Recursively checks if any disjunct in result `r` has
-    a stub with `label` *)
-let rec exists_stub r label =
-  Set.exists r ~f:(function
-    | FunAtom _ | IntAtom _ | IntAnyAtom | BoolAtom _ -> false
-    | LStubAtom st -> St.compare label (St.Lstate st) = 0
-    | EStubAtom st -> St.compare label (St.Estate st) = 0
-    | RecAtom entries ->
-        List.exists entries ~f:(fun (_, r) -> exists_stub r label)
-    | ProjAtom (r, _) | InspAtom (_, r) | AssertAtom (_, r, _) ->
-        exists_stub r label)
+(** Checks if any disjunct has a stub with `label` *)
+let rec exists_stub_atom label = function
+  | FunAtom _ | IntAtom _ | IntAnyAtom | BoolAtom _ -> false
+  (* TODO *)
+  | LStubAtom st -> St.compare label (St.Lstate st) = 0
+  | EStubAtom st -> St.compare label (St.Estate st) = 0
+  | RecAtom entries ->
+      List.exists entries ~f:(fun (_, r) -> exists_stub_res label r)
+  | ProjAtom (r, _) | InspAtom (_, r) | AssertAtom (_, r, _) ->
+      exists_stub_res label r
 
-(** Performs simplifications *)
-let rec simplify ?(pa = None) r =
-  let r' =
-    Set.fold r ~init:empty_res ~f:(fun acc a ->
-        match a with
-        | IntAtom _ | IntAnyAtom | BoolAtom _ | LStubAtom _ | EStubAtom _
-        | FunAtom _ ->
-            Set.add acc a
-        | AssertAtom (id, r, rv) ->
-            Set.add acc (AssertAtom (id, simplify r ~pa:(Some a), rv))
-        | RecAtom rs ->
-            Set.add acc
-              (RecAtom
-                 (List.map rs ~f:(fun (id, r) -> (id, simplify r ~pa:(Some a)))))
-        | ProjAtom (r, id) ->
-            Set.fold r ~init:acc ~f:(fun acc a ->
-                match a with
-                | RecAtom rs -> (
-                    match
-                      List.find rs ~f:(fun (id', _) -> Ident.(id = id'))
-                    with
-                    | Some (_, r) -> Set.union acc r
-                    | None -> acc)
-                | a -> Set.add acc (ProjAtom (single_res a, id)))
-        | InspAtom (id, r) ->
-            Set.fold r ~init:acc ~f:(fun acc -> function
-              | RecAtom rs ->
-                  Set.add acc
-                    (BoolAtom
-                       (List.exists rs ~f:(fun (id', _) -> Ident.(id = id'))))
-              | a -> Set.add acc (InspAtom (id, single_res a))))
-  in
-  (* Stops when there's no change to the input result *)
-  if Res.compare r r' = 0 then r' else simplify r' ~pa
+(** Checks if any disjunct in result has a stub with `label` *)
+and exists_stub_res label = Set.exists ~f:(exists_stub_atom label)
 
 (** Removes stubs without a parent - lone stubs that don't form a cycle *)
-let elim_stub r label =
-  if not (exists_stub r label) then r
+let elim_stub label r =
+  if not (exists_stub_res label r) then r
   else
-    let r = simplify r in
     let bases =
       Set.fold r ~init:empty_res ~f:(fun acc a ->
           match a with
-          | RecAtom _ when not (exists_stub (single_res a) label) ->
-              Set.add acc a
-          | ProjAtom (r, Ident key) when not (exists_stub r label) -> (
+          | RecAtom _ when not (exists_stub_atom label a) -> Set.add acc a
+          | ProjAtom (r, Ident key) when not (exists_stub_res label r) -> (
               match Set.elements r with
               | [ RecAtom rs ] -> (
                   match
@@ -94,3 +59,33 @@ let elim_stub r label =
         (* (fun x -> x) | stub *)
         | EStubAtom st when St.(label = Estate st) -> acc
         | _ -> Set.add acc a)
+
+(** Performs simplifications on value atoms *)
+let rec simpl_atom a =
+  match a with
+  | IntAtom _ | IntAnyAtom | BoolAtom _ | LStubAtom _ | EStubAtom _ | FunAtom _
+    ->
+      single_res a
+  | AssertAtom (id, r, rv) -> single_res (AssertAtom (id, simpl_res r, rv))
+  | RecAtom rs ->
+      single_res (RecAtom (List.map rs ~f:(fun (id, r) -> (id, simpl_res r))))
+  | ProjAtom (r, id) ->
+      Set.fold r ~init:empty_res ~f:(fun acc -> function
+        | RecAtom rs -> (
+            match List.find rs ~f:(fun (id', _) -> Ident.(id = id')) with
+            | Some (_, r) -> Set.union acc r
+            | None -> acc)
+        | a -> Set.add acc (ProjAtom (single_res a, id)))
+  | InspAtom (id, r) ->
+      Set.fold r ~init:empty_res ~f:(fun acc -> function
+        | RecAtom rs ->
+            Set.add acc
+              (BoolAtom (List.exists rs ~f:(fun (id', _) -> Ident.(id = id'))))
+        | a -> Set.add acc (InspAtom (id, single_res a)))
+
+(** Performs simplifications on value results *)
+and simpl_res r =
+  Set.fold r ~init:empty_res ~f:(fun acc a -> a |> simpl_atom |> Set.union acc)
+  |> fun r' ->
+  (* Stops when there's no change to the input result *)
+  if Res.compare r r' = 0 then r' else simpl_res r'

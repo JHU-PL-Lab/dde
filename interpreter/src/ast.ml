@@ -20,90 +20,89 @@ end
 
 (** Expressions per paper Fig. 4 *)
 module Expr = struct
-  type t =
-    | Int of int
-    | Bool of bool
-    | Fun of Ident.t * t * t list
-    | Var of Ident.t * int
-    | App of t * t * int
-    | Plus of t * t
-    | Minus of t * t
-    | Mult of t * t
-    | Eq of t * t
-    | And of t * t
-    | Or of t * t
-    | Ge of t * t
-    | Gt of t * t
-    | Le of t * t
-    | Lt of t * t
-    | Not of t
-    | If of t * t * t
-    | Let of Ident.t * t * t * int
-    | LetAssert of Ident.t * t * t
-    | Rec of (Ident.t * t) list
-    | Proj of t * Ident.t
-    | Insp of Ident.t * t
-  [@@deriving compare, sexp]
+  module T = struct
+    type t =
+      | Int of int
+      | Bool of bool
+      | Fun of Ident.t * t * t list
+      | Var of Ident.t * int
+      | App of t * t * int
+      | Plus of t * t
+      | Minus of t * t
+      | Mult of t * t
+      | Eq of t * t
+      | And of t * t
+      | Or of t * t
+      | Ge of t * t
+      | Gt of t * t
+      | Le of t * t
+      | Lt of t * t
+      | Not of t
+      | If of t * t * t
+      | Let of Ident.t * t * t * int
+      | LetAssert of Ident.t * t * t
+      | Rec of (Ident.t * t) list
+      | Proj of t * Ident.t
+      | Insp of Ident.t * t
+    [@@deriving compare, sexp]
 
-  let paren_if cond pp fmt e =
-    if cond e then ff fmt "(%a)" pp e else ff fmt "%a" pp e
+    let paren_if cond pp fmt e =
+      if cond e then ff fmt "(%a)" pp e else ff fmt "%a" pp e
 
-  let is_compound_expr = function Int _ | Bool _ | Var _ -> false | _ -> true
+    let is_compound_expr = function
+      | Int _ | Bool _ | Var _ -> false
+      | _ -> true
 
-  let is_compound_exprL = function
-    | Int _ | Bool _ | App _ -> false
-    | other -> is_compound_expr other
+    let is_compound_exprL = function
+      | Int _ | Bool _ | App _ -> false
+      | other -> is_compound_expr other
 
-  let rec pp fmt = function
-    | Int i -> ff fmt "%d" i
-    | Bool b -> ff fmt "%b" b
-    (* TODO: pp call stack *)
-    | Fun (Ident i, x, _) -> ff fmt "@[<hv>fun %s ->@;<1 2>%a@]" i pp x
-    (* | Fun (Ident i, x, l) ->
-        ff fmt "@[<hv>fun %s ->@;<1 2>%a[@%d]@]" i pp x (List.length l) *)
-    | Var (id, _) -> ff fmt "%a" Ident.pp id
-    (* | Var (id, idx) -> ff fmt "%a@%d" Ident.pp id idx *)
-    | App (e1, e2, _) ->
-        ff fmt "%a %a"
-          (paren_if is_compound_exprL pp)
-          e1
-          (paren_if is_compound_expr pp)
-          e2
-    (* | App (e1, e2, l) ->
-        ff fmt "(%a %a)@%d"
-          (paren_if is_compound_exprL pp)
-          e1
-          (paren_if is_compound_expr pp)
-          e2 l *)
-    | Plus (e1, e2) -> ff fmt "(%a + %a)" pp e1 pp e2
-    | Minus (e1, e2) -> ff fmt "(%a - %a)" pp e1 pp e2
-    | Mult (e1, e2) -> ff fmt "(%a * %a)" pp e1 pp e2
-    | Eq (e1, e2) -> ff fmt "(%a = %a)" pp e1 pp e2
-    | And (e1, e2) -> ff fmt "(%a and %a)" pp e1 pp e2
-    | Or (e1, e2) -> ff fmt "(%a or %a)" pp e1 pp e2
-    | Ge (e1, e2) -> ff fmt "(%a >= %a)" pp e1 pp e2
-    | Gt (e1, e2) -> ff fmt "(%a > %a)" pp e1 pp e2
-    | Le (e1, e2) -> ff fmt "(%a <= %a)" pp e1 pp e2
-    | Lt (e1, e2) -> ff fmt "(%a < %a)" pp e1 pp e2
-    | Not e1 -> ff fmt "(not %a)" pp e1
-    | If (e1, e2, e3) ->
-        ff fmt "@[<hv>if %a then@;<1 2>%a@;<1 0>else@;<1 2>%a@]" pp e1 pp e2 pp
-          e3
-    | Let (Ident i, e1, e2, _) ->
-        ff fmt "@[<hv>let %s =@;<1 4>%a@;<1 0>in@;<1 4>%a@]" i pp e1 pp e2
-    | LetAssert (Ident i, e1, e2) ->
-        ff fmt "@[<hv>letassert %s =@;<1 4>%a@;<1 0>in@;<1 4>%a@]" i pp e1 pp e2
-    | Rec entries ->
-        ff fmt
-          (if List.length entries = 0 then "{%a}" else "{ %a }")
-          pp_record entries
-    | Proj (e, Ident x) -> ff fmt "(%a.%s)" pp e x
-    | Insp (Ident x, e) -> ff fmt "(%s in %a)" x pp e
+    let rec pp fmt = function
+      | Int i -> ff fmt "%d" i
+      | Bool b -> ff fmt "%b" b
+      (* TODO: pp call stack *)
+      | Fun (Ident i, x, _) -> ff fmt "@[<hv>fun %s ->@;<1 2>%a@]" i pp x
+      | Var (id, _) -> ff fmt "%a" Ident.pp id
+      | App (e1, e2, _) ->
+          ff fmt "%a %a"
+            (paren_if is_compound_exprL pp)
+            e1
+            (paren_if is_compound_expr pp)
+            e2
+      | Plus (e1, e2) -> ff fmt "(%a + %a)" pp e1 pp e2
+      | Minus (e1, e2) -> ff fmt "(%a - %a)" pp e1 pp e2
+      | Mult (e1, e2) -> ff fmt "(%a * %a)" pp e1 pp e2
+      | Eq (e1, e2) -> ff fmt "(%a = %a)" pp e1 pp e2
+      | And (e1, e2) -> ff fmt "(%a and %a)" pp e1 pp e2
+      | Or (e1, e2) -> ff fmt "(%a or %a)" pp e1 pp e2
+      | Ge (e1, e2) -> ff fmt "(%a >= %a)" pp e1 pp e2
+      | Gt (e1, e2) -> ff fmt "(%a > %a)" pp e1 pp e2
+      | Le (e1, e2) -> ff fmt "(%a <= %a)" pp e1 pp e2
+      | Lt (e1, e2) -> ff fmt "(%a < %a)" pp e1 pp e2
+      | Not e1 -> ff fmt "(not %a)" pp e1
+      | If (e1, e2, e3) ->
+          ff fmt "@[<hv>if %a then@;<1 2>%a@;<1 0>else@;<1 2>%a@]" pp e1 pp e2
+            pp e3
+      | Let (Ident i, e1, e2, _) ->
+          ff fmt "@[<hv>let %s =@;<1 4>%a@;<1 0>in@;<1 4>%a@]" i pp e1 pp e2
+      | LetAssert (Ident i, e1, e2) ->
+          ff fmt "@[<hv>letassert %s =@;<1 4>%a@;<1 0>in@;<1 4>%a@]" i pp e1 pp
+            e2
+      | Rec entries ->
+          ff fmt
+            (if List.length entries = 0 then "{%a}" else "{ %a }")
+            pp_record entries
+      | Proj (e, Ident x) -> ff fmt "(%a.%s)" pp e x
+      | Insp (Ident x, e) -> ff fmt "(%s in %a)" x pp e
 
-  and pp_record fmt = function
-    | [] -> ()
-    | [ (Ident x, e) ] -> ff fmt "%s = %a" x pp e
-    | (Ident x, e) :: rest -> ff fmt "%s = %a; %a" x pp e pp_record rest
+    and pp_record fmt = function
+      | [] -> ()
+      | [ (Ident x, e) ] -> ff fmt "%s = %a" x pp e
+      | (Ident x, e) :: rest -> ff fmt "%s = %a; %a" x pp e pp_record rest
+  end
+
+  include T
+  include Comparable.Make (T)
 end
 
 (* Call stack per paper Fig. 4 *)
@@ -243,12 +242,13 @@ let build_insp s e = Insp (Ident s, e)
 let rec assign_index ?(i = 0) ?(intros = String.Map.empty) expr =
   match expr with
   | Int _ | Bool _ -> expr
-  | Var ((Ident x as id), _) -> Var (id, i - Map.find_exn intros x)
+  | Var ((Ident x as id), _) -> Var (id, i - Core.Map.find_exn intros x)
   | Fun ((Ident x as id), e, vars) ->
       Fun
         ( id,
           assign_index e ~i:(i + 1)
-            ~intros:(Map.add_exn (Map.remove intros x) ~key:x ~data:(i + 1)),
+            ~intros:
+              (Core.Map.add_exn (Core.Map.remove intros x) ~key:x ~data:(i + 1)),
           vars )
   | App (e1, e2, l) ->
       let app =
@@ -282,12 +282,12 @@ let rec assign_index ?(i = 0) ?(intros = String.Map.empty) expr =
   | LetAssert (id, e1, e2) -> LetAssert (id, assign_index e1 ~i ~intros, e2)
   | Let _ -> raise Unreachable
 
-let rec scope_vars ?(vs = []) expr : Expr.t =
+let rec scope_vars ?(sv = []) expr : Expr.t =
   match expr with
   | Int _ | Bool _ | Var _ -> expr
   | Fun (id, e, _) ->
-      let vs' =
-        vs
+      let sv' =
+        sv
         (* Remove vars shadowed by id *)
         |> List.filter ~f:(function
              | Var (id', _) -> Ident.(id <> id')
@@ -298,28 +298,28 @@ let rec scope_vars ?(vs = []) expr : Expr.t =
              | _ -> raise Unreachable)
         |> List.cons (Var (id, 0))
       in
-      Fun (id, scope_vars e ~vs:vs', vs')
+      Fun (id, scope_vars e ~sv:sv', sv')
   | App (e1, e2, l) ->
-      let app = App (scope_vars e1 ~vs, scope_vars e2 ~vs, l) in
+      let app = App (scope_vars e1 ~sv, scope_vars e2 ~sv, l) in
       add_myexpr l app;
       app
-  | Plus (e1, e2) -> Plus (scope_vars e1 ~vs, scope_vars e2 ~vs)
-  | Minus (e1, e2) -> Minus (scope_vars e1 ~vs, scope_vars e2 ~vs)
-  | Mult (e1, e2) -> Mult (scope_vars e1 ~vs, scope_vars e2 ~vs)
-  | Eq (e1, e2) -> Eq (scope_vars e1 ~vs, scope_vars e2 ~vs)
-  | Ge (e1, e2) -> Ge (scope_vars e1 ~vs, scope_vars e2 ~vs)
-  | Gt (e1, e2) -> Gt (scope_vars e1 ~vs, scope_vars e2 ~vs)
-  | Le (e1, e2) -> Le (scope_vars e1 ~vs, scope_vars e2 ~vs)
-  | Lt (e1, e2) -> Lt (scope_vars e1 ~vs, scope_vars e2 ~vs)
-  | And (e1, e2) -> And (scope_vars e1 ~vs, scope_vars e2 ~vs)
-  | Or (e1, e2) -> Or (scope_vars e1 ~vs, scope_vars e2 ~vs)
-  | Not e -> Not (scope_vars e ~vs)
-  | Proj (e, id) -> Proj (scope_vars e ~vs, id)
-  | Insp (id, e) -> Insp (id, scope_vars e ~vs)
+  | Plus (e1, e2) -> Plus (scope_vars e1 ~sv, scope_vars e2 ~sv)
+  | Minus (e1, e2) -> Minus (scope_vars e1 ~sv, scope_vars e2 ~sv)
+  | Mult (e1, e2) -> Mult (scope_vars e1 ~sv, scope_vars e2 ~sv)
+  | Eq (e1, e2) -> Eq (scope_vars e1 ~sv, scope_vars e2 ~sv)
+  | Ge (e1, e2) -> Ge (scope_vars e1 ~sv, scope_vars e2 ~sv)
+  | Gt (e1, e2) -> Gt (scope_vars e1 ~sv, scope_vars e2 ~sv)
+  | Le (e1, e2) -> Le (scope_vars e1 ~sv, scope_vars e2 ~sv)
+  | Lt (e1, e2) -> Lt (scope_vars e1 ~sv, scope_vars e2 ~sv)
+  | And (e1, e2) -> And (scope_vars e1 ~sv, scope_vars e2 ~sv)
+  | Or (e1, e2) -> Or (scope_vars e1 ~sv, scope_vars e2 ~sv)
+  | Not e -> Not (scope_vars e ~sv)
+  | Proj (e, id) -> Proj (scope_vars e ~sv, id)
+  | Insp (id, e) -> Insp (id, scope_vars e ~sv)
   | If (e1, e2, e3) ->
-      If (scope_vars e1 ~vs, scope_vars e2 ~vs, scope_vars e3 ~vs)
-  | Rec es -> Rec (List.map es ~f:(fun (id, e) -> (id, scope_vars e ~vs)))
-  | LetAssert (id, e1, e2) -> LetAssert (id, scope_vars e1 ~vs, e2)
+      If (scope_vars e1 ~sv, scope_vars e2 ~sv, scope_vars e3 ~sv)
+  | Rec es -> Rec (List.map es ~f:(fun (id, e) -> (id, scope_vars e ~sv)))
+  | LetAssert (id, e1, e2) -> LetAssert (id, scope_vars e1 ~sv, e2)
   | Let _ -> raise Unreachable
 
 (** Substitute away let bindings ahead of time *)

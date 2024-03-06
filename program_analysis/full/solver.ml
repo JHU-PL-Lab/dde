@@ -213,7 +213,7 @@ let chcs_of_assert r1 (r2 : Interp.Ast.Res_fv.t) : unit T.t =
   | _ -> raise Bad_assert
 
 (** Generate CHCs from path conditions *)
-let rec cond pis : 'a T.t =
+let rec chcs_of_cond pis : 'a T.t =
   if List.is_empty pis then return ([], ztrue)
   else
     let%bind conjs =
@@ -233,7 +233,7 @@ and chcs_of_atom ?(pis = []) ?(stub_sort = isort)
     ?(p = Core.Set.empty (module St)) a : unit T.t =
   match a with
   | Atom.IntAtom i ->
-      let%bind cond_quants, cond_body = cond pis in
+      let%bind cond_quants, cond_body = chcs_of_cond pis in
       let%bind aid = get_aid a in
       let%bind pa = find_decl aid isort in
       let body = pa <-- [ zint i ] in
@@ -241,7 +241,7 @@ and chcs_of_atom ?(pis = []) ?(stub_sort = isort)
         (if List.is_empty cond_quants then body
          else cond_quants |. cond_body --> body)
   | BoolAtom b ->
-      let%bind cond_quants, cond_body = cond pis in
+      let%bind cond_quants, cond_body = chcs_of_cond pis in
       let%bind aid = get_aid a in
       let%bind pa = find_decl aid bsort in
       let body = pa <-- [ zbool b ] in
@@ -295,7 +295,7 @@ and chcs_of_atom ?(pis = []) ?(stub_sort = isort)
       let%bind () = add_decl aid pa in
       let%bind () = add_decl r1id pr1 in
       let%bind () = add_decl r2id pr2 in
-      let%bind cond_quants, cond_body = cond pis in
+      let%bind cond_quants, cond_body = chcs_of_cond pis in
       let%bind () = chcs_of_res r1 ~pis ~stub_sort:param_sort ~p in
       let%bind () = chcs_of_res r2 ~pis ~stub_sort:param_sort ~p in
       add_chc
@@ -310,7 +310,7 @@ and chcs_of_atom ?(pis = []) ?(stub_sort = isort)
       let r_ = zconst "r" bsort in
       let%bind () = add_decl aid pa in
       let%bind () = add_decl rid pr in
-      let%bind cond_quants, cond_body = cond pis in
+      let%bind cond_quants, cond_body = chcs_of_cond pis in
       let%bind () = chcs_of_res r ~pis ~stub_sort:bsort ~p in
       add_chc
         ((r_ :: cond_quants |. (pr <-- [ r_ ]) &&& cond_body)
@@ -423,7 +423,7 @@ and chcs_of_res ?(pis = []) ?(stub_sort = isort)
   List.fold r ~init:(return ()) ~f:(fun acc a ->
       let%bind () = chcs_of_atom a ~pis ~stub_sort ~p in
       let%bind aid = get_aid a in
-      let%bind cond_quants, cond_body = cond pis in
+      let%bind cond_quants, cond_body = chcs_of_cond pis in
       let%bind { decls; _ } = get () in
       match Map.find decls aid with
       | Some pa ->

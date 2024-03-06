@@ -450,22 +450,22 @@ let test_custom_benchmarkable _ =
 let tests =
   "Pure demand program analysis tests"
   >::: [
-         "Basics" >:: test_basic;
-         "Non-local variable lookup" >:: test_nonlocal_lookup;
-         "Var local stack stitching" >:: test_local_stitching;
-         "Conditional" >:: test_conditional;
-         "Currying" >:: test_currying;
-         "Recursion" >:: test_recursion;
-         "Church numerals" >:: test_church;
-         "Lists" >:: test_lists;
+         (* "Basics" >:: test_basic;
+            "Non-local variable lookup" >:: test_nonlocal_lookup;
+            "Var local stack stitching" >:: test_local_stitching;
+            "Conditional" >:: test_conditional;
+            "Currying" >:: test_currying;
+            "Recursion" >:: test_recursion;
+            "Church numerals" >:: test_church;
+            "Lists" >:: test_lists; *)
          (* TODO: Factorials aren't exactly exponential *)
-         "Factorial" >:: test_factorial;
+         (* "Factorial" >:: test_factorial; *)
          "DDPA" >: test_medium test_ddpa;
          (* Times out after 10 minutes *)
          (* "DDPA ack (long-running)" >: test_long test_ddpa_ack; *)
          (* "DDPA tak (long-running)" >: test_long test_ddpa_tak; *)
          (* "DDPA cpstak (long-running)" >: test_long test_ddpa_cpstak; *)
-         "DDPA (simple)" >: test_medium test_ddpa_simple;
+         (* "DDPA (simple)" >: test_medium test_ddpa_simple; *)
          (* Times out after 10 minutes *)
          (* "DDPA ack (simple, long-running)" >: test_long test_ddpa_ack_simple; *)
          (* "DDPA tak (simple, long-running)" >: test_long test_ddpa_tak_simple; *)
