@@ -8,7 +8,7 @@ to Program Analysis" ([arXiv](https://arxiv.org/abs/2310.15915)).
 Please cite our software as:
 
 ```bibtex
-  @software{SmithZhangArtifact24,
+@software{SmithZhangArtifact24,
   author = {Zhang, Robert and Smith, Scott},
   doi = {10.5281/zenodo.10794350},
   month = mar,
