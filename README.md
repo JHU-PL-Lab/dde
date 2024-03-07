@@ -1,5 +1,17 @@
 ★ Please see the [artifact](https://github.com/JHU-PL-Lab/dde/tree/artifact)
-branch for the latest, condensed code.
+branch for the latest, condensed code, and cite our software as:
+
+```bibtex
+@software{SmithZhangArtifact24,
+  author = {Zhang, Robert and Smith, Scott},
+  doi = {10.5281/zenodo.10794350},
+  month = mar,
+  title = {{Software Artifact for A Pure Demand Operational Semantics With Applications to Program Analysis}},
+  url = {https://github.com/JHU-PL-Lab/dde/tree/artifact},
+  version = {1.0.0},
+  year = {2024}
+}
+```
 
 [![Build & test
 project](https://github.com/JHU-PL-Lab/dde/actions/workflows/build.yml/badge.svg)](https://github.com/JHU-PL-Lab/dde/actions/workflows/build.yml) [![DOI](https://zenodo.org/badge/569066625.svg)](https://zenodo.org/doi/10.5281/zenodo.10794349)
