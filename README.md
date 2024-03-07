@@ -1,7 +1,23 @@
+[![DOI](https://zenodo.org/badge/569066625.svg)](https://zenodo.org/doi/10.5281/zenodo.10794349)
+
 # Artifact Overview
 
 Artifact for paper "A Pure Demand Operational Semantics with Applications
 to Program Analysis" ([arXiv](https://arxiv.org/abs/2310.15915)).
+
+Please cite our software as:
+
+```bibtex
+  @software{SmithZhangArtifact24,
+  author = {Zhang, Robert and Smith, Scott},
+  doi = {10.5281/zenodo.10794350},
+  month = mar,
+  title = {{Software Artifact for A Pure Demand Operational Semantics With Applications to Program Analysis}},
+  url = {https://github.com/JHU-PL-Lab/dde/tree/artifact},
+  version = {1.0.0},
+  year = {2024}
+}
+```
 
 ## Introduction
 

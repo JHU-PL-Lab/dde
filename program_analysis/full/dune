@@ -4,7 +4,7 @@
  (preprocess
   (pps ppx_deriving.show ppx_let ppx_jane landmarks-ppx --auto))
  (modules lib utils solver simplifier graph debug_utils exns)
- (libraries dde.interp core z3 logs logs.fmt landmarks core_unix))
+ (libraries dde.interp core z3 logs logs.fmt landmarks))
 
 (executable
  (name main)

@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: "Zhang"
+    given-names: "Robert"
+    orcid: "https://orcid.org/0009-0001-8853-5813"
+  - family-names: "Smith"
+    given-names: "Scott"
+    orcid: "https://orcid.org/0009-0005-0495-2716"
+title: "Software Artifact for A Pure Demand Operational Semantics With Applications to Program Analysis"
+version: 1.0.0
+doi: 10.5281/zenodo.10794350
+date-released: 2024-03-07
+url: "https://github.com/JHU-PL-Lab/dde/tree/v1.0.0"
