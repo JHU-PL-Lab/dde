@@ -29,9 +29,9 @@ let test_if _ =
   assert_equal "1 - 1" (peu "let x = 1 in if x + 2 = 3 then x - 1 else x + 1")
 
 let test_function _ =
-  assert_equal "fun x -> x" (peu "fun x -> x");
-  assert_equal "fun x -> 1" (peu "fun x -> 1");
-  assert_equal "fun x -> fun y -> fun z -> y"
+  assert_equal "(fun x -> x)@[]" (peu "fun x -> x");
+  assert_equal "(fun x -> 1)@[]" (peu "fun x -> 1");
+  assert_equal "(fun x -> fun y -> fun z -> y)@[]"
     (peu "fun x -> fun y -> fun z -> y")
 
 let test_basic_application _ =
@@ -68,9 +68,9 @@ let test_laziness _ =
     (peu "{ x = 1 + 1; y = (fun z -> z + 1) 1 }");
   assert_equal "1" (peu "{ x = 1 }.x");
   assert_equal "1" (peu "{ label = if true then 1 else 0 }.label");
-  assert_equal "fun y -> 7"
+  assert_equal "(fun y -> 7)@[1]"
     (peu ~simplify:true "(fun x -> fun y -> x) ((fun z -> z + 1) (1 + 2 + 3))");
-  assert_equal "fun y -> 1"
+  assert_equal "(fun y -> 1)@[0]"
     (peu ~simplify:true "(fun x -> fun y -> x) (if true then 1 else 0)")
 
 let test_record _ =

@@ -313,4 +313,4 @@ and simpl_res r =
   |> Set.of_list (module Res_key)
   |> Set.elements
   (* Stops when there's no change to the input result *)
-  |> fun r' -> if Res.compare r r' = 0 then r' else simpl_res r'
+  |> fun r' -> if Res.(r = r') then r' else simpl_res r'

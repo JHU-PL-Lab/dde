@@ -34,7 +34,6 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
   (* Application rule *)
   | App (e, _, l) -> (
       let cache_key = Cache_key.Lkey (l, sigma, vid, sid) in
-      (* let cache_key = Cache_key.Lkey (l, sigma, sid) in *)
       match Map.find c cache_key with
       | Some r when caching ->
           debug (fun m ->
@@ -93,7 +92,6 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
   (* Var rules *)
   | Var (id, idx) -> (
       let cache_key = Cache_key.Ekey (expr, sigma, vid, sid) in
-      (* let cache_key = Cache_key.Ekey (expr, sigma, sid) in *)
       match Map.find c cache_key with
       | Some r when caching ->
           debug (fun m ->
@@ -195,8 +193,7 @@ let rec analyze_aux ?(caching = true) d expr sigma : Res.t T.t =
                         | FunAtom (Fun (_, _, sv), sigma1)
                         (* Check if the current var can be looked up from the
                            context of this function *)
-                          when List.mem sv expr ~equal:(fun e1 e2 ->
-                                   Expr.compare e1 e2 = 0) ->
+                          when List.mem sv expr ~equal:Expr.( = ) ->
                             let idx' = idx - 1 in
                             debug (fun m ->
                                 m

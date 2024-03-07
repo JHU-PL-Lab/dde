@@ -287,6 +287,12 @@ let factorial_thunked =
           "let fact = fun self -> fun n -> if n = 0 then 1 else n * self self \
            (n - 1) in fact fact 60" ));
     (fun _ ->
+      ( "(6320 * ((((79 | (stub - 1)) - 1) * ((((79 | (stub - 1)) - 1) * stub) \
+         | 1)) | 1))",
+        pau ~name:"fact_80"
+          "let fact = fun self -> fun n -> if n = 0 then 1 else n * self self \
+           (n - 1) in fact fact 80" ));
+    (fun _ ->
       ( "(9900 * ((((99 | (stub - 1)) - 1) * ((((99 | (stub - 1)) - 1) * stub) \
          | 1)) | 1))",
         pau ~name:"fact_100"
@@ -355,49 +361,62 @@ let ddpa_cpstak_thunked =
 let ddpa_simple_thunked =
   [
     ( "blur (simple)",
-      fun _ -> ("(false | true)", pau' ~name:"blur" (read_case "blur.ml")) );
-    ("eta (simple)", fun _ -> ("false", pau' ~name:"eta" (read_case "eta.ml")));
+      fun _ -> ("(false | true)", pau' ~name:"blur_simple" (read_case "blur.ml"))
+    );
+    ( "eta (simple)",
+      fun _ -> ("false", pau' ~name:"eta_simple" (read_case "eta.ml")) );
     ( "facehugger (simple)",
-      fun _ -> ("Int", pau' ~name:"facehugger" (read_case "facehugger.ml")) );
+      fun _ ->
+        ("Int", pau' ~name:"facehugger_simple" (read_case "facehugger.ml")) );
     ( "kcfa-2 (simple)",
-      fun _ -> ("false", pau' ~name:"kcfa-2" (read_case "kcfa-2.ml")) );
+      fun _ -> ("false", pau' ~name:"kcfa-2_simple" (read_case "kcfa-2.ml")) );
     ( "kcfa-3 (simple)",
-      fun _ -> ("false", pau' ~name:"kcfa-3" (read_case "kcfa-3.ml")) );
+      fun _ -> ("false", pau' ~name:"kcfa-3_simple" (read_case "kcfa-3.ml")) );
     ( "loop2-1 (simple)",
       fun _ ->
         ( "(Int | (stub | (stub | (stub | (stub | (stub | (stub | (stub | \
            stub))))))))",
-          pau' ~name:"loop2-1" (read_case "loop2-1.ml") ) );
-    ("mj09 (simple)", fun _ -> ("Int", pau' ~name:"mj09" (read_case "mj09.ml")));
+          pau' ~name:"loop2-1_simple" (read_case "loop2-1.ml") ) );
+    ( "mj09 (simple)",
+      fun _ -> ("Int", pau' ~name:"mj09_simple" (read_case "mj09.ml")) );
     ( "map (simple)",
       fun _ ->
         ( "{ hd = Int; tl = { hd = Int; tl = ({} | { hd = Int; tl = ({} | { hd \
            = Int; tl = stub }) }) } }",
-          pau' ~name:"map" (read_case "map.ml") ) );
+          pau' ~name:"map_simple" (read_case "map.ml") ) );
     ( "primtest (simple)",
-      fun _ -> ("(Int | stub)", pau' ~name:"primtest" (read_case "primtest.ml"))
+      fun _ ->
+        ("(Int | stub)", pau' ~name:"primtest_simple" (read_case "primtest.ml"))
     );
     ( "rsa (simple)",
-      fun _ -> ("(false | true)", pau' ~name:"rsa" (read_case "rsa.ml")) );
+      fun _ -> ("(false | true)", pau' ~name:"rsa_simple" (read_case "rsa.ml"))
+    );
     ( "sat-1 (simple)",
-      fun _ -> ("(false | true)", pau' ~name:"sat-1" (read_case "sat-1.ml")) );
+      fun _ ->
+        ("(false | true)", pau' ~name:"sat-1_simple" (read_case "sat-1.ml")) );
     ( "sat-2 (simple)",
-      fun _ -> ("(false | true)", pau' ~name:"sat-2" (read_case "sat-2.ml")) );
+      fun _ ->
+        ("(false | true)", pau' ~name:"sat-2_simple" (read_case "sat-2.ml")) );
     ( "sat-3 (simple)",
-      fun _ -> ("(false | true)", pau' ~name:"sat-3" (read_case "sat-3.ml")) );
+      fun _ ->
+        ("(false | true)", pau' ~name:"sat-3_simple" (read_case "sat-3.ml")) );
     (* ("sat-5", fun _ -> ("true", pau' ~name:"sat-5" (read_case "sat-5.ml"))); *)
   ]
 
 let ddpa_ack_simple_thunked =
-  ("ack", fun _ -> ("Int | 2", pau' ~name:"ack" (read_case "ack.ml")))
+  ("ack", fun _ -> ("(Int | stub)", pau' ~name:"ack" (read_case "ack.ml")))
 
 let ddpa_tak_simple_thunked =
-  ("tak", fun _ -> ("15", pau' ~name:"tak" (read_case "tak.ml")))
+  ( "tak",
+    fun _ ->
+      ( "(Int | (stub | (stub | (stub | (stub | stub)))))",
+        pau' ~name:"tak" (read_case "tak.ml") ) )
 
 let ddpa_cpstak_simple_thunked =
   ( "cpstak",
     fun _ ->
-      ( "15 | 18 | 31 | 32 | stub | stub | stub | stub",
+      ( "(Int | (stub | (stub | (stub | (stub | (stub | (stub | (stub | (stub \
+         | (stub | stub))))))))))",
         pau' ~name:"cpstak" (read_case "cpstak.ml") ) )
 
 (* Modify me to define custom tests *)
@@ -450,22 +469,21 @@ let test_custom_benchmarkable _ =
 let tests =
   "Pure demand program analysis tests"
   >::: [
-         (* "Basics" >:: test_basic;
-            "Non-local variable lookup" >:: test_nonlocal_lookup;
-            "Var local stack stitching" >:: test_local_stitching;
-            "Conditional" >:: test_conditional;
-            "Currying" >:: test_currying;
-            "Recursion" >:: test_recursion;
-            "Church numerals" >:: test_church;
-            "Lists" >:: test_lists; *)
-         (* TODO: Factorials aren't exactly exponential *)
-         (* "Factorial" >:: test_factorial; *)
+         "Basics" >:: test_basic;
+         "Non-local variable lookup" >:: test_nonlocal_lookup;
+         "Var local stack stitching" >:: test_local_stitching;
+         "Conditional" >:: test_conditional;
+         "Currying" >:: test_currying;
+         "Recursion" >:: test_recursion;
+         "Church numerals" >:: test_church;
+         "Lists" >:: test_lists;
+         "Factorial" >:: test_factorial;
          "DDPA" >: test_medium test_ddpa;
          (* Times out after 10 minutes *)
          (* "DDPA ack (long-running)" >: test_long test_ddpa_ack; *)
          (* "DDPA tak (long-running)" >: test_long test_ddpa_tak; *)
          (* "DDPA cpstak (long-running)" >: test_long test_ddpa_cpstak; *)
-         (* "DDPA (simple)" >: test_medium test_ddpa_simple; *)
+         "DDPA (simple)" >: test_medium test_ddpa_simple;
          (* Times out after 10 minutes *)
          (* "DDPA ack (simple, long-running)" >: test_long test_ddpa_ack_simple; *)
          (* "DDPA tak (simple, long-running)" >: test_long test_ddpa_tak_simple; *)

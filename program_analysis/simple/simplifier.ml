@@ -9,9 +9,8 @@ open Utils.Atom
 (** Checks if any disjunct has a stub with `label` *)
 let rec exists_stub_atom label = function
   | FunAtom _ | IntAtom _ | IntAnyAtom | BoolAtom _ -> false
-  (* TODO *)
-  | LStubAtom st -> St.compare label (St.Lstate st) = 0
-  | EStubAtom st -> St.compare label (St.Estate st) = 0
+  | LStubAtom st -> St.(label = St.Lstate st)
+  | EStubAtom st -> St.(label = St.Estate st)
   | RecAtom entries ->
       List.exists entries ~f:(fun (_, r) -> exists_stub_res label r)
   | ProjAtom (r, _) | InspAtom (_, r) | AssertAtom (_, r, _) ->
@@ -86,6 +85,5 @@ let rec simpl_atom a =
 (** Performs simplifications on value results *)
 and simpl_res r =
   Set.fold r ~init:empty_res ~f:(fun acc a -> a |> simpl_atom |> Set.union acc)
-  |> fun r' ->
   (* Stops when there's no change to the input result *)
-  if Res.compare r r' = 0 then r' else simpl_res r'
+  |> fun r' -> if Res.(r = r') then r' else simpl_res r'

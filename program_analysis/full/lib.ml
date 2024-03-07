@@ -133,7 +133,9 @@ let rec fold_res_var ~init ~f d expr =
   List.fold ~init ~f:(fun acc a ->
       match a with
       | FunAtom (Fun (_, _, sv), sigma1)
-        when List.mem sv expr ~equal:(fun e1 e2 -> Expr.compare e1 e2 = 0) ->
+      (* Check if the current var can be looked up from the
+         context of this function *)
+        when List.mem sv expr ~equal:Expr.( = ) ->
           debug (fun m ->
               m "[Level %d] Visit a possible e1 function:\n%a" d Atom.pp a);
           f acc sigma1
@@ -175,8 +177,6 @@ let rec analyze_aux ~caching d expr sigma pi : Res.t T.t =
   (* Application rule *)
   | App (e, _, l) -> (
       let cache_key = Cache_key.Lkey (l, sigma, vid, sid, pi) in
-      (* TODO: Try this again *)
-      (* let cache_key = Cache_key.Lkey (l, sigma, sid, pi) in *)
       match Map.find c cache_key with
       | Some r when caching ->
           debug (fun m ->
@@ -226,7 +226,6 @@ let rec analyze_aux ~caching d expr sigma pi : Res.t T.t =
   (* Var rules *)
   | Var (id, idx) -> (
       let cache_key = Cache_key.Ekey (expr, sigma, vid, sid, pi) in
-      (* let cache_key = Cache_key.Ekey (expr, sigma, sid, pi) in *)
       match Map.find c cache_key with
       | Some r when caching ->
           debug (fun m ->
@@ -322,8 +321,6 @@ let rec analyze_aux ~caching d expr sigma pi : Res.t T.t =
                   let%bind r2 =
                     fold_res_var d expr r1 ~init:(return [])
                       ~f:(fun acc sigma1 ->
-                        (* Check if the current var can be looked up from the
-                           context of this function *)
                         let idx' = idx - 1 in
                         debug (fun m ->
                             m

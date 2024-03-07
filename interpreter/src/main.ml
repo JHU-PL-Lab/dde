@@ -25,7 +25,7 @@ let toplevel_loop debug simplify =
   let safe_interpret_and_print ast =
     try
       let result, _ = Lib.eval ast ~debug ~simplify in
-      Format.printf "==> %a\n" Pp.pp_result_value result
+      Format.printf "==> %a\n" Ast.Res.pp result
     with ex -> print_exception ex
   in
   while true do
@@ -44,7 +44,7 @@ let run_file filename debug simplify =
   let lexbuf = Lexing.from_channel fin in
   let ast = Parser.main Lexer.token lexbuf in
   let result, _ = Lib.eval ast ~debug ~simplify in
-  Format.printf "%a\n" Pp.pp_result_value result;
+  Format.printf "%a\n" Ast.Res.pp result;
   Format.print_flush ()
 
 let main () =

@@ -12,6 +12,7 @@ module Ident = struct
     type t = Ident of string [@@deriving compare, sexp]
 
     let pp fmt (Ident x) = ff fmt "%s" x
+    let show (Ident x) = x
   end
 
   include T
@@ -60,7 +61,6 @@ module Expr = struct
     let rec pp fmt = function
       | Int i -> ff fmt "%d" i
       | Bool b -> ff fmt "%b" b
-      (* TODO: pp call stack *)
       | Fun (Ident i, x, _) -> ff fmt "@[<hv>fun %s ->@;<1 2>%a@]" i pp x
       | Var (id, _) -> ff fmt "%a" Ident.pp id
       | App (e1, e2, _) ->
@@ -99,6 +99,8 @@ module Expr = struct
       | [] -> ()
       | [ (Ident x, e) ] -> ff fmt "%s = %a" x pp e
       | (Ident x, e) :: rest -> ff fmt "%s = %a; %a" x pp e pp_record rest
+
+    let show = Format.asprintf "%a" pp
   end
 
   include T
@@ -131,7 +133,7 @@ module Res = struct
   let rec pp fmt = function
     | IntRes x -> ff fmt "%d" x
     | BoolRes b -> ff fmt "%b" b
-    | FunRes (f, _) -> Expr.pp fmt f
+    | FunRes (f, sigma) -> ff fmt "(%a)@%a" Expr.pp f pp_sigma sigma
     | RecRes es ->
         ff fmt (if List.length es = 0 then "{%a}" else "{ %a }") pp_rec_res es
     | PlusRes (r1, r2) -> ff fmt "%a + %a" pp r1 pp r2
@@ -288,11 +290,8 @@ let rec scope_vars ?(sv = []) expr : Expr.t =
   | Fun (id, e, _) ->
       let sv' =
         sv
-        (* Remove vars shadowed by id *)
-        |> List.filter ~f:(function
-             | Var (id', _) -> Ident.(id <> id')
-             | _ -> true)
-        (* Increment the rest to reflect the incremented depth *)
+        (* Increment indices of existing variables to reflect
+           the incremented depth *)
         |> List.map ~f:(function
              | Var (id, idx) -> Var (id, idx + 1)
              | _ -> raise Unreachable)

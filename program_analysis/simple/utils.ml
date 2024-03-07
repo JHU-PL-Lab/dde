@@ -61,7 +61,7 @@ module V_key = struct
       Format.fprintf fmt "(%a, %a, %d)" Expr.pp e Sigma.pp sigma sid
 
     let show_estate (e, sigma, sid) =
-      Format.asprintf "(%a, %s, %d)" Expr.pp e (Sigma.show sigma) sid
+      Format.sprintf "(%s, %s, %d)" (Expr.show e) (Sigma.show sigma) sid
 
     type t = Lstate of lstate | Estate of estate [@@deriving compare, sexp]
 
@@ -181,18 +181,24 @@ and Res : sig
 
   val pp : Format.formatter -> t -> unit
   val show : t -> string
+  val ( = ) : t -> t -> bool
 end = struct
-  type t = Set.M(Res_key).t [@@deriving compare, sexp]
+  module T = struct
+    type t = Set.M(Res_key).t [@@deriving compare, sexp]
 
-  let rec pp_aux fmt = function
-    | [] -> ()
-    | [ a ] -> ff fmt "%a" Atom.pp a
-    | a :: _as -> ff fmt "(%a | %a)" Atom.pp a pp_aux _as
+    let rec pp_aux fmt = function
+      | [] -> ()
+      | [ a ] -> ff fmt "%a" Atom.pp a
+      | a :: _as -> ff fmt "(%a | %a)" Atom.pp a pp_aux _as
 
-  and pp fmt r =
-    if Set.is_empty r then ff fmt "#" else ff fmt "%a" pp_aux (Set.elements r)
+    and pp fmt r =
+      if Set.is_empty r then ff fmt "#" else ff fmt "%a" pp_aux (Set.elements r)
 
-  let show (r : t) = Format.asprintf "%a" pp r
+    let show (r : t) = Format.asprintf "%a" pp r
+  end
+
+  include T
+  include Comparable.Make (T)
 end
 
 module Cache_key = struct
@@ -205,13 +211,14 @@ module Cache_key = struct
       Format.fprintf fmt "(%d, %a, %d, %d)" l Sigma.pp sigma vid sid
 
     let show_lkey (l, sigma, vid, sid) =
-      Format.asprintf "(%d, %a, %d, %d)" l Sigma.pp sigma vid sid
+      Format.sprintf "(%d, %s, %d, %d)" l (Sigma.show sigma) vid sid
 
     let pp_ekey fmt (expr, sigma, vid, sid) =
       Format.fprintf fmt "(%a, %a, %d, %d)" Expr.pp expr Sigma.pp sigma vid sid
 
     let show_ekey (expr, sigma, vid, sid) =
-      Format.asprintf "(%a, %a, %d, %d)" Expr.pp expr Sigma.pp sigma vid sid
+      Format.sprintf "(%s, %s, %d, %d)" (Expr.show expr) (Sigma.show sigma) vid
+        sid
 
     let pp fmt = function
       | Lkey lkey -> pp_lkey fmt lkey
@@ -220,31 +227,6 @@ module Cache_key = struct
     let show = function
       | Lkey lkey -> show_lkey lkey
       | Ekey ekey -> show_ekey ekey
-
-    (* type lkey = int * sigma * int [@@deriving compare, sexp]
-       type ekey = expr * sigma * int [@@deriving compare, sexp]
-       type t = Lkey of lkey | Ekey of ekey [@@deriving compare, sexp]
-
-       let pp_lkey fmt (l, sigma, sid) =
-         Format.fprintf fmt "(%d, %a, %d)" l Sigma.pp sigma sid
-
-       let show_lkey (l, sigma, sid) =
-         Format.asprintf "(%d, %a, %d)" l Sigma.pp sigma sid
-
-       let pp_ekey fmt (expr, sigma, sid) =
-         Format.fprintf fmt "(%a, %a, %d)" Expr.pp expr Sigma.pp sigma
-           sid
-
-       let show_ekey (expr, sigma, sid) =
-         Format.asprintf "(%a, %a, %d)" Expr.pp expr Sigma.pp sigma sid
-
-       let pp fmt = function
-         | Lkey lkey -> pp_lkey fmt lkey
-         | Ekey ekey -> pp_ekey fmt ekey
-
-       let show = function
-         | Lkey lkey -> show_lkey lkey
-         | Ekey ekey -> show_ekey ekey *)
   end
 
   include T
