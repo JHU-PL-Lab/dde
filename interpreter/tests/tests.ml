@@ -7,14 +7,15 @@ let test_numerical _ =
   assert_equal "1" (peu "1");
   assert_equal "-2" (peu "-2");
   assert_equal "1 + 2" (peu "1 + 2");
-  assert_equal "1 - 2" (peu "1 - 2")
+  assert_equal "1 - 2" (peu "1 - 2");
+  assert_equal "6" (peu ~simplify:true "3 * 2")
 
 let test_logical _ =
   assert_equal "true" (peu "true");
   assert_equal "false" (peu "false");
   assert_equal "not true" (peu "not true");
-  assert_equal "false or true" (peu "false or true");
-  assert_equal "true and false" (peu "true and false")
+  assert_equal "false || true" (peu "false || true");
+  assert_equal "true && false" (peu "true && false")
 
 let test_relational _ =
   assert_equal "1 = 1" (peu "1 = 1");
@@ -52,7 +53,7 @@ let dde_ycomb =
 
 let dde_fib x =
   Format.sprintf
-    "let fib = (fun self -> fun x -> if x = 0 or x = 1 then x else self (x - \
+    "let fib = (fun self -> fun x -> if x = 0 || x = 1 then x else self (x - \
      1) + self (x - 2)) in %s fib %d"
     dde_ycomb x
 

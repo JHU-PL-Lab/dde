@@ -111,8 +111,8 @@ let rec eval_aux ~caching d expr sigma : Res.t T.t =
               cache cache_key r
           | _ -> raise Unreachable))
   (* Var rules *)
-  | Var (id, i) -> (
-      info (fun m -> m "[Level %d] === Var %a@%d ===" d Ident.pp id i);
+  | Var (id, idx) -> (
+      info (fun m -> m "[Level %d] === Var %a@%d ===" d Ident.pp id idx);
       let cache_key = Cache_key.Ekey (expr, sigma) in
       match Map.find c cache_key with
       (* Cache hit *)
@@ -126,13 +126,13 @@ let rec eval_aux ~caching d expr sigma : Res.t T.t =
           match get_myexpr sigma_hd with
           | App (e1, e2, _) as app ->
               debug (fun m -> m "[Level %d] App at stack top: %a" d Expr.pp app);
-              if i = 0 then (
+              if idx = 0 then (
                 (* Var Local rule *)
                 debug (fun m ->
                     m "[Level %d] Local, eval app arg: %a" d Expr.pp e2);
                 let%bind r = eval_aux d e2 sigma_tl ~caching in
                 info (fun m ->
-                    m "[Level %d] *** Var Local %a@%d ***" d Ident.pp id i);
+                    m "[Level %d] *** Var Local %a@%d ***" d Ident.pp id idx);
                 cache cache_key r)
               else (
                 (* Var Non-Local rule *)
@@ -141,12 +141,13 @@ let rec eval_aux ~caching d expr sigma : Res.t T.t =
                       Expr.pp e1);
                 match%bind eval_aux d e1 sigma_tl ~caching with
                 | FunRes (_, sigma1) ->
+                    let idx' = idx - 1 in
                     debug (fun m ->
-                        m "[Level %d] Decrement index to %d and eval" d (i - 1));
-                    let%bind r = eval_aux d (Var (id, i - 1)) sigma1 ~caching in
+                        m "[Level %d] Decrement index to %d and eval" d idx');
+                    let%bind r = eval_aux d (Var (id, idx')) sigma1 ~caching in
                     info (fun m ->
                         m "[Level %d] *** Var Non-Local %a@%d ***" d Ident.pp id
-                          i);
+                          idx);
                     cache cache_key r
                 | _ -> raise Unreachable)
           | _ -> raise Unreachable))

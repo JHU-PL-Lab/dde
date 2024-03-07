@@ -16,50 +16,32 @@ in the paper as the "full analysis" and the simplified version as the "simple
 analysis."
 
 Below is a list of claims made about the full analysis in the paper (Section
-5.2.4) and their current status with both the full analysis and the simple
+5.2.4) and their status with both the full analysis and the simple
 analysis.
 
-- 11 DDPA benchmarks terminate very quickly...
+- Of the 16 expressible DDPA benchmarks,
 
-  Full: 10 of the 11 currently terminate very quickly (`blur`, `eta`, `facehugger`,
-  `kcfa-2`, `kcfa-3`, `loop2-1`, `mj09`, `map`, `primtest`, `rsa`).
+  (full) 11 terminate very quickly: `blur`, `eta`, `facehugger`, `kcfa-2`,
+  `kcfa-3`, `loop2-1`, `mj09`, `map`, `primtest`, `rsa`, `sat-1`
 
-  Simple: 11 benchmarks terminate very quickly (`blur`, `eta`, `facehugger`,
-  `kcfa-2`, `kcfa-3`, `loop2-1`, `mj09`, `map`, `primtest`, `rsa`, `sat-1`).
+  (simple) 10 terminate very quickly: `blur`, `eta`, `facehugger`, `kcfa-2`,
+  `kcfa-3`, `mj09`, `map`, `primtest`, `rsa`, `sat-1`
 
-- ... 1 takes ~10 seconds, 1 takes ~20 seconds, 3 time out after 10 minutes, and
-  3 cannot be expressed
+  (full) one takes ~5s (`sat-3`), one takes ~50s (`sat-2`), and three time out
+  after 10 minutes (`ack`, `tak`, `cpstak`).
 
-  Full: 6 currently do not terminate quickly and time out after 10 minutes
-  (`sat-1`, `sat-2`, `sat-3`, `ack`, `tak`, `cpstak`). The same 3 cannot be
-  expressed (`flatten`, `deriv`, `regex`).
+  (simple) one takes ~5s (`sat-3`), one takes ~10s (`loop2-1`), one takes ~50s
+  (`sat-2`), and three time out after 10 minutes (`ack`, `tak`, `cpstak`).
 
-  Simple: It varies by machine, but 1 takes ~80 seconds (`sat-2`), 1 takes ~20
-  seconds (`sat-3`), 3 currently do not terminate quickly and time out after 10
-  minutes (`ack`, `tak`, `cpstak`).  The same 3 cannot be expressed (`flatten`,
-  `deriv`, `regex`).
+We ran the same set of tests on P4F, so these results also apply to compare
+against it.
 
-- 7 P4F benchmarks terminate very quickly...
-
-  Full: 6 currently terminate very quickly (`mj09`, `eta`, `kcfa-2`, `kcfa-3`,
-  `blur`, `loop2-1`). Note that all P4F benchmarks overlap with DDPA benchmarks.
-
-  Simple: 7 terminate very quickly (`mj09`, `eta`, `kcfa-2`, `kcfa-3`, `blur`,
-  `loop2-1`, `sat-1`).
-
-- ... 1 takes ~20 seconds, 2 time out
-
-  Full: 4 currently time out (`sat-1`, `ack`, `cpstak`, `tak`).
-
-  Simple: 3 currently time out (`ack`, `cpstak`, `tak`).
-
-The full analysis' median runtime is 5.91ms and simple analysis' is 0.53ms.
+The full analysis' median runtime is 37.9ms and simple analysis' is 20.5ms.
 However, this artifact does not yet claim to outperform related systems, so
 their codebases are not included.
 
-We will be synchronizing our revised paper to our latest benchmarks as we refine
-the implementation. To reproduce the benmarks as they are now, please refer to
-the [instructions](#program-analysis).
+To reproduce the benmarks, please refer to the
+[instructions](#program-analysis).
 
 ## Hardware Dependencies
 
@@ -80,13 +62,13 @@ Docker on your machine.
 Then, you may retrieve the project's Docker image from Docker Hub:
 
 ```sh
-docker pull puredemand/puredemand:1.0.0
+docker pull puredemand/puredemand:latest
 ```
 
 Once retrieved, run the image:
 
 ```sh
-docker run --rm -it puredemand/puredemand:1.0.0
+docker run --rm -it puredemand/puredemand:latest
 ```
 
 This will enter you into an interactive shell environment where you may run
@@ -240,6 +222,8 @@ open Interp;;
 # You may optionally set environment variables corresponding to
 # the commandline flags of tests, e.g.,
 caching := false;
+# To simplify interpreter results:
+simplify := true;
 
 # Then, execute programs...
 pau "let a = 1 in a" # for both analyses
@@ -252,9 +236,21 @@ each system:
 
 | System | Environment Variables (default values) |
 | - | - | 
-| Interpreter | `report_runtime` (false), `caching` (true), `debug` (false) |
+| Interpreter | `report_runtime` (false), `caching` (true), `debug` (false), `simplify` (false) |
 | Full analysis | `report_runtime` (false), `caching` (true), `verify` (false), `graph` (false) |
 | Simple analysis | `report_runtime` (false), `caching` (true) |
+
+You may profile both analyses by setting the environment variable
+`OCAML_LANDMARKS` when running the tests:
+
+```sh
+OCAML_LANDMARKS=on dune exec -- program_analysis/tests/tests.exe
+```
+
+This will generate a hierarchy of functions called, which are ranked by the
+total time taken to execute each.  You may find that in a lot of cases, CHC
+solving (`Lib.solve_cond`) takes up a significant portion, if not most, of the
+runtime.
 
 ## Reusability Guide
 
@@ -295,10 +291,26 @@ operation involving `x`. See the comment on `eval_assert` in
 You may find comments and log messages throughout the source code to help you
 understand and reuse the various components.
 
-## Miscellaneous
+## Language Guide
 
-Due to the our language supporting both record inspection (`l in { l = 1 }`) and
-let binding (`let a = 1 in a`), you must insert parentheses around let
-definitions ending in a variable, to disambiguate from record inspections. E.g.,
-`let a = (fun x -> x) in a`. We will be working on improving the parser to
-automatically disambiguate such cases.
+The syntax of our language used across the interpreter and the program analyses
+mostly follows OCaml's with a few differences:
+
+- Curried functions cannot be inlined via the shorthand `fun a b c -> ...` and
+  instead have to be laid out in full via `fun a -> fun b -> fun c -> ...`.
+
+- Recursive functions have to be defined in the self-passing style, e.g., `(fun
+  self -> fun x -> ...) (fun self -> fun x -> ...) 0`.
+
+- Records can be defined immediately without an established type, and inspecting
+  a record field can be done via the `in` keyword, e.g., `l in { l = 1 }`.
+
+- Due to the `in` keyword being reused for both record inspections and let
+  bindings, you must insert parentheses around let definitions that end in a
+  variable, in order to disambiguate from record inspections, e.g., `let a =
+  (fun x -> x) in a`.
+
+- The added `letassert` expression takes the form `letassert x = e in assn`
+  where e is an expression and `assn` is written in an assertion syntax
+  described in Appendix B Section B.2 of the paper and at the
+  [`eval_assert`](./program_analysis/full/lib.ml#82) function.

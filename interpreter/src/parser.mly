@@ -44,8 +44,8 @@ open Ast;;
 %right prec_let                         /* let x = ... in ... */
 %right prec_fun                         /* function declaration */
 %right prec_if                          /* if ... then ... else */
-%right OR                               /* or */
-%right AND                              /* and */
+%right OR                               /* or || */
+%right AND                              /* and && */
 %left EQUAL                             /* = */
 %left GE GT LE LT                       /* >= > <= < */
 %left PLUS MINUS                        /* + - */

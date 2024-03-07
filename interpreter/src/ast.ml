@@ -73,8 +73,8 @@ module Expr = struct
       | Minus (e1, e2) -> ff fmt "(%a - %a)" pp e1 pp e2
       | Mult (e1, e2) -> ff fmt "(%a * %a)" pp e1 pp e2
       | Eq (e1, e2) -> ff fmt "(%a = %a)" pp e1 pp e2
-      | And (e1, e2) -> ff fmt "(%a and %a)" pp e1 pp e2
-      | Or (e1, e2) -> ff fmt "(%a or %a)" pp e1 pp e2
+      | And (e1, e2) -> ff fmt "(%a && %a)" pp e1 pp e2
+      | Or (e1, e2) -> ff fmt "(%a || %a)" pp e1 pp e2
       | Ge (e1, e2) -> ff fmt "(%a >= %a)" pp e1 pp e2
       | Gt (e1, e2) -> ff fmt "(%a > %a)" pp e1 pp e2
       | Le (e1, e2) -> ff fmt "(%a <= %a)" pp e1 pp e2
@@ -140,8 +140,8 @@ module Res = struct
     | MinusRes (r1, r2) -> ff fmt "%a - %a" pp r1 pp r2
     | MultRes (r1, r2) -> ff fmt "%a * %a" pp r1 pp r2
     | EqRes (r1, r2) -> ff fmt "%a = %a" pp r1 pp r2
-    | AndRes (r1, r2) -> ff fmt "%a and %a" pp r1 pp r2
-    | OrRes (r1, r2) -> ff fmt "%a or %a" pp r1 pp r2
+    | AndRes (r1, r2) -> ff fmt "%a && %a" pp r1 pp r2
+    | OrRes (r1, r2) -> ff fmt "%a || %a" pp r1 pp r2
     | GeRes (r1, r2) -> ff fmt "%a >= %a" pp r1 pp r2
     | GtRes (r1, r2) -> ff fmt "%a > %a" pp r1 pp r2
     | LeRes (r1, r2) -> ff fmt "%a <= %a" pp r1 pp r2
