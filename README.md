@@ -10,7 +10,7 @@ This repo contains pure demand [concrete](./interpreter) and
 [abstract](./program_analysis) interpreters, as well as
 [formalizations](./formal) in Coq.
 
-## Set up
+## Set up the project
 
 Before building the project (the concrete interpreter part), install `fbdk`
 locally so that it is visible to this project:
