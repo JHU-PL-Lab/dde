@@ -1,10 +1,10 @@
 ★ Please see the [artifact](https://github.com/JHU-PL-Lab/dde/tree/artifact)
 branch for the latest, condensed code.
 
-# Pure Demand Operational Semantics
-
 [![Build & test
-project](https://github.com/JHU-PL-Lab/dde/actions/workflows/build.yml/badge.svg)](https://github.com/JHU-PL-Lab/dde/actions/workflows/build.yml)
+project](https://github.com/JHU-PL-Lab/dde/actions/workflows/build.yml/badge.svg)](https://github.com/JHU-PL-Lab/dde/actions/workflows/build.yml) [![DOI](https://zenodo.org/badge/569066625.svg)](https://zenodo.org/doi/10.5281/zenodo.10794349)
+
+# Pure Demand Operational Semantics
 
 This repo contains pure demand [concrete](./interpreter) and
 [abstract](./program_analysis) interpreters, as well as
@@ -24,9 +24,10 @@ opam install .
 Then `dune build` this project.
 
 > Note that you currently won't be able to run the interpreter tests if you
-> don't have access to `fbdk`. We will soon provide a polished, fully
-> executable artifact. For now, please build the program analysis separately
-> via `dune build program_analysis`.
+> don't have access to `fbdk`. Please build the program analysis separately
+> via `dune build program_analysis`. Go to the
+> [artifact](https://github.com/JHU-PL-Lab/dde/tree/artifact) branch for a fully
+> executable version.
 
 ## Develop
 
@@ -71,10 +72,10 @@ Same applies to `--simplify`.
 
 `dune test` to run the associated test suite *without* benchmarking.
 
-To also benchmark the interpreter's performance, pass in the `--bench` flag:
+To also benchmark the program analysis' performance, pass in the `--bench` flag:
 
 ```sh
-dune exec -- interpreter/tests/tests.exe --bench
+dune exec -- program_analysis/tests/tests.exe --bench
 ``` 
 
 `bisect-ppx-report html` or `bisect-ppx-report summary` to view coverage.
